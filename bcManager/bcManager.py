@@ -7,6 +7,7 @@ import asyncio
 import ballchasing
 
 from teamManager import TeamManager
+from match import Match
 
 from redbot.core import Config
 from redbot.core import commands
@@ -23,6 +24,7 @@ defaults = {
 }
 
 verify_timeout = 30
+DONE = "Done"
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
@@ -31,7 +33,7 @@ class BCManager(commands.Cog):
         self.config = Config.get_conf(self, identifier=1234567893, force_registration=True)
         self.config.register_guild(**defaults)
         self.team_manager_cog : TeamManager = bot.get_cog("TeamManager")
-        self.match_cog = bot.get_cog("Match")
+        self.match_cog : Match = bot.get_cog("Match")
         self.ballchasing_api = {}
         self.task = asyncio.create_task(self.pre_load_data())
 
@@ -49,6 +51,12 @@ class BCManager(commands.Cog):
             self.ballchasing_api[ctx.guild] = api
             await self._save_auth_token(ctx.guild, auth_token)
 
+            if await self._get_top_level_group(ctx.guild):
+                await self._save_top_level_group(ctx.guild, None)
+                await ctx.send(f"{DONE}. Top Level Group has been cleared.")
+            else:
+                await ctx.send(DONE)
+
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -60,7 +68,9 @@ class BCManager(commands.Cog):
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild] 
         data = bapi.get_group(top_level_group)
 
-        
+        if bapi.ping().get("steam_id") != data.get("creator").get("steam_id"):
+            return await ctx.send(":x: Ballchasing group creator must be consistent with the registered auth token.")
+
         group_set = await self._save_top_level_group(ctx, top_level_group)
         if group_set:
             await ctx.send("Done.")
@@ -225,11 +235,19 @@ class BCManager(commands.Cog):
 
 # region json
 
-    async def _get_auth_token(self, guild):
+    async def _get_auth_token(self, guild: discord.Guild):
         return await self.config.guild(guild).AuthToken()
     
-    async def _save_auth_token(self, guild, token):
+    async def _save_auth_token(self, guild: discord.Guild, token):
         await self.config.guild(guild).AuthToken.set(token)
+    
+    async def _save_top_level_group(self, guild: discord.Guild, group_id):
+        await self.config.guild(guild).TopLevelGroup.set(group_id)
+        return True
+
+    async def _get_top_level_group(self, guild: discord.Guild):
+        return await self.config.guild(guild).TopLevelGroup()
+    
 
 
 # endregion
