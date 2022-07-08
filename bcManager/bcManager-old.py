@@ -20,7 +20,7 @@ defaults = {
     "TierRank": config.tier_rank,
     "ReplayDumpChannel": None
 }
-global_defaults = {"AccountRegister": {}}
+global_defaults = {}
 verify_timeout = 30
 
 class BCManager(commands.Cog):
@@ -32,7 +32,61 @@ class BCManager(commands.Cog):
         self.config.register_global(**global_defaults)
         self.team_manager_cog = bot.get_cog("TeamManager")
         self.match_cog = bot.get_cog("Match")
-    
+
+# region admin commands
+   
+    @commands.command(aliases=['setAuthKey'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setAuthToken(self, ctx, auth_token):
+        """Sets the Auth Key for Ballchasing API requests.
+        Note: Auth Token must be generated from the Ballchasing group owner
+        """
+        token_set = await self._save_auth_token(ctx, auth_token)
+        if token_set:
+            await ctx.send("Done.")
+        else:
+            await ctx.send(":x: Error setting auth token.")
+
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setTierRank(self, ctx, tier, rank):
+        """Declares a ranking of tiers so that they are sorted in accordance with skill distribution
+        """
+        tiers = await self.team_manager_cog.tiers(ctx)
+        tier_found = False
+        for t in tiers:
+            if t.lower() == tier.lower():
+                tier_found = True
+                break
+        
+        old_rank = None
+        tier_ranks = await self._get_tier_ranks(ctx)
+        if tier in tier_ranks:
+            old_rank = tier_ranks['tier']
+        
+        if old_rank != rank:
+            await ctx.send("The **{}** rank was changed from {} to {}".format(tier=tier.Title(), old_rank=old_rank, new_rank=rank))
+        else:
+            await ctx.send("Done")
+
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setTopLevelGroup(self, ctx, top_level_group):
+        """Sets the Top Level Ballchasing Replay group for saving match replays.
+        Note: Auth Token must be generated from the Ballchasing group owner
+        """
+        group_set = await self._save_top_level_group(ctx, top_level_group)
+        if(group_set):
+            await ctx.send("Done.")
+        else:
+            await ctx.send(":x: Error setting top level group.")
+
+# endregion 
+
+# region player commands 
     @commands.command(aliases=['bcr', 'bcpull'])
     @commands.guild_only()
     async def bcreport(self, ctx, team_name=None, match_day=None):
@@ -111,56 +165,7 @@ class BCManager(commands.Cog):
         embed.description = "Match summary:\n{}\n\nView the ballchasing group: https://ballchasing.com/group/{}\n\n:white_check_mark: Done".format(summary, match_subgroup_id)
         embed.set_thumbnail(url=emoji_url)
         await bc_status_msg.edit(embed=embed)
-        
-    @commands.command(aliases=['setAuthKey'])
-    @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setAuthToken(self, ctx, auth_token):
-        """Sets the Auth Key for Ballchasing API requests.
-        Note: Auth Token must be generated from the Ballchasing group owner
-        """
-        token_set = await self._save_auth_token(ctx, auth_token)
-        if token_set:
-            await ctx.send("Done.")
-        else:
-            await ctx.send(":x: Error setting auth token.")
-
-    @commands.command()
-    @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setTierRank(self, ctx, tier, rank):
-        """Declares a ranking of tiers so that they are sorted in accordance with skill distribution
-        """
-        tiers = await self.team_manager_cog.tiers(ctx)
-        tier_found = False
-        for t in tiers:
-            if t.lower() == tier.lower():
-                tier_found = True
-                break
-        
-        old_rank = None
-        tier_ranks = await self._get_tier_ranks(ctx)
-        if tier in tier_ranks:
-            old_rank = tier_ranks['tier']
-        
-        if old_rank != rank:
-            await ctx.send("The **{}** rank was changed from {} to {}".format(tier=tier.Title(), old_rank=old_rank, new_rank=rank))
-        else:
-            await ctx.send("Done")
-
-    @commands.command()
-    @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setTopLevelGroup(self, ctx, top_level_group):
-        """Sets the Top Level Ballchasing Replay group for saving match replays.
-        Note: Auth Token must be generated from the Ballchasing group owner
-        """
-        group_set = await self._save_top_level_group(ctx, top_level_group)
-        if(group_set):
-            await ctx.send("Done.")
-        else:
-            await ctx.send(":x: Error setting top level group.")
-    
+     
     @commands.command(aliases=['bcGroup', 'ballchasingGroup', 'bcg'])
     @commands.guild_only()
     async def bcgroup(self, ctx):
@@ -279,26 +284,11 @@ class BCManager(commands.Cog):
         show_accounts = "{}, you have registered the following accounts:\n - ".format(member.mention) + "\n - ".join("{}: {}".format(acc[0], acc[1]) for acc in accounts)
         await ctx.send(show_accounts)
 
-    @commands.command()
-    @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def massAddAccounts(self, ctx):
-        """Adds accounts in bulk -- This is not supported yet"""
-        pass
-    
-    @commands.command()
-    @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def clearAccountData(self, ctx):
-        """Clears all account data -- This is not supported yet"""
-        pass
+# endregion
 
+# region helper commands
 
-    # @commands.Cog.listener("on_message")
-    # async def on_message(self, message):
-    #     member = message.author
-
-
+    # region ballchasing commands
     async def _bc_get_request(self, ctx, endpoint, params=[], auth_token=None):
         if not auth_token:
             auth_token = await self._get_auth_token(ctx.guild)
@@ -334,6 +324,8 @@ class BCManager(commands.Cog):
             url += "?{}".format(params)
         
         return requests.patch(url, headers={'Authorization': auth_token}, json=json, data=data)
+    
+    # endregion
 
     async def _react_prompt(self, ctx, prompt, if_not_msg=None, embed:discord.Embed=None):
         user = ctx.message.author
@@ -757,7 +749,9 @@ class BCManager(commands.Cog):
                 players.append(player)
         return players
 
-# json db
+# endregion
+
+# region json db
 
     async def _get_auth_token(self, guild):
         return await self.config.guild(guild).AuthToken()
@@ -773,17 +767,10 @@ class BCManager(commands.Cog):
         await self.config.guild(ctx.guild).TopLevelGroup.set(group_id)
         return True
     
-    async def _get_tier_ranks(self, ctx):
-        return await self.config.guild(ctx.guild).TierRank()
-    
-    async def _save_tier_ranks(self, ctx, tier_ranks):
-        await self.config.guild(ctx.guild).TierRanks.set(tier_ranks)
-        return True
-
     async def _get_account_register(self):
         return await self.config.AccountRegister()
     
     async def _save_account_register(self, account_register):
         await self.config.AccountRegister.set(account_register)
 
-    
+# endregion
