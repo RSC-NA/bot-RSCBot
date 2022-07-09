@@ -1,4 +1,4 @@
-from .config import config
+from .bcConfig import bcConfig
 import requests
 import tempfile
 import os
@@ -15,9 +15,9 @@ from datetime import datetime, timezone
 
 
 defaults = {
-    "AuthToken": config.auth_token,
-    "TopLevelGroup": config.top_level_group,
-    "TierRank": config.tier_rank,
+    "AuthToken": bcConfig.auth_token,
+    "TopLevelGroup": bcConfig.top_level_group,
+    "TierRank": bcConfig.tier_rank,
     "ReplayDumpChannel": None
 }
 global_defaults = {}
@@ -392,7 +392,7 @@ class BCManager(commands.Cog):
         return accs
     
     async def _validate_account(self, ctx, platform, identifier):
-        auth_token = config.auth_token
+        auth_token = bcConfig.auth_token
         endpoint = '/replays'
         params = [
             'player-id={platform}:{identifier}'.format(platform=platform, identifier=identifier),
@@ -453,7 +453,7 @@ class BCManager(commands.Cog):
         return None
 
     def get_player_id(discord_id):
-        arr = config.account_register[discord_id]
+        arr = bcConfig.account_register[discord_id]
         player_id = "{}:{}".format(arr[0], arr[1])
         return player_id
 
@@ -564,8 +564,8 @@ class BCManager(commands.Cog):
                 payload = {
                     'name': next_group_name,
                     'parent': current_subgroup_id,
-                    'player_identification': config.player_identification,
-                    'team_identification': config.team_identification
+                    'player_identification': bcConfig.player_identification,
+                    'team_identification': bcConfig.team_identification
                 }
                 r = await self._bc_post_request(ctx, endpoint, auth_token=auth_token, json=payload)
                 data = r.json()
@@ -583,7 +583,7 @@ class BCManager(commands.Cog):
         endpoint = "/replays"
         sort = 'replay-date' # 'created
         sort_dir = 'desc' # 'asc'
-        count = config.search_count
+        count = bcConfig.search_count
 
         # RFC3339 Date/Time format
         # now = datetime.now(timezone.utc).astimezone().isoformat()
@@ -683,7 +683,7 @@ class BCManager(commands.Cog):
     async def _upload_replays(self, ctx, subgroup_id, files_to_upload):
         endpoint = "/v2/upload"
         params = [
-            'visibility={}'.format(config.visibility),
+            'visibility={}'.format(bcConfig.visibility),
             'group={}'.format(subgroup_id)
         ]
         auth_token = await self._get_auth_token(ctx.guild)

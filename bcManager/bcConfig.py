@@ -3,10 +3,18 @@ from datetime import datetime
 
 # ###############################################################################
 
-class config:
-    auth_token = None
-    top_level_group = None
-    search_count = 10
+class bcConfig:
+    # Search Settings
+    SEARCH_COUNT = 10
+    PLAYLIST = "private"
+    SORT_BY = "replay-date"
+    SORT_DIR = "desc"
+
+    ZONE_ADJ = "-4:00"
+    START_MATCH_DT_TMPLT = "{}T21:00:00{}"  # search after 9 pm (start)
+    END_MATCH_DT_TMPLT = "{}T23:59:59{}"    # search before 9 pm (end)
+
+    # Upload settings
     visibility = 'public'
     team_identification = 'by-player-clusters'                  # setting -- Alternative: 'by-distinct-players'
     player_identification = 'by-id'                             # setting -- Alternative 'by-name'
