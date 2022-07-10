@@ -1,4 +1,6 @@
+from dis import disco
 from tokenize import group
+from turtle import isvisible
 
 import teamManager
 from .bcConfig import bcConfig
@@ -199,7 +201,7 @@ class BCManager(commands.Cog):
 
 
         # Step 3: Search for replays on ballchasing
-        replays_found = await self._find_match_replays(ctx, player, match)
+        replays_found = await self.find_match_replays(ctx, player, match) #, matched_replays)
 
         ## Not found:
         if not replays_found:
@@ -207,6 +209,15 @@ class BCManager(commands.Cog):
             return await bc_status_msg.edit(embed=embed)
 
         ## Found:
+        # discovery_data = {
+        #     "is_valid_set": False,
+        #     "summary": None,
+        #     "match_replay_ids": [],
+        #     "latest_replay_end": None,
+        #     "winner": None,
+        #     "accounts_searched": [],
+        #     "players_searched": []
+        # }
         replay_ids, summary, winner = replays_found
 
         if winner:
@@ -238,8 +249,19 @@ class BCManager(commands.Cog):
         
         return matches
 
-    async def find_match_replays(self, ctx, match, member=None):
+    async def find_match_replays(self, ctx, match, old_discovery_data=None, member=None):
         all_players = await self._get_all_match_players(ctx, match)
+
+        # All of this data should be tracked to optimize the search and validation
+        discovery_data = {
+            "is_valid_set": False,
+            "summary": None,
+            "match_replay_ids": [],
+            "latest_replay_end": None,
+            "winner": None,
+            "accounts_searched": [],
+            "players_searched": []
+        }
         
         # Search invoker's replay uploads first
         if member:
@@ -256,8 +278,11 @@ class BCManager(commands.Cog):
         match_end_dt = bcConfig.END_MATCH_DT_TMPLT.format(match_date, bcConfig.ZONE_ADJ)
 
         # Search all players in game for replays until match is found
+
+        home_wins = 0
+        away_wins = 0
         for player in all_players:
-            for steam_id in await self._get_steam_ids(ctx.guild, player.id):
+            for steam_id in (await self.get_steam_ids(ctx.guild, player.id)):
 
                 data = bapi.get_replays(
                     playlist=bcConfig.PLAYLIST,
@@ -269,12 +294,14 @@ class BCManager(commands.Cog):
                 )
 
                 # checks for MATCHing ;) replays
-                home_wins = 0
-                away_wins = 0
                 replay_ids = []
                 for replay in data.get('list', []):
                     if self.is_valid_match_replay(match, replay):
                         replay_ids.append(replay['id'])
+                        
+                        # NEW: update search range to avoid duplicate replays added
+                        match_start_dt = replay['created']
+
                         if (replay.get('blue', {}).get('name', 'blue').lower() in match.get('home', '').lower()
                             or replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()):
                             home = 'blue'
@@ -291,25 +318,32 @@ class BCManager(commands.Cog):
                         else:
                             away_wins += 1
 
+                # update accounts searched to avoid duplicate searches (maybe not needed)
+                discovery_data['accounts_searched'].append(steam_id)
 
-                series_summary = "**{home_team}** {home_wins} - {away_wins} **{away_team}**".format(
-                    home_team = match['home'],
-                    home_wins = home_wins,
-                    away_wins = away_wins,
-                    away_team = match['away']
-                )
+                # TODO: Perform replay validations (score, time frame)
+                is_valid_set = True
+
+                # Step XX: Update disco data with current info
+                discovery_data['is_valid_set'] = is_valid_set
+                discovery_data['summary'] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+                discovery_data['match_replay_ids'] = discovery_data.get('match_replay_ids', []) + replay_ids
+
                 winner = None
                 if home_wins > away_wins:
                     winner = match['home']
                 elif home_wins < away_wins:
                     winner = match['away']
 
-                # TODO: Perform replay validations (score, time frame)
+                discovery_data['winner'] = winner
 
-                if replay_ids:
-                    return replay_ids, series_summary, winner
+                if discovery_data.get("valid_set", False):
+                    return discovery_data
         
-        return None
+            # update players searched to avoid duplicate searches (maybe not needed)
+            discovery_data['players_searched'].append(player)
+
+        return discovery_data
 
     # endregion
 
@@ -366,6 +400,11 @@ class BCManager(commands.Cog):
 
     # endregion 
 
+    # region secondary helpers
+    async def get_steam_ids(self, player):
+        # TODO: update to lookup request
+        return ['76561198380344413', '76561199064986643']
+
     async def get_tier_group_name(self, guild, target_tier_name):
          # self.team_manager_cog.tiers(ctx)
         tier_names = await self.team_manager_cog.config.guild(guild).Tiers()
@@ -386,6 +425,8 @@ class BCManager(commands.Cog):
 
         return f"{tier_roles.index(target_tier_role)+1}{target_tier_name}"  # ie --> 1Premier
 
+
+    # endregion
 # region json
 
     async def _get_auth_token(self, guild: discord.Guild):
