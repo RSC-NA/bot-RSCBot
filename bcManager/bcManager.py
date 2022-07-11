@@ -89,6 +89,45 @@ class BCManager(commands.Cog):
 
         await ctx.send(DONE)
 
+    @commands.command(aliases=['rm'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def reportMatches(self, ctx, match_day: int=None):
+        if not match_day:
+            match_day = await self.match_cog._match_day(ctx)
+        
+        match_day = str(match_day)
+        
+        tiers = await self.team_manager_cog.tiers(ctx)
+        tier_roles = [self.team_manager_cog._get_tier_role(ctx, tier) for tier in tiers]
+        tier_roles.sort(key=lambda role: role.position, reverse=True)
+
+        schedule = await self.match_cog._schedule(ctx)
+
+        all_missing_replays = {}
+
+        for tier_role in tier_roles:
+            
+            missing_tier_replays = []
+            tier_md_group_id = None
+            tier_report_channel = await self.get_score_reporting_channel(tier_role)
+            for match in schedule.get(tier_role.name, {}).get(match_day, []):
+                
+                if match.get("report", {}):
+                    await self.send_match_summary(ctx, match, tier_report_channel)
+                else:
+                    match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, report_channel=tier_report_channel)
+                    if not tier_md_group_id:
+                        tier_md_group_id = match_group_info.get("tier_md_group_id")
+                    
+                    if not match_group_info['is_valid_set']:
+                        missing_tier_replays.append(match)
+                
+            if missing_tier_replays:
+                all_missing_replays[tier_role.name] = missing_tier_replays
+        # TODO: enable:
+        # await self.process_missing_replays(ctx.guild, all_missing_replays)
+
 # endregion 
 
 # region player commands 
@@ -142,11 +181,14 @@ class BCManager(commands.Cog):
             else:
                 await self.send_match_summary(ctx, match)
         
-    async def process_match_bcreport(self, ctx, match, player):
+    async def process_match_bcreport(self, ctx, match, tier_md_group_code: str=None, report_channel: discord.TextChannel=None):
         # Step 0: Constants
         SEARCHING = "Searching https://ballchasing.com for publicly uploaded replays of this match..."
         FOUND_AND_UPLOADING = "\n:signal_strength: Results confirmed. Creating a ballchasing replay group. This may take a few seconds..."
-        SUCCESS_EMBED = "Match summary:\n{}\n\n[Click to view the group on ballchasing!]({})"
+        SUCCESS_EMBED = "Match Summary:\n{}\n\n[Click to view the group on ballchasing!]({})"
+        
+        if not report_channel:
+            report_channel = ctx.channel
 
         # Step 2: Send initial embed (Searching...)
         match_day = match['matchDay']
@@ -160,11 +202,11 @@ class BCManager(commands.Cog):
         )
         if emoji_url:
             embed.set_thumbnail(url=emoji_url)
-        bc_status_msg = await ctx.send(embed=embed)
+        bc_status_msg = await report_channel.send(embed=embed)
 
 
         # Step 3: Search for replays on ballchasing
-        discovery_data = await self.find_match_replays(ctx, match, player)
+        discovery_data = await self.find_match_replays(ctx, match)
 
         ## Not found:
         if not discovery_data.get("is_valid_set", False):
@@ -180,11 +222,11 @@ class BCManager(commands.Cog):
                 embed.set_thumbnail(url=emoji.url)
         
         # Step 4: Send updated embed (Status: found, uploading)
-        embed.description = "Match summary:\n{}\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
+        embed.description = "Match Summary:\n{}\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
         await bc_status_msg.edit(embed=embed)
         
         # Find or create ballchasing subgroup
-        match_subgroup_json = await self.get_replay_destination(ctx, match)
+        match_subgroup_json = await self.get_replay_destination(ctx, match, tier_md_group_code=tier_md_group_code)
         match_subgroup_id = match_subgroup_json.get('id')
 
         tmp_replay_files = await self.tmp_download_replays(ctx, discovery_data.get('match_replay_ids', []))
@@ -199,6 +241,10 @@ class BCManager(commands.Cog):
         # Step 6: Update match cog info
         await self.update_match_info(ctx, tier_role.name, match, discovery_data, match_subgroup_json)
 
+        match_subgroup_json['is_valid_set'] = discovery_data['is_valid_set']
+
+        return match_subgroup_json
+
     async def get_match(self, ctx, member, team=None, match_day=None, match_index=0):
         return (await self.get_matches(ctx, member, team, match_day))[match_index]
 
@@ -212,7 +258,7 @@ class BCManager(commands.Cog):
         
         return matches
 
-    async def find_match_replays(self, ctx, match, member=None):
+    async def find_match_replays(self, ctx, match):
         match['format'] = '4-GS'
         all_players = await self.get_all_match_players(ctx, match)
 
@@ -313,27 +359,38 @@ class BCManager(commands.Cog):
 
         return discovery_data
 
-    async def get_replay_destination(self, ctx, match, top_level_group=None, group_owner_discord_id=None):
+    async def get_replay_destination(self, ctx, match, tier_md_group_code=None):
         
-        bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
-        top_level_group = await self._get_top_level_group(ctx.guild)
-        
-        # RSC/<top level group>/Regular Season/<tier num><tier>/Match Day <match day>/<Home> vs <Away>
-        tier = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[1].name  # Get tier role's name
-        tier_group = await self.get_tier_subgroup_name(ctx.guild, tier)
-        ordered_subgroups = [
-            match.get("match_type", "Regular Season"),
-            tier_group,
-            f"Match Day {str(match['matchDay']).zfill(2)}",
-            f"{match['home']} vs {match['away']}".title()
-        ]
+        # Ballchasing subgroup structure:
+        # RSC/<top level group>/<match type>/<tier num><tier>/Match Day <match day>/<Home> vs <Away>
+    
+        if not tier_md_group_code:
+            # The path to the match subgroup is unknown and must be discovered
+            tier = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[1].name  # Get tier role's name
+            tier_group = await self.get_tier_subgroup_name(ctx.guild, tier)
+            top_level_group = await self._get_top_level_group(ctx.guild)
+            ordered_subgroup_names = [
+                match.get("match_type", "Regular Season"),
+                tier_group,
+                f"Match Day {str(match['matchDay']).zfill(2)}",
+                f"{match['home']} vs {match['away']}".title()
+            ]
+            
+        else:
+            # The parent group for the match group has already been determined
+            top_level_group = tier_md_group_code
+            ordered_subgroup_names = [
+                f"{match['home']} vs {match['away']}".title()
+            ]
 
+        # Begin Ballchasing Group Mgmt
+        bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
         data = bapi.get_groups(group=top_level_group)
 
         # Dynamically create sub-group
         current_subgroup_id = top_level_group
         next_subgroup_id = None
-        for next_group_name in ordered_subgroups:
+        for next_group_name in ordered_subgroup_names:
             if next_subgroup_id:
                 current_subgroup_id = next_subgroup_id
             next_subgroup_id = None 
@@ -357,8 +414,10 @@ class BCManager(commands.Cog):
                 
                 next_subgroup_id = data['id']
 
+        # After we create match subgroup
         return {
             "id": next_subgroup_id,
+            "tier_md_group_id": current_subgroup_id,
             "link": f"https://ballchasing.com/group/{next_subgroup_id}"
         }
 
@@ -382,6 +441,24 @@ class BCManager(commands.Cog):
                     replay_ids_in_group.append(replay_id)
             
         return replay_ids_in_group
+
+    # TODO
+    async def process_missing_replays(self, ctx, missing_replays: dict):
+        # Step 0: Load old missing replays
+
+        # Step 1: search ballchasing for old missing replays, update old missing replays
+
+        # Step 2: re-search missing replays, update new missing replays
+
+        # Step 3: combine old and new missing replays data set
+
+        # Step 4: generate missing replays report message
+
+        # Step 5: save all missing replay data to json
+
+        # Step 6: send missing replays report to stats-updates channel
+        channel : discord.TextChannel = await self.get_stats_updates_channel(ctx.guild)
+        await channel.send(missing_replays)
 
     # endregion
 
@@ -498,13 +575,19 @@ class BCManager(commands.Cog):
 
         await self.match_cog._save_schedule(ctx, schedule)
 
-    async def send_match_summary(self, ctx, match):
+    async def send_match_summary(self, ctx, match, report_channel: discord.TextChannel=None):
+
         title = f"Match day {match['matchDay']}: {match['home']} vs {match['away']}"
-        description = "This match has already been reported:\n{}\n\n".format(match['report']['summary'])
+
+        if report_channel:
+            description = "Match Summary:\n{}\n\n".format(match['report']['summary'])
+        else:
+            description = "This match has already been reported:\n{}\n\n".format(match['report']['summary'])
+            report_channel = ctx.channel
+            
         description += f"[Click here to view this group on ballchasing!]({match['report']['ballchasing_link']})"
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['report']['winner'])
         embed = discord.Embed(title=title, description=description, color=tier_role.color)
-
         
         emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
         if emoji:
@@ -512,7 +595,7 @@ class BCManager(commands.Cog):
         elif ctx.guild.icon_url:
             embed.set_thumbnail(url=ctx.guild.icon_url)
         
-        await ctx.send(embed=embed)
+        await report_channel.send(embed=embed)
     
     async def tmp_download_replays(self, ctx, replay_ids):
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
@@ -626,13 +709,49 @@ class BCManager(commands.Cog):
 
         return f"{tier_roles.index(target_tier_role)+1}{target_tier_name}"  # ie --> 1Premier
 
+    # TODO: get/create channel in cat
+    async def get_score_reporting_channel(self, tier_role: discord.Role):
+        guild : discord.Guild = tier_role.guild
+        CAT_NAME = "Score Reporting"
+        tier_channel_name = f"{tier_role.name.lower()}-score-reporting"
+
+        match_cat : discord.CategoryChannel = None
+        for cat in guild.categories:
+            if cat.name == CAT_NAME:
+                match_cat = cat 
+                break
+        
+        if not match_cat:
+            match_cat = await guild.create_category(CAT_NAME)
+        
+        for tier_channel in match_cat.channels:
+            if tier_channel.name == tier_channel_name:
+                return tier_channel
+
+        return await match_cat.create_text_channel(tier_channel_name, sync=True)
+
+    async def get_stats_updates_channel(self, guild: discord.Guild):
+        CAT_NAME = "IMPORTANT INFORMATION"
+        STATS_UPDATES_CHANNLE = "stats-updates"
+
+        important_info_cat = None
+        for ii_cat in guild.categories:
+            if ii_cat.name.lower() == CAT_NAME.lower():
+                important_info_cat = ii_cat 
+                break
+        
+        for channel in important_info_cat.channels:
+            if channel.name == STATS_UPDATES_CHANNLE:
+                return channel
+
+        return await ii_cat.create_text_channel(STATS_UPDATES_CHANNLE, sync=True)
+
     def is_captain(self, player):
         for role in player.roles:
             if role.name.lower() == "captain":
                 return True
         return False
         
-
     # endregion
 
 # endregion
