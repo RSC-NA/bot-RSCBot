@@ -4,7 +4,7 @@ import random
 from datetime import datetime
 import json
 import discord
-from .bcConfig import config
+from .config import config
 
 from redbot.core import Config, commands, checks
 
