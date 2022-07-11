@@ -658,6 +658,22 @@ class Match(commands.Cog):
 
         return await match_cat.create_text_channel(franchise_channel_name, overwrites=overwrites)
 
+    def get_match_index_in_day(self, schedule, tier, match):
+        matches = schedule.get(tier, {}).get(str(match['matchDay']), [])
+        for i in range(len(matches)):
+            match_i = matches[i]
+            match_matches_match_i = (
+                match_i['home'] == match['home'] and
+                match_i['away'] == match['away'] and
+                match_i['matchDay'] == match['matchDay'] and
+                match_i['matchDate'] == match['matchDate'] and
+                match_i['roomName'] == match['roomName'] and
+                match_i['roomPass'] == match['roomPass']
+            )
+            if match_matches_match_i:
+                return i 
+        return None 
+
 # json
     async def _schedule(self, ctx):
         return await self.config.guild(ctx.guild).Schedules()

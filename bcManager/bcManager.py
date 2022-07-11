@@ -119,45 +119,6 @@ class BCManager(commands.Cog):
 # endregion
 
 # region helper commands
-
-    # region ballchasing commands
-    async def _bc_get_request(self, ctx, endpoint, params=[], auth_token=None):
-        if not auth_token:
-            auth_token = await self._get_auth_token(ctx.guild)
-        
-        url = 'https://ballchasing.com/api'
-        url += endpoint
-        params = '&'.join(params)
-        if params:
-            url += "?{}".format(params)
-        
-        return requests.get(url, headers={'Authorization': auth_token})
-
-    async def _bc_post_request(self, ctx, endpoint, params=[], auth_token=None, json=None, data=None, files=None):
-        if not auth_token:
-            auth_token = await self._get_auth_token(ctx.guild)
-        
-        url = 'https://ballchasing.com/api'
-        url += endpoint
-        params = '&'.join(params)
-        if params:
-            url += "?{}".format(params)
-        
-        return requests.post(url, headers={'Authorization': auth_token}, json=json, data=data, files=files)
-
-    async def _bc_patch_request(self, ctx, endpoint, params=[], auth_token=None, json=None, data=None):
-        if not auth_token:
-            auth_token = await self._get_auth_token(ctx.guild)
-
-        url = 'https://ballchasing.com/api'
-        url += endpoint
-        params = '&'.join(params)
-        if params:
-            url += "?{}".format(params)
-        
-        return requests.patch(url, headers={'Authorization': auth_token}, json=json, data=data)
-    
-    # endregion
     
     # region primary helpers
     
@@ -176,7 +137,10 @@ class BCManager(commands.Cog):
             return await ctx.send(":x: No matches found.")
         
         for match in matches:
-            await self.process_match_bcreport(ctx, match, player)
+            if not match.get("report", {}):
+                await self.process_match_bcreport(ctx, match, player)
+            else:
+                await self.send_match_summary(ctx, match)
         
     async def process_match_bcreport(self, ctx, match, player):
         # Step 0: Constants
@@ -200,7 +164,7 @@ class BCManager(commands.Cog):
 
 
         # Step 3: Search for replays on ballchasing
-        discovery_data = await self.find_match_replays(ctx, match, player) #, matched_replays)
+        discovery_data = await self.find_match_replays(ctx, match, player)
 
         ## Not found:
         if not discovery_data.get("is_valid_set", False):
@@ -208,17 +172,6 @@ class BCManager(commands.Cog):
             return await bc_status_msg.edit(embed=embed)
 
         ## Found:
-        # discovery_data = {
-        #     "is_valid_set": False,
-        #     "summary": None,
-        #     "match_replay_ids": [],
-        #     "latest_replay_end": None,
-        #     "winner": None,
-        #     "accounts_searched": [],
-        #     "players_searched": []
-        # }
-        # replay_ids, summary, winner = replays_found
-
         winner = discovery_data.get('winner')
         if winner:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, winner)
@@ -239,9 +192,12 @@ class BCManager(commands.Cog):
         
         # renamed = await self._rename_replays(ctx, uploaded_ids)
 
-        # Step X: Group created, Finalize embed
-        embed.description = SUCCESS_EMBED.format(discovery_data.get('summary'), match_subgroup_json.get('link')) # match_subgroup_id)
+        # Step 5: Group created, Finalize embed
+        embed.description = SUCCESS_EMBED.format(discovery_data.get('summary'), match_subgroup_json.get('link'))
         await bc_status_msg.edit(embed=embed)
+
+        # Step 6: Update match cog info
+        await self.update_match_info(ctx, tier_role.name, match, discovery_data, match_subgroup_json)
 
     async def get_match(self, ctx, member, team=None, match_day=None, match_index=0):
         return (await self.get_matches(ctx, member, team, match_day))[match_index]
@@ -525,6 +481,39 @@ class BCManager(commands.Cog):
 
     # region secondary helpers
 
+    async def update_match_info(self, ctx, tier, match, discovery_data, bc_group_data):
+        report = {
+            "winner": discovery_data.get('winner'),
+            "home_wins": discovery_data.get('home_wins'),
+            "away_wins": discovery_data.get('away_wins'),
+            "summary": discovery_data.get('summary'),
+            "ballchasing_link": bc_group_data.get('link', 
+                f"https://ballchasing.com/group/{bc_group_data.get(id)}")
+        }
+
+        schedule = await self.match_cog._schedule(ctx)
+        match_index = self.match_cog.get_match_index_in_day(schedule, tier, match)
+
+        schedule[tier][match['matchDay']][match_index]['report'] = report
+
+        await self.match_cog._save_schedule(ctx, schedule)
+
+    async def send_match_summary(self, ctx, match):
+        title = f"Match day {match['matchDay']}: {match['home']} vs {match['away']}"
+        description = "This match has already been reported:\n{}\n\n".format(match['report']['summary'])
+        description += f"[Click here to view this group on ballchasing!]({match['report']['ballchasing_link']})"
+        franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['report']['winner'])
+        embed = discord.Embed(title=title, description=description, color=tier_role.color)
+
+        
+        emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
+        if emoji:
+            embed.set_thumbnail(url=emoji.url)
+        elif ctx.guild.icon_url:
+            embed.set_thumbnail(url=ctx.guild.icon_url)
+        
+        await ctx.send(embed=embed)
+    
     async def tmp_download_replays(self, ctx, replay_ids):
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
         tmp_replay_files = []
