@@ -225,7 +225,7 @@ class BCManager(commands.Cog):
             embed.set_thumbnail(url=emoji.url)
         
         # Step 4: Send updated embed (Status: found, uploading)
-        embed.description = "Match summary:\n{}\n\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
+        embed.description = "Match summary:\n\n{}\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
         await bc_status_msg.edit(embed=embed)
 
         # TODO: continue here: download, upload to correct subgroup, etc
@@ -421,10 +421,10 @@ class BCManager(commands.Cog):
         for component in format_components:
             if component.isdigit():
                 num_games = int(component)
-                format_components.remove(str(num_games))
                 break
         
-        format_type = component[0]
+        format_components.remove(str(num_games))
+        format_type = format_components[0]
 
         if format_type == 'gs':
             gp = discovery_data.get('home_wins', 0) + discovery_data.get('away_wins', 0)
