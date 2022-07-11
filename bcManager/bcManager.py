@@ -169,18 +169,20 @@ class BCManager(commands.Cog):
                 self.ballchasing_api[guild] = ballchasing.Api(token)
 
     async def process_bcreport(self, ctx):
-        # Step 0: Constants
-
-        SEARCHING = "Searching https://ballchasing.com for publicly uploaded replays of this match..."
-        FOUND_AND_UPLOADING = "\n\n:signal_strength: Results confirmed. Creating a ballchasing replay group. This may take a few seconds..."
-        SUCCESS_EMBED = "Match summary:\n{}\n\n[Click to view the group on ballchasing!]({})"
-
         # Step 1: Find Match
         player = ctx.author
-        match = await self.get_match(ctx, player)
-        if not match:
-            return await ctx.send(":x: No match found.")
+        matches = await self.get_matches(ctx, player)
+        if not matches:
+            return await ctx.send(":x: No matches found.")
         
+        for match in matches:
+            await self.process_match_bcreport(ctx, match, player)
+        
+    async def process_match_bcreport(self, ctx, match, player):
+        # Step 0: Constants
+        SEARCHING = "Searching https://ballchasing.com for publicly uploaded replays of this match..."
+        FOUND_AND_UPLOADING = "\n:signal_strength: Results confirmed. Creating a ballchasing replay group. This may take a few seconds..."
+        SUCCESS_EMBED = "Match summary:\n{}\n\n[Click to view the group on ballchasing!]({})"
 
         # Step 2: Send initial embed (Searching...)
         match_day = match['matchDay']
@@ -221,10 +223,11 @@ class BCManager(commands.Cog):
         if winner:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, winner)
             emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
-            embed.set_thumbnail(url=emoji.url)
+            if emoji:
+                embed.set_thumbnail(url=emoji.url)
         
         # Step 4: Send updated embed (Status: found, uploading)
-        embed.description = "Match summary:\n\n{}\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
+        embed.description = "Match summary:\n{}\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
         await bc_status_msg.edit(embed=embed)
         
         # Find or create ballchasing subgroup
@@ -299,7 +302,7 @@ class BCManager(commands.Cog):
                 )
 
                 # checks for MATCHing ;) replays
-                for replay in data: #.get('list', []):
+                for replay in data:
                     if self.is_valid_match_replay(match, replay):
                         # replay_ids.append(replay['id'])
                         replay_hash = self.generate_replay_hash(replay)
@@ -325,7 +328,8 @@ class BCManager(commands.Cog):
                                 discovery_data['home_wins'] += 1
                             else:
                                 discovery_data['away_wins'] += 1
-
+                    else:
+                        pass
                 # update accounts searched to avoid duplicate searches (maybe not needed)
                 discovery_data['accounts_searched'].append(steam_id)
 
@@ -411,11 +415,16 @@ class BCManager(commands.Cog):
             bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
 
             # bapi.upload_replay(replay_file, visibility=bcConfig.visibility, group=)
-            data = bapi._request(f"/v2/upload", bapi._session.post, files=files,
-                             params={"group": subgroup_id, "visibility": bcConfig.visibility}).json()
-
-            replay_ids_in_group.append(data.get('id', "FAILED"))
-        
+            try:
+                data = bapi._request(f"/v2/upload", bapi._session.post, files=files,
+                                    params={"group": subgroup_id, "visibility": bcConfig.visibility}).json()
+                replay_ids_in_group.append(data.get('id', "FAILED"))
+            except ValueError as e:
+                if e.args[0].status_code == 409:
+                    # duplicate replay
+                    replay_id = e.args[1].get('id', "FAILED")
+                    replay_ids_in_group.append(replay_id)
+            
         return replay_ids_in_group
 
     # endregion
@@ -446,8 +455,8 @@ class BCManager(commands.Cog):
 
         replay_teams = self.get_replay_teams_and_players(replay_data)
 
-        home_team_found = replay_teams.get('blue', {}).get('name', '').lower() in home_team.lower() or replay_teams.get('orange', {}).get('name', '').lower() in home_team.lower()
-        away_team_found = replay_teams.get('blue', {}).get('name', '').lower() in away_team.lower() or replay_teams.get('orange', {}).get('name', '').lower() in away_team.lower()
+        home_team_found = replay_teams['blue']['name'].lower() in home_team.lower() or replay_teams['orange']['name'].lower() in home_team.lower()
+        away_team_found = replay_teams['blue']['name'].lower() in away_team.lower() or replay_teams['orange']['name'].lower() in away_team.lower()
 
         return home_team_found and away_team_found
 
@@ -536,8 +545,8 @@ class BCManager(commands.Cog):
 
     def get_replay_teams_and_players(self, replay):
         
-        blue_name = replay.get('blue', {}).get('name', 'Blue').title()
-        orange_name = replay.get('orange', {}).get('name', 'Orange').title()
+        blue_name = replay.get('blue', {}).get('name', 'Blue').strip().title()
+        orange_name = replay.get('orange', {}).get('name', 'Orange').strip().title()
 
         blue_players = []
         for player in replay.get('blue', {}).get('players', []):

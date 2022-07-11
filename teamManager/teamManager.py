@@ -386,12 +386,10 @@ class TeamManager(commands.Cog):
 
         embed = discord.Embed(
             title="Franchises", color=discord.Colour.blue(), thumbnail=ctx.guild.icon_url)
-        embed.add_field(name="Pfx.", value="{}\n".format(
-            "\n".join(prefixes)), inline=True)
-        embed.add_field(name="Franchise", value="{}\n".format(
-            "\n".join(franchises)), inline=True)
-        embed.add_field(name="General Manager",
-                        value="{}\n".format("\n".join(gms)), inline=True)
+        embed.add_field(name="Pfx.", value="{}\n".format("\n".join(prefixes)), inline=True)
+        embed.add_field(name="Franchise", value="{}\n".format("\n".join(franchises)), inline=True)
+        embed.add_field(name="General Manager", value="{}\n".format("\n".join(gms)), inline=True)
+        embed.set_thumbnail(url=ctx.guild.icon_url)
         await ctx.send(embed=embed)
 
     @commands.command()
