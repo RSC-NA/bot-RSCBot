@@ -1,9 +1,9 @@
-from tkinter import Toplevel
 from .bcConfig import bcConfig
 import requests
 import tempfile
 import discord
 import asyncio
+
 import ballchasing
 
 from teamManager import TeamManager
@@ -158,7 +158,9 @@ class BCManager(commands.Cog):
         return requests.patch(url, headers={'Authorization': auth_token}, json=json, data=data)
     
     # endregion
-
+    
+    # region primary helpers
+    
     async def pre_load_data(self):
         await self.bot.wait_until_ready()
         for guild in self.bot.guilds:
@@ -166,15 +168,12 @@ class BCManager(commands.Cog):
             if token:
                 self.ballchasing_api[guild] = ballchasing.Api(token)
 
-    # region primary helpers
-
     async def process_bcreport(self, ctx):
         # Step 0: Constants
-        
 
         SEARCHING = "Searching https://ballchasing.com for publicly uploaded replays of this match..."
         FOUND_AND_UPLOADING = "\n\n:signal_strength: Results confirmed. Creating a ballchasing replay group. This may take a few seconds..."
-        SUCCESS_EMBED = "Match summary:\n{}\n\nView the ballchasing group: https://ballchasing.com/group/{}"
+        SUCCESS_EMBED = "Match summary:\n{}\n\n[Click to view the group on ballchasing!]({})"
 
         # Step 1: Find Match
         player = ctx.author
@@ -227,11 +226,18 @@ class BCManager(commands.Cog):
         # Step 4: Send updated embed (Status: found, uploading)
         embed.description = "Match summary:\n\n{}\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
         await bc_status_msg.edit(embed=embed)
+        
+        # Find or create ballchasing subgroup
+        match_subgroup_json = await self.get_replay_destination(ctx, match)
+        match_subgroup_id = match_subgroup_json.get('id')
 
-        # TODO: continue here: download, upload to correct subgroup, etc
+        tmp_replay_files = await self.tmp_download_replays(ctx, discovery_data.get('match_replay_ids', []))
+        uploaded_ids = await self.upload_replays(ctx, match_subgroup_id, tmp_replay_files)
+        
+        # renamed = await self._rename_replays(ctx, uploaded_ids)
 
         # Step X: Group created, Finalize embed
-        embed.description = SUCCESS_EMBED.format(discovery_data.get('summary'), None) # match_subgroup_id)
+        embed.description = SUCCESS_EMBED.format(discovery_data.get('summary'), match_subgroup_json.get('link')) # match_subgroup_id)
         await bc_status_msg.edit(embed=embed)
 
     async def get_match(self, ctx, member, team=None, match_day=None, match_index=0):
@@ -347,6 +353,71 @@ class BCManager(commands.Cog):
 
         return discovery_data
 
+    async def get_replay_destination(self, ctx, match, top_level_group=None, group_owner_discord_id=None):
+        
+        bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
+        top_level_group = await self._get_top_level_group(ctx.guild)
+        
+        # RSC/<top level group>/Regular Season/<tier num><tier>/Match Day <match day>/<Home> vs <Away>
+        tier = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[1].name  # Get tier role's name
+        tier_group = await self.get_tier_subgroup_name(ctx.guild, tier)
+        ordered_subgroups = [
+            match.get("match_type", "Regular Season"),
+            tier_group,
+            f"Match Day {str(match['matchDay']).zfill(2)}",
+            f"{match['home']} vs {match['away']}".title()
+        ]
+
+        data = bapi.get_groups(group=top_level_group)
+
+        # Dynamically create sub-group
+        current_subgroup_id = top_level_group
+        next_subgroup_id = None
+        for next_group_name in ordered_subgroups:
+            if next_subgroup_id:
+                current_subgroup_id = next_subgroup_id
+            next_subgroup_id = None 
+
+            # Check if next subgroup exists
+            for data_subgroup in data:
+                if data_subgroup['name'] == next_group_name:
+                    next_subgroup_id = data_subgroup['id']
+                    break
+            
+            # Prepare & Execute  Next request:
+            # ## Next subgroup found: request its contents
+            if next_subgroup_id:
+                data = bapi.get_groups(group=next_subgroup_id)
+
+            # ## Creating next sub-group
+            else:
+                data = bapi.create_group(name=next_group_name, parent=current_subgroup_id,
+                                    player_identification=bcConfig.player_identification,
+                                    team_identification=bcConfig.team_identification)
+                
+                next_subgroup_id = data['id']
+
+        return {
+            "id": next_subgroup_id,
+            "link": f"https://ballchasing.com/group/{next_subgroup_id}"
+        }
+
+    async def upload_replays(self, ctx, subgroup_id, files_to_upload):
+        replay_ids_in_group = []
+        for replay_file in files_to_upload:
+            replay_file.seek(0)
+            files = {'file': replay_file}
+
+            bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
+
+            # bapi.upload_replay(replay_file, visibility=bcConfig.visibility, group=)
+            data = bapi._request(f"/v2/upload", bapi._session.post, files=files,
+                             params={"group": subgroup_id, "visibility": bcConfig.visibility}).json()
+
+            replay_ids_in_group.append(data.get('id', "FAILED"))
+        
+        return replay_ids_in_group
+
     # endregion
 
     # region validations
@@ -445,6 +516,24 @@ class BCManager(commands.Cog):
 
     # region secondary helpers
 
+    async def tmp_download_replays(self, ctx, replay_ids):
+        bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
+        tmp_replay_files = []
+        this_game = 1
+        for replay_id in replay_ids[::-1]:
+            endpoint = f"/replays/{replay_id}/file"
+
+            r = bapi._request(endpoint, bapi._session.get)
+            # replay_filename = f"{replay_id}.replay"
+            
+            tf = tempfile.NamedTemporaryFile()
+            tf.name += ".replay"
+            tf.write(r.content)
+            tmp_replay_files.append(tf)
+            this_game += 1
+
+        return tmp_replay_files
+
     def get_replay_teams_and_players(self, replay):
         
         blue_name = replay.get('blue', {}).get('name', 'Blue').title()
@@ -519,7 +608,7 @@ class BCManager(commands.Cog):
 
         return replay_players
 
-    async def get_tier_group_name(self, guild, target_tier_name):
+    async def get_tier_subgroup_name(self, guild, target_tier_name):
          # self.team_manager_cog.tiers(ctx)
         tier_names = await self.team_manager_cog.config.guild(guild).Tiers()
         tier_names = [tier.lower() for tier in tier_names]
@@ -547,6 +636,8 @@ class BCManager(commands.Cog):
         
 
     # endregion
+
+# endregion
 
 # region json
 
