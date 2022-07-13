@@ -259,12 +259,12 @@ class BCManager(commands.Cog):
         return matches
 
     async def find_match_replays(self, ctx, match):
-        match['format'] = '4-GS'
         all_players = await self.get_all_match_players(ctx, match)
 
         # All of this data should be tracked to optimize the search and validation
         discovery_data = {
             "is_valid_set": False,
+            "match_format": match.get("format_type", "4-GS"),
             "summary": None,
             "match_replay_ids": [],
             "replay_hashes": [],
@@ -528,7 +528,7 @@ class BCManager(commands.Cog):
         return team_data
 
     def is_valid_replay_set(self, discovery_data):
-        match_format = discovery_data.get('format', '4-gs').lower()
+        match_format = discovery_data.get('match_format', '4-gs').lower()
         format_components = match_format.split('-')
 
         for component in format_components:
@@ -553,7 +553,6 @@ class BCManager(commands.Cog):
         
         return False
 
-
     # endregion 
 
     # region secondary helpers
@@ -564,8 +563,9 @@ class BCManager(commands.Cog):
             "home_wins": discovery_data.get('home_wins'),
             "away_wins": discovery_data.get('away_wins'),
             "summary": discovery_data.get('summary'),
+            "ballchasing_id": bc_group_data.get('id'),
             "ballchasing_link": bc_group_data.get('link', 
-                f"https://ballchasing.com/group/{bc_group_data.get(id)}")
+                f"https://ballchasing.com/group/{bc_group_data.get('id')}")
         }
 
         schedule = await self.match_cog._schedule(ctx)
@@ -638,9 +638,9 @@ class BCManager(commands.Cog):
                 'players': orange_players
             }
         }
-
-    async def get_steam_ids(self, guild, player: discord.Member):
-        # TODO: update to lookup request
+    
+    # TODO: update to lookup request
+    async def get_steam_ids(self, guild, player: discord.Member):    
         return ['76561198380344413', '76561199064986643']
 
     def generate_replay_hash(self, short_replay_json):
