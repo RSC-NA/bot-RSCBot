@@ -91,6 +91,9 @@ class Match(commands.Cog):
             match_type -- the match format (i.e. "Regular Season", "Wildcard", "Finals")
             match_format -- the match format (i.e. "4-GS", "BO-5", "BO-7")
         Note: Match format must be represented as "GS" (game series) or "BO" (best of) and an integer, separated by a dash
+
+        Example:
+            [p]addMatch 4 "May 25, 2022" Thermal Gorillas "Regular Season" 4-gs
         """
         match = await self._add_match(ctx, match_day, match_date, home, away, match_type, match_format)
         if match:
@@ -301,7 +304,7 @@ class Match(commands.Cog):
             room_pass = self._generate_name_pass()
             lobby_hash = hash(f"{room_name}-{room_pass}")
 
-            valid_hash = lobby_hash in md_lobby_hashes
+            valid_hash = lobby_hash not in md_lobby_hashes
         
         md_lobby_hashes.append(lobby_hash)
         lobby_hashes[str(match_day)] = md_lobby_hashes
@@ -434,15 +437,18 @@ class Match(commands.Cog):
 
         return team_matches
 
-    async def _create_additional_info(self, guild, user_team_name, home, away, is_playoffs=False, is_embed=False):
+    async def _create_additional_info(self, guild, user_team_name, match, is_playoffs=False, is_embed=False):
+        home = match['home']
+        away = match['away']
+        match_format = match['matchFormat']
+
         additional_info = ""
 
         # Determine Format
-        matchup_type = await self._get_matchup_type(guild)
-        parsed_matchup_type = self.parse_matchup_type(matchup_type)
+        parsed_matchup_type = self.parse_matchup_type(match_format)
 
         if parsed_matchup_type:
-            matchup_type_str = parsed_matchup_type[2]
+            matchup_type_str = f"**{parsed_matchup_type[2]}**"
         else:
             matchup_type_str = "4 game series"
 
@@ -479,24 +485,23 @@ class Match(commands.Cog):
         embed.add_field(name="**Away Team:**", value=await self.team_manager.format_roster_info(ctx, away), inline=False)
 
         try:
-            additional_info = await self._create_additional_info(ctx.guild, user_team_name, home, away, is_embed=True)
+            additional_info = await self._create_additional_info(ctx.guild, user_team_name, match, is_embed=True)
         except KeyError:
             # TODO: this doesn't make sense
-            additional_info = await self._create_additional_info(ctx.guild, user_team_name, home, away, is_embed=True)
+            additional_info = await self._create_additional_info(ctx.guild, user_team_name, match, is_embed=True)
 
         embed.add_field(name="Additional Info:", value=additional_info)
         return embed
 
     async def _create_normal_match_message(self, ctx, match, user_team_name, home, away):
-        message = "**Lobby Info:**\nName: **{0}**\nPassword: **{1}**\n\n".format(
-            match['roomName'], match['roomPass'])
+        message = "**Lobby Info:**\nName: **{0}**\nPassword: **{1}**\n\n".format(match['roomName'], match['roomPass'])
         message += "**Home Team:**\n{0}\n".format(await self.team_manager.format_roster_info(ctx, home))
         message += "**Away Team:**\n{0}\n".format(await self.team_manager.format_roster_info(ctx, away))
 
         try:
-            message += await self._create_additional_info(ctx.guild, user_team_name, home, away, is_embed=False)
+            message += await self._create_additional_info(ctx.guild, user_team_name, match, is_embed=False)
         except KeyError:
-            message += await self._create_additional_info(ctx.guild, user_team_name, home, away, is_embed=False)
+            message += await self._create_additional_info(ctx.guild, user_team_name, match, is_embed=False)
 
         return message
 
@@ -635,24 +640,24 @@ class Match(commands.Cog):
                     return playing
 
     def parse_matchup_type(self, matchup_code):
-        args = matchup_code.upper().split('-')
-        match_type = args[0]
-        try:
-            game_count = int(args[1])
-        except:
-            print('fricked')
-            return None
+        format_components = matchup_code.split('-')
 
-        if match_type == "GS":
-            match_type = "game series"
-            formatted = "{}-{}".format(game_count, match_type)
-        elif match_type == "BO":
-            match_type = "best-of"
-            formatted = "{}-{}".format(match_type, game_count)
-        else:
-            return None
+        for component in format_components:
+            if component.isdigit():
+                num_games = int(component)
+                break
+        
+        format_components.remove(str(num_games))
+        format_type = format_components[0]
 
-        return match_type, int(game_count), formatted
+        if format_type == 'gs':
+            match_fmt_type = "game series"
+            formatted = f"{num_games} {match_fmt_type}"
+        elif format_type == 'bo':
+            match_fmt_type = "best-of"
+            formatted = f"{match_fmt_type} {num_games}"
+
+        return match_fmt_type, num_games, formatted
 
     async def get_franchise_match_channel(self, franchise_role: discord.Role):
         guild = franchise_role.guild

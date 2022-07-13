@@ -125,6 +125,7 @@ class BCManager(commands.Cog):
                 
             if missing_tier_replays:
                 all_missing_replays[tier_role.name] = missing_tier_replays
+        
         # TODO: enable:
         # await self.process_missing_replays(ctx.guild, all_missing_replays)
 
@@ -311,9 +312,6 @@ class BCManager(commands.Cog):
                         if replay_hash not in discovery_data['replay_hashes']:
                             discovery_data['replay_hashes'].append(replay_hash)
                             discovery_data['match_replay_ids'].append(replay['id'])
-                        
-                            # NEW: update search range to avoid duplicate replays added - TODO: rethink this. maybe hashing is enough
-                            # match_start_dt = replay['created']
 
                             if (replay.get('blue', {}).get('name', 'blue').lower() in match.get('home', '').lower()
                                 or replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()):
