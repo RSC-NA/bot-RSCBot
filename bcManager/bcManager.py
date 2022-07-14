@@ -138,7 +138,14 @@ class BCManager(commands.Cog):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
         """        
         await self.process_bcreport(ctx)
-        
+    
+    @commands.command(aliases=['fbcr', 'fbcpull'])
+    @commands.guild_only()
+    async def forcebcreport(self, ctx): # , team_name=None, match_day=None):
+        """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
+        """        
+        await self.process_bcreport(ctx, True)
+    
     @commands.command(aliases=['bcGroup', 'ballchasingGroup', 'bcg'])
     @commands.guild_only()
     async def bcgroup(self, ctx):
@@ -169,7 +176,7 @@ class BCManager(commands.Cog):
             if token:
                 self.ballchasing_api[guild] = ballchasing.Api(token)
 
-    async def process_bcreport(self, ctx):
+    async def process_bcreport(self, ctx, force=False):
         # Step 1: Find Match
         player = ctx.author
         matches = await self.get_matches(ctx, player)
@@ -177,8 +184,8 @@ class BCManager(commands.Cog):
             return await ctx.send(":x: No matches found.")
         
         for match in matches:
-            if not match.get("report", {}):
-                await self.process_match_bcreport(ctx, match, player)
+            if not match.get("report", {}) or force:
+                await self.process_match_bcreport(ctx, match)
             else:
                 await self.send_match_summary(ctx, match)
         
@@ -317,9 +324,12 @@ class BCManager(commands.Cog):
                                 or replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()):
                                 home = 'blue'
                                 away = 'orange'
-                            # elif (replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()
-                            #     or replay.get('blue', {}).get('name', 'blue').lower() in match.get('home', '').lower()):
+                            elif (replay.get('orange', {}).get('name', 'orange').lower() in match.get('home', '').lower()
+                                or replay.get('blue', {}).get('name', 'blue').lower() in match.get('away', '').lower()):
+                                home = 'orange'
+                                away = 'blue'
                             else:
+                                await ctx.send(":x: something may have gone wrong? guessing on home/away lol")
                                 home = 'orange'
                                 away = 'blue'
                             
@@ -440,6 +450,7 @@ class BCManager(commands.Cog):
                 if e.args[0].status_code == 409:
                     # duplicate replay
                     replay_id = e.args[1].get('id', "FAILED")
+                    bapi.patch_replay(replay_id, group=subgroup_id)
                     replay_ids_in_group.append(replay_id)
             
         return replay_ids_in_group
