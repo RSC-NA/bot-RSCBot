@@ -317,8 +317,9 @@ class BCManager(commands.Cog):
                                 or replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()):
                                 home = 'blue'
                                 away = 'orange'
-                            elif (replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()
-                                or replay.get('blue', {}).get('name', 'blue').lower() in match.get('home', '').lower()):
+                            # elif (replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()
+                            #     or replay.get('blue', {}).get('name', 'blue').lower() in match.get('home', '').lower()):
+                            else:
                                 home = 'orange'
                                 away = 'blue'
                             
@@ -371,7 +372,7 @@ class BCManager(commands.Cog):
                 match.get("match_type", "Regular Season"),
                 tier_group,
                 f"Match Day {str(match['matchDay']).zfill(2)}",
-                f"{match['home']} vs {match['away']}".title()
+                f"{match['home']} vs {match['away']}"
             ]
             
         else:
@@ -411,6 +412,9 @@ class BCManager(commands.Cog):
                                     team_identification=bcConfig.team_identification)
                 
                 next_subgroup_id = data['id']
+
+                if next_group_name is not ordered_subgroup_names[-1]:
+                    data = bapi.get_groups(group=next_subgroup_id)
 
         # After we create match subgroup
         return {
