@@ -104,6 +104,7 @@ class Match(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def clearSchedule(self, ctx):
         """Clear all scheduled matches."""
+        await self._save_lobby_hashes(ctx.guild, {})
         await self._save_schedule(ctx, {})
         await ctx.send("Done.")
 
