@@ -3,7 +3,7 @@ from datetime import datetime
 
 # ###############################################################################
 
-class bcConfig:
+class BCConfig:
     # Search Settings
     SEARCH_COUNT = 10
     PLAYLIST = "private"
@@ -13,6 +13,8 @@ class bcConfig:
     ZONE_ADJ = "-04:00"
     START_MATCH_DT_TMPLT = "{}T21:00:00{}"  # search after 9 pm (start)
     END_MATCH_DT_TMPLT = "{}T23:59:59{}"    # search before 9 pm (end)
+
+    utc_strftime_fmt = "%Y-%M-%dT%H:%M:%S+00:00"
 
     # Upload settings
     visibility = 'public'

@@ -1,26 +1,28 @@
-from .bcConfig import bcConfig
-import requests
-import tempfile
+
+
 import discord
-import asyncio
-
-import ballchasing
-
-from teamManager import TeamManager
-from match import Match
-
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
-from datetime import datetime, timezone
+
+from .BCConfig import BCConfig
+from teamManager import TeamManager
+from match import Match
+
+import tempfile
+import asyncio
+from pytz import all_timezones_set, timezone, UTC
+from datetime import datetime
+import ballchasing
 
 
 defaults = {
     "ReplayDumpChannel": None,
     "AuthToken": None,
-    "TopLevelGroup": None
+    "TopLevelGroup": None,
+    "TimeZone": 'America/New_York'
 }
 
 verify_timeout = 30
@@ -88,6 +90,24 @@ class BCManager(commands.Cog):
         bapi.patch_group(top_level_group, shared=True)
 
         await ctx.send(DONE)
+
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setTimeZone(self, ctx, time_zone):
+        """Sets timezone for the guild. Valid time zone codes are listed in the "TZ database name" column of
+         the following wikipedia page: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"""
+
+        if time_zone not in all_timezones_set:
+            wiki = 'https://en.wikipedia.org/wiki/List_of_tz_database_time_zones'
+
+            msg = (f':x: **{time_zone}** is not a valid time zone code. Please select a time zone from the "TZ database name" column '
+                   f'from this wikipedia page: {wiki}')
+
+            return await ctx.send(msg)
+
+        await self._save_time_zone(ctx.guild, time_zone)
+        await ctx.send("Done")
 
     @commands.command(aliases=['rm'])
     @commands.guild_only()
@@ -293,9 +313,19 @@ class BCManager(commands.Cog):
             return discovery_data
 
         # Prep initial date search range
-        match_date = datetime.strptime(match['matchDate'], '%B %d, %Y').strftime('%Y-%m-%d')
-        match_start_dt = bcConfig.START_MATCH_DT_TMPLT.format(match_date, bcConfig.ZONE_ADJ)
-        match_end_dt = bcConfig.END_MATCH_DT_TMPLT.format(match_date, bcConfig.ZONE_ADJ)
+        # match_date = datetime.strptime(match['matchDate'], '%B %d, %Y').strftime('%Y-%m-%d')
+        # match_start_dt = BCConfig.START_MATCH_DT_TMPLT.format(match_date, BCConfig.ZONE_ADJ)
+        # match_end_dt = BCConfig.END_MATCH_DT_TMPLT.format(match_date, BCConfig.ZONE_ADJ)
+
+        guild_timezone = await self._get_time_zone(ctx.guild)
+
+        # Localized Datetime
+        dt_match_start = datetime.strptime(f"{match['matchDate']} 9:00PM", '%B %d, %Y %I:%M%p').astimezone(timezone(guild_timezone))
+        dt_match_end = datetime.strptime(f"{match['matchDate']} 11:59PM", '%B %d, %Y %I:%M%p').astimezone(timezone(guild_timezone))
+
+        # RFC3339 Formatted UTC time
+        utc_dt_open_search_range_str = dt_match_start.astimezone(UTC).strftime(BCConfig.utc_strftime_fmt)
+        utc_dt_close_search_range_str = dt_match_end.astimezone(UTC).strftime(BCConfig.utc_strftime_fmt)
 
         # Search all players in game for replays until match is found
         
@@ -303,11 +333,11 @@ class BCManager(commands.Cog):
             for steam_id in (await self.get_steam_ids(ctx.guild, player)):
 
                 data = bapi.get_replays(
-                    playlist=bcConfig.PLAYLIST,
-                    sort_by=bcConfig.SORT_BY,
-                    sort_dir=bcConfig.SORT_DIR,
-                    replay_after=match_start_dt,
-                    replay_before=match_end_dt,
+                    playlist=BCConfig.PLAYLIST,
+                    sort_by=BCConfig.SORT_BY,
+                    sort_dir=BCConfig.SORT_DIR,
+                    replay_after=utc_dt_open_search_range_str,
+                    replay_before=utc_dt_close_search_range_str,
                     uploader=steam_id
                 )
 
@@ -418,8 +448,8 @@ class BCManager(commands.Cog):
             # ## Creating next sub-group
             else:
                 data = bapi.create_group(name=next_group_name, parent=current_subgroup_id,
-                                    player_identification=bcConfig.player_identification,
-                                    team_identification=bcConfig.team_identification)
+                                    player_identification=BCConfig.player_identification,
+                                    team_identification=BCConfig.team_identification)
                 
                 next_subgroup_id = data['id']
 
@@ -444,7 +474,7 @@ class BCManager(commands.Cog):
             # bapi.upload_replay(replay_file, visibility=bcConfig.visibility, group=)
             try:
                 data = bapi._request(f"/v2/upload", bapi._session.post, files=files,
-                                    params={"group": subgroup_id, "visibility": bcConfig.visibility}).json()
+                                    params={"group": subgroup_id, "visibility": BCConfig.visibility}).json()
                 replay_ids_in_group.append(data.get('id', "FAILED"))
             except ValueError as e:
                 if e.args[0].status_code == 409:
@@ -783,7 +813,12 @@ class BCManager(commands.Cog):
     async def _get_top_level_group(self, guild: discord.Guild):
         return await self.config.guild(guild).TopLevelGroup()
     
+    async def _save_time_zone(self, guild, time_zone):
+        await self.config.guild(guild).TimeZone.set(time_zone)
+        # self.time_zones[guild] = time_zone
 
+    async def _get_time_zone(self, guild):
+        return await self.config.guild(guild).TimeZone()
 
 # endregion
 
