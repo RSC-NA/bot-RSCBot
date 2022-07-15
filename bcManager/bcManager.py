@@ -1,5 +1,3 @@
-
-
 import discord
 from redbot.core import Config
 from redbot.core import commands
@@ -109,7 +107,7 @@ class BCManager(commands.Cog):
         await self._save_time_zone(ctx.guild, time_zone)
         await ctx.send("Done")
 
-    @commands.command(aliases=['rm'])
+    @commands.command(aliases=['reportAllMatches', 'ram'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def reportMatches(self, ctx, match_day: int=None):
@@ -126,25 +124,61 @@ class BCManager(commands.Cog):
 
         all_missing_replays = {}
 
+        # Prep Report Status Message
+        bc_report_summary_json = {}
         for tier_role in tier_roles:
-            
+            bc_report_summary_json[tier_role] = {
+                "role": tier_role,
+                "index": 0,
+                "success_count": 0,
+                "bc_group_link": None,
+                "total_matches": len(schedule.get(tier_role.name, {}).get(match_day, [])),
+                "active": False
+            }
+        
+        guild_emoji_url = ctx.guild.icon_url
+        processing_status_msg = await ctx.send(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+
+        # Process/Report All Replays
+        for tier_role in tier_roles:
+            bc_report_summary_json[tier_role]['active'] = True
             missing_tier_replays = []
             tier_md_group_id = None
             tier_report_channel = await self.get_score_reporting_channel(tier_role)
             for match in schedule.get(tier_role.name, {}).get(match_day, []):
+
+                # update status message
+                await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+
+                # update status embed
+                bc_report_summary_json[tier_role]['index'] += 1
                 
                 if match.get("report", {}):
                     await self.send_match_summary(ctx, match, tier_report_channel)
+                    bc_report_summary_json[tier_role]['success_count'] += 1
                 else:
-                    match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, report_channel=tier_report_channel)
+                    try:
+                        match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, report_channel=tier_report_channel)
+                        bc_report_summary_json[tier_role]['success_count'] += 1
+                    except:
+                        pass
+
                     if not tier_md_group_id:
                         tier_md_group_id = match_group_info.get("tier_md_group_id")
+                        tier_md_group_link = f"https://ballchasing.com/group/{tier_md_group_id}"
+                        bc_report_summary_json[tier_role]['bc_group_link'] = tier_md_group_link
                     
                     if not match_group_info['is_valid_set']:
                         missing_tier_replays.append(match)
                 
             if missing_tier_replays:
                 all_missing_replays[tier_role.name] = missing_tier_replays
+            
+            bc_report_summary_json[tier_role]['active'] = False
+        
+        # update status message
+        await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
+                
         
         # TODO: enable:
         # await self.process_missing_replays(ctx.guild, all_missing_replays)
@@ -640,6 +674,55 @@ class BCManager(commands.Cog):
         
         await report_channel.send(embed=embed)
     
+    def get_bc_match_day_status_report(self, match_day, report_summary_json: dict, emoji_url = None, complete=False):
+        embed = discord.Embed(title=f"Replay Processing Report: Match Day {match_day}", color=discord.Color.blue())
+        
+        if emoji_url:
+            embed.set_thumbnail(url=emoji_url)
+        # {
+        #     "role": tier_role,
+        #     "index": 0,
+        #     "bc_group_link": None,
+        #     "success_count": 0,
+        #     "total_matches": len(schedule.get(tier_role.name, {}).get(match_day, [])),
+        #     "active": False
+        # }
+        tier_summaries = []
+        for tier_role, data in report_summary_json.items():
+            # using standard strings
+            tier_summary = f"{tier_role.mention} ({data['success_count']}/{data['total_matches']})"
+            link = data.get('bc_group_link')
+            if link:
+                tier_summary += f" [View Group]({link})"  
+
+            if data['active']:
+                tier_summary = f"**{tier_summary} [Processing]**"
+                embed.color = tier_role.color
+            tier_summaries.append(tier_summary)
+
+            # # using embed fields
+            # value_str = f"Replay Processing Summary: {data['success_count']}/{data['total']}"
+            # if data['active']:
+            #     value_str = f"**{value_str}**"
+            # embed.add_field(name=tier_role.name, value=value_str)
+        
+        description = '\n\n'.join(tier_summaries)
+
+        if complete:
+            description += "\n\n"
+            success_count = sum(tier_data['success_count'] for tier_data in report_summary_json.values())
+            total_count = sum(tier_data['total_matches'] for tier_data in report_summary_json.values())
+
+            if success_count == total_count:
+                description += f":white_check_mark: **All matches have been successfully reported! ({success_count}/{total_count})**"
+                embed.color = discord.Color.green()
+            else:
+                embed.color = discord.Color.red()
+                description += f":exclamation: **Some matches could not be found. ({success_count}/{total_count})**"
+            
+        embed.description = description
+        return embed
+
     async def tmp_download_replays(self, ctx, replay_ids):
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
         tmp_replay_files = []
@@ -821,4 +904,3 @@ class BCManager(commands.Cog):
         return await self.config.guild(guild).TimeZone()
 
 # endregion
-
