@@ -1,5 +1,4 @@
 
-from .config import config
 from .bcManager import BCManager
 
 def setup(bot):

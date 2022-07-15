@@ -47,12 +47,19 @@ class TeamManager(commands.Cog):
     async def addTier(self, ctx, tier_name: str):
         """Add a tier to the tier list and creates corresponding roles. 
         This will need to be done before any transactions can be done for players in this tier"""
-        await self._create_role(ctx, tier_name)
-        await self._create_role(ctx, "{0}FA".format(tier_name))
-        tiers = await self.tiers(ctx)
-        tiers.append(tier_name)
-        await self._save_tiers(ctx, tiers)
-        await ctx.send("Done.")
+        await self._add_tier(ctx, tier_name)
+        await ctx.send("Done")
+
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def addTiers(self, ctx, *, tier_names):
+        """Add one or more tiers to the tier list and creates corresponding roles. 
+        This will need to be done before any transactions can be done for players in this tier"""
+        tier_names = tier_names.split()
+        for tier_name in tier_names:
+            await self._add_tier(ctx, tier_name)
+        await ctx.send("Done")
 
     @commands.command()
     @commands.guild_only()
@@ -379,12 +386,10 @@ class TeamManager(commands.Cog):
 
         embed = discord.Embed(
             title="Franchises", color=discord.Colour.blue(), thumbnail=ctx.guild.icon_url)
-        embed.add_field(name="Pfx.", value="{}\n".format(
-            "\n".join(prefixes)), inline=True)
-        embed.add_field(name="Franchise", value="{}\n".format(
-            "\n".join(franchises)), inline=True)
-        embed.add_field(name="General Manager",
-                        value="{}\n".format("\n".join(gms)), inline=True)
+        embed.add_field(name="Pfx.", value="{}\n".format("\n".join(prefixes)), inline=True)
+        embed.add_field(name="Franchise", value="{}\n".format("\n".join(franchises)), inline=True)
+        embed.add_field(name="General Manager", value="{}\n".format("\n".join(gms)), inline=True)
+        embed.set_thumbnail(url=ctx.guild.icon_url)
         await ctx.send(embed=embed)
 
     @commands.command()
@@ -652,6 +657,14 @@ class TeamManager(commands.Cog):
         except asyncio.TimeoutError:
             await ctx.send("Sorry {}, you didn't react quick enough. Please try again.".format(user.mention))
             return False
+
+    async def _add_tier(self, ctx, tier_name):
+        await self._create_role(ctx, tier_name)
+        await self._create_role(ctx, "{0}FA".format(tier_name))
+        tiers = await self.tiers(ctx)
+        tiers.append(tier_name)
+        await self._save_tiers(ctx, tiers)
+        await ctx.send("Done.")
 
     async def _get_franchise_data(self, ctx, franchise_identifier):
         """Returns franchise data as 4-set-tuple from a franchise identifier (Franchise name, prefix, role, GM name)."""
