@@ -441,7 +441,7 @@ class Match(commands.Cog):
     async def _create_additional_info(self, guild, user_team_name, match, is_playoffs=False, is_embed=False):
         home = match['home']
         away = match['away']
-        match_format = match['matchFormat']
+        match_format = match.get('matchFormat', '4-gs')
 
         additional_info = ""
 
