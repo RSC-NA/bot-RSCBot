@@ -641,7 +641,7 @@ class Match(commands.Cog):
                     return playing
 
     def parse_matchup_type(self, matchup_code):
-        format_components = matchup_code.split('-')
+        format_components = matchup_code.lower().split('-')
 
         for component in format_components:
             if component.isdigit():
