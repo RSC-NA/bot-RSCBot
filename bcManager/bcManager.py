@@ -168,7 +168,7 @@ class BCManager(commands.Cog):
                         tier_md_group_link = f"https://ballchasing.com/group/{tier_md_group_id}"
                         bc_report_summary_json[tier_role]['bc_group_link'] = tier_md_group_link
                     
-                    if not match_group_info['is_valid_set']:
+                    if not match_group_info.get('is_valid_set', False):
                         missing_tier_replays.append(match)
                 
             if missing_tier_replays:
