@@ -157,11 +157,8 @@ class BCManager(commands.Cog):
                     await self.send_match_summary(ctx, match, tier_report_channel)
                     bc_report_summary_json[tier_role]['success_count'] += 1
                 else:
-                    try:
-                        match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, report_channel=tier_report_channel)
-                        bc_report_summary_json[tier_role]['success_count'] += 1
-                    except:
-                        pass
+                    match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, report_channel=tier_report_channel)
+                    
 
                     if not tier_md_group_id and match_group_info.get('is_valid_set', False):
                         tier_md_group_id = match_group_info.get("tier_md_group_id")
@@ -170,6 +167,8 @@ class BCManager(commands.Cog):
                     
                     if not match_group_info.get('is_valid_set', False):
                         missing_tier_replays.append(match)
+                    else:
+                        bc_report_summary_json[tier_role]['success_count'] += 1
                 
             if missing_tier_replays:
                 all_missing_replays[tier_role.name] = missing_tier_replays
@@ -273,7 +272,8 @@ class BCManager(commands.Cog):
         ## Not found:
         if not discovery_data.get("is_valid_set", False):
             embed.description = discovery_data['summary']
-            return await bc_status_msg.edit(embed=embed)
+            await bc_status_msg.delete()
+            return {}
 
         ## Found:
         winner = discovery_data.get('winner')
