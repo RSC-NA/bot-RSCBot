@@ -146,7 +146,7 @@ class BCManager(commands.Cog):
             tier_md_group_id = None
             tier_report_channel = await self.get_score_reporting_channel(tier_role)
             for match in schedule.get(tier_role.name, {}).get(match_day, []):
-
+                match_group_info = {}
                 # update status message
                 await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
 
@@ -163,7 +163,7 @@ class BCManager(commands.Cog):
                     except:
                         pass
 
-                    if not tier_md_group_id:
+                    if not tier_md_group_id and match_group_info.get('is_valid_set', False):
                         tier_md_group_id = match_group_info.get("tier_md_group_id")
                         tier_md_group_link = f"https://ballchasing.com/group/{tier_md_group_id}"
                         bc_report_summary_json[tier_role]['bc_group_link'] = tier_md_group_link
