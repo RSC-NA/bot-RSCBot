@@ -1,4 +1,5 @@
 import discord
+import logging
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
@@ -15,6 +16,7 @@ from pytz import all_timezones_set, timezone, UTC
 from datetime import datetime
 import ballchasing
 
+log = logging.getLogger("red.RSCBot.bcManager")
 
 defaults = {
     "ReplayDumpChannel": None,
@@ -111,6 +113,7 @@ class BCManager(commands.Cog):
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def reportMatches(self, ctx, match_day: int=None):
+        log.debug("Reporting matches...")
         if not match_day:
             match_day = await self.match_cog._match_day(ctx)
         
@@ -125,6 +128,7 @@ class BCManager(commands.Cog):
         all_missing_replays = {}
 
         # Prep Report Status Message
+        log.debug(f"Tier Roles: {tier_roles}")
         bc_report_summary_json = {}
         for tier_role in tier_roles:
             bc_report_summary_json[tier_role] = {
@@ -163,6 +167,10 @@ class BCManager(commands.Cog):
                     if not tier_md_group_id and match_group_info.get('is_valid_set', False):
                         tier_md_group_id = match_group_info.get("tier_md_group_id")
                         tier_md_group_link = f"https://ballchasing.com/group/{tier_md_group_id}"
+                        log.debug(f"MD Group ID: {tier_md_group_id}")
+                        log.debug(f"BC Report Tier Role: {tier_role}")
+                        log.debug(f"BC Report Summary JSON: {bc_report_summary_json[tier_role]}")
+                        log.debug(f"BC Group Link: {bc_report_summary_json[tier_role]['bc_group_link']}")
                         bc_report_summary_json[tier_role]['bc_group_link'] = tier_md_group_link
                     
                     if not match_group_info.get('is_valid_set', False):
