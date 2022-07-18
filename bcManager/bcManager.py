@@ -185,10 +185,15 @@ class BCManager(commands.Cog):
         
         # update status message
         await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
-                
-        
         # TODO: enable:
         # await self.process_missing_replays(ctx.guild, all_missing_replays)
+             
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def hi(self, ctx):
+        await ctx.send("hi")        
+        
 
 # endregion 
 
@@ -272,7 +277,6 @@ class BCManager(commands.Cog):
         if emoji_url:
             embed.set_thumbnail(url=emoji_url)
         bc_status_msg = await report_channel.send(embed=embed)
-
 
         # Step 3: Search for replays on ballchasing
         discovery_data = await self.find_match_replays(ctx, match)
