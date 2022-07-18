@@ -378,7 +378,16 @@ class BCManager(commands.Cog):
         for player in all_players:
             for steam_id in (await self.get_steam_ids(ctx.guild, player)):
 
-                data = bapi.get_replays(
+                # data = bapi.get_replays(
+                #     playlist=BCConfig.PLAYLIST,
+                #     sort_by=BCConfig.SORT_BY,
+                #     sort_dir=BCConfig.SORT_DIR,
+                #     replay_after=utc_dt_open_search_range_str,
+                #     replay_before=utc_dt_close_search_range_str,
+                #     uploader=steam_id
+                # )
+                data = await asyncio.to_thread(
+                    bapi.get_replays,
                     playlist=BCConfig.PLAYLIST,
                     sort_by=BCConfig.SORT_BY,
                     sort_dir=BCConfig.SORT_DIR,
