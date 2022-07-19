@@ -77,6 +77,10 @@ Example:
 
     `$ & c:/Users/<path_to_project>/.venv/Scripts/Activate.ps1`
 
+    or if you're already in your project path, then you can just run
+
+    `$ & .venv/Scripts/Activate.ps1`
+
 1. Run Bot Instance:
 
     - From Terminal:
