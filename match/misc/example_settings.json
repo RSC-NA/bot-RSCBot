@@ -1,0 +1,44 @@
+{
+    "1234567893": {
+        "GUILD": {
+            "511626314495688706": {
+                "Schedules": {
+                    "Challenger": {
+                        "4": [
+                            {
+                                "matchDay": "4",
+                                "matchDate": "July 6, 2022",
+                                "matchType": "Regular Season",
+                                "home": "Gorillas",
+                                "away": "Peppermint",
+                                "roomName": "badlands",
+                                "roomPass": "bubbly"
+                            },
+                            {
+                                "matchDay": "4",
+                                "matchDate": "May 25, 2022",
+                                "matchType": "Regular Season",
+                                "home": "Thermal",
+                                "away": "Gorillas",
+                                "roomName": "fury",
+                                "roomPass": "sultan",
+                                "report": {
+                                    "winner": "Thermal",
+                                    "home_wins": 4,
+                                    "away_wins": 0,
+                                    "summary": "**Thermal** 4 - 0 **Gorillas**",
+                                    "ballchasing_link": "https://ballchasing.com/group/thermal-vs-gorillas-ljbshz1yd9"
+                                }
+                            }
+                        ]
+                    }
+                },
+                "LobbyHashes": {
+                    "1": [-8600427675859063065, 7192519824993810708],
+                    "2": [4301634076316122128, 6282479947756218303]
+                },
+                "MatchDay": "4"
+            }
+        }
+    }
+}
