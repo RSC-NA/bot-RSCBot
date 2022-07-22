@@ -2,7 +2,7 @@
     "author" : ["RSC Development Committee"],
     "description" : "A ballchasing integration with Rocket Soccar Confederation (RSC) for league match replay management and score reporting.",
     "short" : "RSC ballchasing integration.",
-    "requirements" : ["requests", "python-ballchasing"],
+    "requirements" : ["python-ballchasing"],
     "permissions" : [],
     "tags" : ["RSC"],
     "min_python_version": [3, 9, 0]
