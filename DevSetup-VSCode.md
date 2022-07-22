@@ -13,10 +13,12 @@ This set of instructions informs developers how to configure their dev environme
 1. Create virtual Environment:
     
     `$ python -m venv .venv`
-1. At the bottom right of the IDE, a prompt may appear: https://i.stack.imgur.com/HzSHk.png.
+1. At the bottom right of the IDE, a prompt may appear:
 
-    - _"We noticed a new virtual environment has been created. Do you want to select it for the workspace folder?"_
-    - Select **Yes**.
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![](https://i.stack.imgur.com/HzSHk.png)
+
+- _"We noticed a new virtual environment has been created. Do you want to select it for the workspace folder?"_
+- Select **Yes**.
 
 1. Install the project using: `pip install -e .[style]`
 
