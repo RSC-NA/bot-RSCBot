@@ -739,7 +739,7 @@ class BCManager(commands.Cog):
                 embed.color = discord.Color.green()
             else:
                 embed.color = discord.Color.red()
-                description += f":exclamation: **Some matches could not be found. ({success_count}/{total_count})**"
+                description += f":exclamation: **Some matches could not be found. (found {success_count}/{total_count})**"
             
         embed.description = description
         return embed
