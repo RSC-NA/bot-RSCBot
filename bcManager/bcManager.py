@@ -185,10 +185,9 @@ class BCManager(commands.Cog):
         
         # update status message
         await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
-                
-        
         # TODO: enable:
-        # await self.process_missing_replays(ctx.guild, all_missing_replays)
+        # await self.process_missing_replays(ctx.guild, all_missing_replays)       
+        
 
 # endregion 
 
@@ -272,7 +271,6 @@ class BCManager(commands.Cog):
         if emoji_url:
             embed.set_thumbnail(url=emoji_url)
         bc_status_msg = await report_channel.send(embed=embed)
-
 
         # Step 3: Search for replays on ballchasing
         discovery_data = await self.find_match_replays(ctx, match)
@@ -374,7 +372,8 @@ class BCManager(commands.Cog):
         for player in all_players:
             for steam_id in (await self.get_steam_ids(ctx.guild, player)):
 
-                data = bapi.get_replays(
+                data = await asyncio.to_thread(
+                    bapi.get_replays,
                     playlist=BCConfig.PLAYLIST,
                     sort_by=BCConfig.SORT_BY,
                     sort_dir=BCConfig.SORT_DIR,
@@ -413,6 +412,7 @@ class BCManager(commands.Cog):
                                 discovery_data['away_wins'] += 1
                     else:
                         pass
+                
                 # update accounts searched to avoid duplicate searches (maybe not needed)
                 discovery_data['accounts_searched'].append(steam_id)
 
@@ -726,7 +726,7 @@ class BCManager(commands.Cog):
                 embed.color = discord.Color.green()
             else:
                 embed.color = discord.Color.red()
-                description += f":exclamation: **Some matches could not be found. ({success_count}/{total_count})**"
+                description += f":exclamation: **Some matches could not be found. (found {success_count}/{total_count})**"
             
         embed.description = description
         return embed
