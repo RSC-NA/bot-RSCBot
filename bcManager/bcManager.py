@@ -22,7 +22,8 @@ defaults = {
     "ReplayDumpChannel": None,
     "AuthToken": None,
     "TopLevelGroup": None,
-    "TimeZone": 'America/New_York'
+    "TimeZone": 'America/New_York',
+    "LogChannel": None
 }
 
 verify_timeout = 30
@@ -91,6 +92,20 @@ class BCManager(commands.Cog):
 
         await ctx.send(DONE)
 
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setBCLogChannel(self, ctx, channel: discord.TextChannel=None):
+        await self._save_log_channel(ctx.guild, channel)
+        await ctx.send(DONE)
+    
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def getBCLogChannel(self, ctx):
+        channel = await self._get_log_channel(ctx.guild)
+        await ctx.reply(channel.mention)
+
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
@@ -107,7 +122,7 @@ class BCManager(commands.Cog):
             return await ctx.send(msg)
 
         await self._save_time_zone(ctx.guild, time_zone)
-        await ctx.send("Done")
+        await ctx.reply("Done")
 
     @commands.command(aliases=['reportAllMatches', 'ram'])
     @commands.guild_only()
@@ -141,7 +156,9 @@ class BCManager(commands.Cog):
             }
         
         guild_emoji_url = ctx.guild.icon_url
-        processing_status_msg = await ctx.send(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+        channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
+        status_messages = await self.send_ram_message(channels, self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+        # TODO: remove: processing_status_msg = await ctx.send(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
 
         # Process/Report All Replays
         for tier_role in tier_roles:
@@ -152,8 +169,8 @@ class BCManager(commands.Cog):
             for match in schedule.get(tier_role.name, {}).get(match_day, []):
                 match_group_info = {}
                 # update status message
-                await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
-
+                # TODO: remove: await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+                await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
                 # update status embed
                 bc_report_summary_json[tier_role]['index'] += 1
                 
@@ -184,9 +201,10 @@ class BCManager(commands.Cog):
             bc_report_summary_json[tier_role]['active'] = False
         
         # update status message
-        await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
+        # TODO: remove: await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
+        await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
         # TODO: enable:
-        # await self.process_missing_replays(ctx.guild, all_missing_replays)       
+        await self.process_missing_replays(ctx) #, all_missing_replays)       
         
 
 # endregion 
@@ -225,7 +243,7 @@ class BCManager(commands.Cog):
 
 # endregion
 
-# region helper commands
+# region helper functions
     
     # region primary helpers
     
@@ -528,8 +546,9 @@ class BCManager(commands.Cog):
         return replay_ids_in_group
 
     # TODO
-    async def process_missing_replays(self, ctx, missing_replays: dict):
+    async def process_missing_replays(self, ctx): #, missing_replays: dict):
         # Step 0: Load old missing replays
+        missing_matches = await self.match_cog.get_unreported_matches(ctx)
 
         # Step 1: search ballchasing for old missing replays, update old missing replays
 
@@ -538,12 +557,45 @@ class BCManager(commands.Cog):
         # Step 3: combine old and new missing replays data set
 
         # Step 4: generate missing replays report message
+        missing_replays_report = await self.generate_missing_replays_msg(ctx.guild, missing_matches)
 
         # Step 5: save all missing replay data to json
 
         # Step 6: send missing replays report to stats-updates channel
-        channel : discord.TextChannel = await self.get_stats_updates_channel(ctx.guild)
-        await channel.send(missing_replays)
+        # channel : discord.TextChannel = await self.get_stats_updates_channel(ctx.guild)
+        channel = await self._get_log_channel(ctx.guild)
+        await channel.send(missing_replays_report)
+
+    async def generate_missing_replays_msg(self, guild, missing_matches):
+        tier_chunks = []
+
+        for tier, matches in missing_matches.items():
+            tier_str = f"__{tier}__"
+            tier_str += "\n```\n"
+
+            for match in matches:
+                tier_str += "\n"
+                if match['matchDay'].isdigit():
+                    tier_str += f"{match['home']} vs {match['away']} - MD{match['matchDay']}"
+                else:
+                    tier_str += f"{match['home']} vs {match['away']} - MD-{match['matchDay']}"
+                    mt = match.get('matchType')
+                    if mt:
+                        tier_str += f" ({mt})"
+
+            tier_str += "\n```\n"
+
+            tier_chunks.append(tier_str)
+        
+        report = ""
+        report += "\n".join(tier_chunks)
+
+        ballchasing_link = await self._get_top_level_group(guild)
+        report += "\n"
+        report += f"RSC Ballchasing group: <{ballchasing_link}>"
+        report += "\nRSC Match Day Rules: <https://tinyurl.com/MatchDayRules>"
+        
+        return report
 
     # endregion
 
@@ -773,6 +825,18 @@ class BCManager(commands.Cog):
             }
         }
     
+    async def send_ram_message(self, channels, embed: discord.Embed):
+        messages = []
+        for channel in channels:
+            if channel:
+                message = await channel.send(embed=embed)
+                messages.append(message)
+        return messages
+
+    async def update_messages(self, messages, embed: discord.Embed):
+        for message in messages:
+            await message.edit(embed=embed)
+
     # TODO: update to lookup request
     async def get_steam_ids(self, guild, player: discord.Member):    
         return ['76561198380344413', '76561199064986643']
@@ -906,9 +970,14 @@ class BCManager(commands.Cog):
     
     async def _save_time_zone(self, guild, time_zone):
         await self.config.guild(guild).TimeZone.set(time_zone)
-        # self.time_zones[guild] = time_zone
 
     async def _get_time_zone(self, guild):
         return await self.config.guild(guild).TimeZone()
 
+    async def _get_log_channel(self, guild: discord.Guild):
+        return guild.get_channel(await self.config.guild(guild).LogChannel())
+    
+    async def _save_log_channel(self, guild: discord.Guild, channel: discord.TextChannel):
+        await self.config.guild(guild).LogChannel.set(channel.id)
+    
 # endregion
