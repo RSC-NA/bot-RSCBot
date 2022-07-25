@@ -212,17 +212,17 @@ class BCManager(commands.Cog):
 # region player commands 
     @commands.command(aliases=['bcr', 'bcpull'])
     @commands.guild_only()
-    async def bcreport(self, ctx): # , team_name=None, match_day=None):
+    async def bcreport(self, ctx, match_day: int=None): # , team_name=None, match_day=None):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
         """        
-        await self.process_bcreport(ctx)
+        await self.process_bcreport(ctx, match_day=match_day)
     
     @commands.command(aliases=['fbcr', 'fbcpull'])
     @commands.guild_only()
-    async def forcebcreport(self, ctx): # , team_name=None, match_day=None):
+    async def forcebcreport(self, ctx, match_day: int=None): # , team_name=None, match_day=None):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
         """        
-        await self.process_bcreport(ctx, True)
+        await self.process_bcreport(ctx, True, match_day=match_day)
     
     @commands.command(aliases=['bcGroup', 'ballchasingGroup', 'bcg'])
     @commands.guild_only()
@@ -254,10 +254,10 @@ class BCManager(commands.Cog):
             if token:
                 self.ballchasing_api[guild] = ballchasing.Api(token)
 
-    async def process_bcreport(self, ctx, force=False):
+    async def process_bcreport(self, ctx, force=False, match_day: int=None):
         # Step 1: Find Match
         player = ctx.author
-        matches = await self.get_matches(ctx, player)
+        matches = await self.get_matches(ctx, player, match_day=match_day)
         if not matches:
             return await ctx.send(":x: No matches found.")
         
