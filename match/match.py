@@ -284,8 +284,7 @@ class Match(commands.Cog):
 # Helper Functions
     async def _add_match(self, ctx, match_day, match_date, home, away, match_type, match_format):
         """Does the actual work to save match data."""
-        # Process inputs to normalize the data (e.g. convert team names to
-        # roles)
+        # Process inputs to normalize the data (e.g. convert team names to roles)
         match_date_error = None
         try:
             datetime.strptime(match_date, '%B %d, %Y').date()
