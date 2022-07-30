@@ -224,10 +224,58 @@ class BCManager(commands.Cog):
     async def missingMatchReport(self, ctx):
         await self.process_missing_replays(ctx) #, all_missing_replays)  
 
-    @commands.command(aliases=['mrm', 'manuallyUpdateMatch', 'mum'])
+    @commands.command(aliases=['manuallyReportMatch'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def manualReport(self, ctx, match_day: int, bc_match_link_or_id):
+    async def manualMatchReport(self, ctx, match_day: int, team_a, a_wins: int, team_b, b_wins: int):
+        """Submits a manual report for a match without performing ballchasing requests
+        
+        Example:
+        [p]manualMatchReport 4 Gorillas 3 Peppermint 1
+        """
+        match = await self.get_matchup(ctx, match_day, team_a, team_b)
+
+        if not match:
+            return await ctx.reply(":x: Match could not be found.")
+        
+        if match.get('report'):
+            return await ctx.reply("This match has already been reported:\n{}".format(match['report']['summary']))
+
+        if match['home'].lower() == team_a.lower():
+            home_wins = a_wins 
+            away_wins = b_wins
+        else:
+            home_wins = b_wins 
+            away_wins = a_wins
+
+        tier_role = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[1]
+
+        winner = None
+        if home_wins != away_wins:
+            winner = match['home'] if home_wins > away_wins else match['away']
+
+        report = {
+            "match_format": match['matchFormat'],
+            "winner": winner,
+            "home_wins": home_wins,
+            "away_wins": away_wins,
+            "summary": f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**",
+            "manual": True
+        }
+
+        if not self.is_valid_replay_set(report):
+            return await ctx.reply(f":x: This is not a valid result set for the format `{match['matchFormat']}`")
+        
+        match = await self.update_match_info(ctx, tier_role.name, match, report)
+        
+        # TODO: if match was previously reported, should replays persist?
+        
+        await ctx.reply(DONE)
+
+    @commands.command(aliases=['mmu', 'manuallyUpdateMatch', 'mum'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def manualMatchUpdate(self, ctx, match_day: int, bc_match_link_or_id):
         match_code = self.parse_group_code(bc_match_link_or_id)
         
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
@@ -259,7 +307,7 @@ class BCManager(commands.Cog):
             "winner": None,
             "home_wins": 0,
             "away_wins": 0,
-            "summary": None,
+            "summary": f"{match['home']} {home_goals} - {away_goals} {match['away']}",
         }
         bc_group_data = {
             "id": match_code,
@@ -285,7 +333,16 @@ class BCManager(commands.Cog):
         elif discovery_data['away_wins'] > discovery_data['home_wins']:
             discovery_data['winner'] = match['away']
 
-        match = await self.update_match_info(ctx, tier_role.name, match, discovery_data, bc_group_data)
+        match_report = {
+            "winner": discovery_data.get('winner'),
+            "home_wins": discovery_data.get('home_wins'),
+            "away_wins": discovery_data.get('away_wins'),
+            "summary": discovery_data.get('summary'),
+            "ballchasing_id": bc_group_data.get('id'),
+            "ballchasing_link": bc_group_data.get('link', 
+                f"https://ballchasing.com/group/{bc_group_data.get('id')}")
+        }
+        match = await self.update_match_info(ctx, tier_role.name, match, match_report)
         sr_channel = await self.get_score_reporting_channel(tier_role)
         await self.send_match_summary(ctx, match, sr_channel)
         await ctx.reply(DONE)
@@ -410,7 +467,16 @@ class BCManager(commands.Cog):
         await bc_status_msg.edit(embed=embed)
 
         # Step 6: Update match cog info
-        await self.update_match_info(ctx, tier_role.name, match, discovery_data, match_subgroup_json)
+        report = {
+            "winner": discovery_data.get('winner'),
+            "home_wins": discovery_data.get('home_wins'),
+            "away_wins": discovery_data.get('away_wins'),
+            "summary": discovery_data.get('summary'),
+            "ballchasing_id": match_subgroup_json.get('id'),
+            "ballchasing_link": match_subgroup_json.get('link', 
+                f"https://ballchasing.com/group/{match_subgroup_json.get('id')}")
+        }
+        await self.update_match_info(ctx, tier_role.name, match, report)
 
         match_subgroup_json['is_valid_set'] = discovery_data['is_valid_set']
 
@@ -430,22 +496,40 @@ class BCManager(commands.Cog):
         replays = bapi.get_replays(group_id=match['report']['ballchasing_id'])
 
         description = "Match Summary\n" + match['report']['summary'] + "\n"
-        description += "\n**Game Breakdown**"
+        embed = discord.Embed(title=title, description=description, color=tier_role.color)
+
+        # previously ff games
+        forfeits = match['report'].get('forfeits')
+
+        ff_indexes = [ff['game_no'] for ff in forfeits] if forfeits else []
+
+        # valid games
+        r_description = ""
         game_summaries = []
+        gi = 1
         for replay in replays:
+            while gi in ff_indexes:
+                gi += 1
             home_goals, away_goals = self.get_home_away_goals(match, replay)
             winner_emoji = home_emoji if home_goals > away_goals else away_emoji
-            summary = f"{match['home']} {home_goals} - {away_goals} {match['away']} {winner_emoji}"
+            summary = f"**Game {gi}:** {match['home']} {home_goals} - {away_goals} {match['away']}"
+            if winner_emoji:
+                summary += f" {winner_emoji}"
+
             game_summaries.append({
                 "summary": summary,
                 "home_goals": home_goals,
                 "away_goals": away_goals,
                 "replay": replay
             })
+            r_description += "\n" + summary
+            gi += 1
             
-            description += "\n" + summary 
-
-        embed = discord.Embed(title=title, description=description, color=tier_role.color)
+        # add fields
+        embed.add_field(name="Game Breakdown", value=r_description, inline=False)
+        if forfeits:
+            embed.add_field(name="Forfeited Games", value="\n".join([f"{ff['team']} FF Game {ff['game_no']}" for ff in forfeits]), inline=False)
+        
         if match_emoji_url:
             embed.set_thumbnail(url=match_emoji_url)
 
@@ -454,6 +538,8 @@ class BCManager(commands.Cog):
             "away_emoji": away_emoji,
             "game_summaries": game_summaries
         }
+        if forfeits:
+            deep_match_report["ff_summaries"] = forfeits
 
 
         return deep_match_report, embed
@@ -796,23 +882,23 @@ class BCManager(commands.Cog):
 
         for component in format_components:
             if component.isdigit():
-                num_games = int(component)
+                fmt_games = int(component)
                 break
         
-        format_components.remove(str(num_games))
+        format_components.remove(str(fmt_games))
         format_type = format_components[0]
+        gp = discovery_data.get('home_wins', 0) + discovery_data.get('away_wins', 0)
 
-        if format_type == 'gs':
-            gp = discovery_data.get('home_wins', 0) + discovery_data.get('away_wins', 0)
-            return (gp == num_games)
+        if format_type == 'gs':    
+            return (gp == fmt_games)
 
         elif format_type == 'bo':
-            winning_team_wins = int(num_games/2) + 1 
-            return (
+            winning_team_wins = int(fmt_games/2) + 1 
+            return (gp <= fmt_games and (
                 discovery_data.get('home_wins', 0) == winning_team_wins
                 or
                 discovery_data.get('away_wins', 0) == winning_team_wins
-            )
+            ))
         
         return False
 
@@ -837,17 +923,8 @@ class BCManager(commands.Cog):
 
         return home_goals, away_goals
 
-    async def update_match_info(self, ctx, tier, match, discovery_data, bc_group_data):
-        report = {
-            "winner": discovery_data.get('winner'),
-            "home_wins": discovery_data.get('home_wins'),
-            "away_wins": discovery_data.get('away_wins'),
-            "summary": discovery_data.get('summary'),
-            "ballchasing_id": bc_group_data.get('id'),
-            "ballchasing_link": bc_group_data.get('link', 
-                f"https://ballchasing.com/group/{bc_group_data.get('id')}")
-        }
-
+    async def update_match_info(self, ctx, tier, match, report):
+        
         schedule = await self.match_cog._schedule(ctx)
         match_index = self.match_cog.get_match_index_in_day(schedule, tier, match)
 
@@ -1099,7 +1176,7 @@ class BCManager(commands.Cog):
         else:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
         
-        emoji_url = None
+        emoji_url = ""
         if emoji:
             emoji_url = emoji.url
         elif ctx.guild.icon_url:
