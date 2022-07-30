@@ -44,6 +44,7 @@ class BCManager(commands.Cog):
 
 # region admin commands
    
+    # region setup
     @commands.command(aliases=['setAuthKey'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -123,6 +124,9 @@ class BCManager(commands.Cog):
         await self._save_time_zone(ctx.guild, time_zone)
         await ctx.reply("Done")
 
+    # endregion
+
+    # region normal use
     @commands.command(aliases=['reportAllMatches', 'ram'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -203,13 +207,24 @@ class BCManager(commands.Cog):
         # TODO: remove: await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
         await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))     
     
+    @commands.command(aliases=['rff', 'reportFF'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def reportForfeits(self, ctx, match_day, team_a, team_b):
+        match = await self.get_matchup(ctx, match_day, team_a, team_b)
+        if not match:
+            return await ctx.reply(f":x: No match could be found for **{team_a} vs {team_b}** on match day {match_day}.")
+        
+        deep_match_report, embed = await self.get_score_deep_summary_and_embed(ctx, match)
+        message = await ctx.reply(embed=embed)
+
     @commands.command(aliases=['mmr'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def missingMatchReport(self, ctx):
         await self.process_missing_replays(ctx) #, all_missing_replays)  
 
-    @commands.command(aliases=['mrm'])
+    @commands.command(aliases=['mrm', 'manuallyUpdateMatch', 'mum'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def manualReport(self, ctx, match_day: int, bc_match_link_or_id):
@@ -274,6 +289,8 @@ class BCManager(commands.Cog):
         sr_channel = await self.get_score_reporting_channel(tier_role)
         await self.send_match_summary(ctx, match, sr_channel)
         await ctx.reply(DONE)
+
+    # endregion
 
 # endregion 
 
@@ -399,15 +416,69 @@ class BCManager(commands.Cog):
 
         return match_subgroup_json
 
+    async def get_score_deep_summary_and_embed(self, ctx, match):
+        title = f"Match Day {match['matchDay']}: {match['home']} vs {match['away']}"
+        tier_role, match_emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
+        
+        home_franchise_role = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[0]
+        away_franchise_role = (await self.team_manager_cog._roles_for_team(ctx, match['away']))[0]
+        home_emoji = await self.team_manager_cog._get_franchise_emoji(ctx, home_franchise_role)
+        away_emoji = await self.team_manager_cog._get_franchise_emoji(ctx, away_franchise_role)
+
+        bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
+
+        replays = bapi.get_replays(group_id=match['report']['ballchasing_id'])
+
+        description = "Match Summary\n" + match['report']['summary'] + "\n"
+        description += "\n**Game Breakdown**"
+        game_summaries = []
+        for replay in replays:
+            home_goals, away_goals = self.get_home_away_goals(match, replay)
+            winner_emoji = home_emoji if home_goals > away_goals else away_emoji
+            summary = f"{match['home']} {home_goals} - {away_goals} {match['away']} {winner_emoji}"
+            game_summaries.append({
+                "summary": summary,
+                "home_goals": home_goals,
+                "away_goals": away_goals,
+                "replay": replay
+            })
+            
+            description += "\n" + summary 
+
+        embed = discord.Embed(title=title, description=description, color=tier_role.color)
+        if match_emoji_url:
+            embed.set_thumbnail(url=match_emoji_url)
+
+        deep_match_report = {
+            "home_emoji": home_emoji,
+            "away_emoji": away_emoji,
+            "game_summaries": game_summaries
+        }
+
+
+        return deep_match_report, embed
+
+    async def get_matchup(self, ctx, match_day, team_a, team_b):
+        matches = await self.get_matches(ctx, team=team_a, match_day=match_day)
+        search_teams = [team_a.lower(), team_b.lower()]
+        for match in matches:
+            match_teams = [match['home'].lower(), match['away'].lower()]
+            if len(set(search_teams + match_teams)) == 2:
+                return match 
+        return None
+
     async def get_match(self, ctx, member, team=None, match_day=None, match_index=0):
         return (await self.get_matches(ctx, member, team, match_day))[match_index]
 
-    async def get_matches(self, ctx, member, team=None, match_day=None):
+    # this method got a little sloppy
+    async def get_matches(self, ctx, member=None, team=None, match_day=None):
         if not match_day:
             match_day = await self.match_cog._match_day(ctx)
         if not team:
             team = (await self.team_manager_cog.teams_for_user(ctx, member))[0]
-        
+        if not team and not member:
+            return None 
+
         matches = await self.match_cog.get_team_matches(ctx, team, match_day)
         
         return matches
@@ -788,7 +859,6 @@ class BCManager(commands.Cog):
         return match
 
     async def send_match_summary(self, ctx, match, report_channel: discord.TextChannel=None):
-
         title = f"Match day {match['matchDay']}: {match['home']} vs {match['away']}"
 
         if report_channel:
@@ -799,19 +869,10 @@ class BCManager(commands.Cog):
         
         description += f"[Click here to view this group on ballchasing!]({match['report']['ballchasing_link']})"
 
-        if match['report'].get('winner'):
-            franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['report']['winner'])
-            emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
-        else:
-            franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
-            emoji = None
-
+        tier_role, emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
         embed = discord.Embed(title=title, description=description, color=tier_role.color)
-        
-        if emoji:
-            embed.set_thumbnail(url=emoji.url)
-        elif ctx.guild.icon_url:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+        if emoji_url:
+            embed.set_thumbnail(url=emoji_url)
         
         await report_channel.send(embed=embed)
     
@@ -1030,6 +1091,21 @@ class BCManager(commands.Cog):
                 return channel
 
         return await ii_cat.create_text_channel(STATS_UPDATES_CHANNLE, sync=True)
+
+    async def get_match_tier_role_and_emoji_url(self, ctx, match):
+        if match['report'].get('winner'):
+            franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['report']['winner'])
+            emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
+        else:
+            franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
+        
+        emoji_url = None
+        if emoji:
+            emoji_url = emoji.url
+        elif ctx.guild.icon_url:
+            emoji_url = ctx.guild.icon_url
+        
+        return tier_role, emoji_url
 
     def is_captain(self, player):
         for role in player.roles:

@@ -27,7 +27,15 @@
                                     "home_wins": 4,
                                     "away_wins": 0,
                                     "summary": "**Thermal** 4 - 0 **Gorillas**",
-                                    "ballchasing_link": "https://ballchasing.com/group/thermal-vs-gorillas-ljbshz1yd9"
+                                    "ballchasing_id": "thermal-vs-gorillas-ljbshz1yd9",
+                                    "ballchasing_link": "https://ballchasing.com/group/thermal-vs-gorillas-ljbshz1yd9",
+                                    "message_report_ids": [],
+                                    "forfeits": [
+                                        {
+                                            "team": "Gorillas",
+                                            "game_by_time": "2022-07-14 06:49 UTC"
+                                        }
+                                    ]
                                 }
                             }
                         ]
