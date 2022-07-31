@@ -224,7 +224,6 @@ class BCManager(commands.Cog):
 
         deep_match_report, embed = await self.get_score_deep_summary_and_embed(ctx, match, status="active")
         message = await ctx.reply(embed=embed)
-        await self.assign_ff_reactions(message, deep_match_report)
         
         msg_val = { 
             "message": message,
@@ -235,6 +234,8 @@ class BCManager(commands.Cog):
         }
 
         self.ffp.setdefault(ctx.guild, {}).setdefault(message, msg_val)
+        
+        await self.assign_ff_reactions(message, deep_match_report)
 
 
     @commands.command(aliases=['mmr'])
