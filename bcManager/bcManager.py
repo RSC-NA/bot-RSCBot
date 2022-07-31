@@ -544,7 +544,9 @@ class BCManager(commands.Cog):
 
         if forfeits:
             embed.add_field(name="Forfeited Games", value="\n".join([f"{ff['team']} FF Game {ff['game_no']}" for ff in forfeits]), inline=True)
-        
+        else:
+            embed.add_field(name="Forfeited Games", value="[No Games Currently Forfeited]")
+            
         if status == "active":
             embed.add_field(name="Instructions", value="React to report match games as forfeited.\nReact with :white_check_mark: to confirm, or :negative_squared_cross_mark: to cancel.",
             inline=False)
