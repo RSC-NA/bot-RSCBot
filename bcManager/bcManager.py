@@ -14,7 +14,7 @@ import struct
 import tempfile
 import asyncio
 from pytz import all_timezones_set, timezone, UTC
-from datetime import datetime
+from datetime import datetime, timedelta
 import ballchasing
 
 log = logging.getLogger("red.RSCBot.bcManager")
@@ -29,6 +29,8 @@ defaults = {
 
 verify_timeout = 30
 DONE = "Done"
+WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
+WHITE_CHECK_REACT = "\U00002705"            # :white_check_mark:
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
@@ -42,6 +44,7 @@ class BCManager(commands.Cog):
         self.match_cog : Match = bot.get_cog("Match")
         self.ballchasing_api = {}
         self.task = asyncio.create_task(self.pre_load_data())
+        self.ffp = {} # forfeit processing
 
 # region admin commands
    
@@ -222,6 +225,17 @@ class BCManager(commands.Cog):
         deep_match_report, embed = await self.get_score_deep_summary_and_embed(ctx, match, status="active")
         message = await ctx.reply(embed=embed)
         await self.assign_ff_reactions(message, deep_match_report)
+        
+        msg_val = { 
+            "message": message,
+            "deep_match_report": deep_match_report,
+            "match": match,
+            "status": "active",
+            "timeout": datetime.now() + timedelta(seconds=15)
+        }
+
+        self.ffp.setdefault(ctx.guild, {}).setdefault(message, msg_val)
+
 
     @commands.command(aliases=['mmr'])
     @commands.guild_only()
@@ -391,7 +405,56 @@ class BCManager(commands.Cog):
 # endregion
 
 # region helper functions
+    # region listeners
+    @commands.guild_only()
+    @commands.Cog.listener("on_reaction_add")
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
+        if user.id == self.bot.user.id:
+            return
+        await self.process_ff_reacts(reaction, True)
+        
     
+    @commands.guild_only()
+    @commands.Cog.listener("on_reaction_remove")
+    async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.User):
+        if user.id == self.bot.user.id:
+            return
+        guild = self.reaction_guild(reaction)
+        if not guild:
+            return
+    
+    def reaction_guild(self, reaction: discord.Reaction):
+        try:
+            return reaction.message.guild
+        except:
+            return None
+
+    def get_channel(self, message: discord.Message):
+        return message.channel
+
+    async def process_ff_reacts(self, reaction: discord.Reaction, added: bool):
+        try:
+            message = reaction.message
+            member = message.author
+            guild = message.guild
+            channel = message.channel
+            ff_processing_data = self.ffp[guild][message]
+        except:
+            return 
+
+        ff_emojis = ff_processing_data['deep_match_report']['ff_able_reacts']
+        now = datetime.now()
+        if reaction.emoji in ff_emojis and now <= ff_processing_data['timeout']:
+            await channel.send(reaction.emoji)
+
+        if reaction.emoji not in ff_emojis:
+            await reaction.clear()
+    
+    async def process_rff_timeout(self):
+        pass
+    
+    # endregion
+
     # region primary helpers
     
     async def pre_load_data(self):
@@ -555,7 +618,7 @@ class BCManager(commands.Cog):
             embed.set_thumbnail(url=match_emoji_url)
 
         deep_match_report = {
-            "ff_able_reacts": ff_able_reacts,
+            "ff_able_reacts": ff_able_reacts + [WHITE_CHECK_REACT, WHITE_X_REACT],
             "home_emoji": home_emoji,
             "away_emoji": away_emoji,
             "game_summaries": game_summaries
@@ -1202,8 +1265,7 @@ class BCManager(commands.Cog):
         return tier_role, emoji_url
 
     async def assign_ff_reactions(self, message, deep_report):
-        confirm_cancel = ["✅", "❎"]
-        for react in deep_report['ff_able_reacts'] + confirm_cancel:
+        for react in deep_report['ff_able_reacts']:
             await message.add_reaction(react)
 
     def get_select_reaction(self, int_or_hex):
