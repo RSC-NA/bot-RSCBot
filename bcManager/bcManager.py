@@ -10,6 +10,7 @@ from .BCConfig import BCConfig
 from teamManager import TeamManager
 from match import Match
 
+import struct
 import tempfile
 import asyncio
 from pytz import all_timezones_set, timezone, UTC
@@ -215,8 +216,12 @@ class BCManager(commands.Cog):
         if not match:
             return await ctx.reply(f":x: No match could be found for **{team_a} vs {team_b}** on match day {match_day}.")
         
-        deep_match_report, embed = await self.get_score_deep_summary_and_embed(ctx, match)
+        if not match.get('report'):
+            return await ctx.reply(":x: This match has not been reported.")
+
+        deep_match_report, embed = await self.get_score_deep_summary_and_embed(ctx, match, status="active")
         message = await ctx.reply(embed=embed)
+        await self.assign_ff_reactions(message, deep_match_report)
 
     @commands.command(aliases=['mmr'])
     @commands.guild_only()
@@ -269,7 +274,7 @@ class BCManager(commands.Cog):
         match = await self.update_match_info(ctx, tier_role.name, match, report)
         
         # TODO: if match was previously reported, should replays persist?
-        
+
         await ctx.reply(DONE)
 
     @commands.command(aliases=['mmu', 'manuallyUpdateMatch', 'mum'])
@@ -482,7 +487,7 @@ class BCManager(commands.Cog):
 
         return match_subgroup_json
 
-    async def get_score_deep_summary_and_embed(self, ctx, match):
+    async def get_score_deep_summary_and_embed(self, ctx, match, status="active"):
         title = f"Match Day {match['matchDay']}: {match['home']} vs {match['away']}"
         tier_role, match_emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
         
@@ -500,19 +505,24 @@ class BCManager(commands.Cog):
 
         # previously ff games
         forfeits = match['report'].get('forfeits')
-
         ff_indexes = [ff['game_no'] for ff in forfeits] if forfeits else []
 
         # valid games
         r_description = ""
         game_summaries = []
+        ff_able_reacts = []
         gi = 1
+        i = 0
+        react_hex_code = 0x1F1E6 # A
         for replay in replays:
+            react_hex = hex(react_hex_code+i)
             while gi in ff_indexes:
                 gi += 1
+            react = self.get_select_reaction(int(react_hex, base=16))
+            ff_able_reacts.append(react)
             home_goals, away_goals = self.get_home_away_goals(match, replay)
             winner_emoji = home_emoji if home_goals > away_goals else away_emoji
-            summary = f"**Game {gi}:** {match['home']} {home_goals} - {away_goals} {match['away']}"
+            summary = f"{react} **Game {gi}:** {match['home']} {home_goals} - {away_goals} {match['away']}"
             if winner_emoji:
                 summary += f" {winner_emoji}"
 
@@ -520,20 +530,30 @@ class BCManager(commands.Cog):
                 "summary": summary,
                 "home_goals": home_goals,
                 "away_goals": away_goals,
+                "game_no": gi,
+                "react_hex": react_hex,
+                "reaction_str": react,
                 "replay": replay
             })
             r_description += "\n" + summary
             gi += 1
+            i += 1
             
         # add fields
-        embed.add_field(name="Game Breakdown", value=r_description, inline=False)
+        embed.add_field(name="Game Breakdown", value=r_description, inline=True)
+
         if forfeits:
-            embed.add_field(name="Forfeited Games", value="\n".join([f"{ff['team']} FF Game {ff['game_no']}" for ff in forfeits]), inline=False)
+            embed.add_field(name="Forfeited Games", value="\n".join([f"{ff['team']} FF Game {ff['game_no']}" for ff in forfeits]), inline=True)
+        
+        if status == "active":
+            embed.add_field(name="Instructions", value="React to report match games as forfeited.\nReact with :white_check_mark: to confirm, or :negative_squared_cross_mark: to cancel.",
+            inline=False)
         
         if match_emoji_url:
             embed.set_thumbnail(url=match_emoji_url)
 
         deep_match_report = {
+            "ff_able_reacts": ff_able_reacts,
             "home_emoji": home_emoji,
             "away_emoji": away_emoji,
             "game_summaries": game_summaries
@@ -907,6 +927,7 @@ class BCManager(commands.Cog):
     # region secondary helpers
 
     def get_home_away_goals(self, match, replay):
+
         if (replay.get('blue', {}).get('name', 'blue').lower() in match.get('home', '').lower()
             or replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()):
             home = 'blue'
@@ -978,12 +999,6 @@ class BCManager(commands.Cog):
                 tier_summary = f"**{tier_summary} [Processing]**"
                 embed.color = tier_role.color
             tier_summaries.append(tier_summary)
-
-            # # using embed fields
-            # value_str = f"Replay Processing Summary: {data['success_count']}/{data['total']}"
-            # if data['active']:
-            #     value_str = f"**{value_str}**"
-            # embed.add_field(name=tier_role.name, value=value_str)
         
         description = '\n\n'.join(tier_summaries)
 
@@ -1183,6 +1198,20 @@ class BCManager(commands.Cog):
             emoji_url = ctx.guild.icon_url
         
         return tier_role, emoji_url
+
+    async def assign_ff_reactions(self, message, deep_report):
+        confirm_cancel = ["✅", "❎"]
+        for react in deep_report['ff_able_reacts'] + confirm_cancel:
+            await message.add_reaction(react)
+
+    def get_select_reaction(self, int_or_hex):
+        try:
+            if type(int_or_hex) == int:
+                return struct.pack('<I', int_or_hex).decode('utf-32le')
+            if type(int_or_hex) == str:
+                return struct.pack('<I', int(int_or_hex, base=16)).decode('utf-32le') # i == react_hex
+        except:
+            return None
 
     def is_captain(self, player):
         for role in player.roles:
