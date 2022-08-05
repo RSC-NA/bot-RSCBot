@@ -222,7 +222,7 @@ class BCManager(commands.Cog):
         if not match.get('report'):
             return await ctx.reply(":x: This match has not been reported.")
 
-        deep_match_report, embed = await self.get_score_deep_summary_and_embed(ctx, match, status="active")
+        deep_match_report, embed = await self.get_init_score_deep_summary_and_embed(ctx, match)
         message = await ctx.reply(embed=embed)
         
         msg_val = { 
@@ -414,16 +414,14 @@ class BCManager(commands.Cog):
             return
         await self.process_ff_reacts(reaction, True)
         
-    
     @commands.guild_only()
     @commands.Cog.listener("on_reaction_remove")
     async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.User):
         if user.id == self.bot.user.id:
             return
-        guild = self.reaction_guild(reaction)
-        if not guild:
-            return
+        await self.process_ff_reacts(reaction, False)
     
+    # Listener helpers
     def reaction_guild(self, reaction: discord.Reaction):
         try:
             return reaction.message.guild
@@ -444,13 +442,14 @@ class BCManager(commands.Cog):
             return 
 
         ff_emojis = ff_processing_data['deep_match_report']['ff_able_reacts']
-        now = datetime.now()
-        if reaction.emoji in ff_emojis and now <= ff_processing_data['timeout']:
-            await channel.send(reaction.emoji)
-
+        
         if reaction.emoji not in ff_emojis:
-            await reaction.clear()
-    
+            return await reaction.clear()
+        
+        now = datetime.now()
+        if reaction.emoji in ff_emojis: # and now <= ff_processing_data['timeout']:
+            await self.update_deep_summary_and_message_embed(reaction, added)
+
     async def process_rff_timeout(self):
         pass
     
@@ -551,8 +550,8 @@ class BCManager(commands.Cog):
 
         return match_subgroup_json
 
-    async def get_score_deep_summary_and_embed(self, ctx, match, status="active"):
-        title = f"Match Day {match['matchDay']}: {match['home']} vs {match['away']}"
+    async def get_init_score_deep_summary_and_embed(self, ctx, match):
+        title = f"MD {match['matchDay']}: {match['home']} vs {match['away']} [FF Report]"
         tier_role, match_emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
         
         home_franchise_role = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[0]
@@ -586,7 +585,7 @@ class BCManager(commands.Cog):
             ff_able_reacts.append(react)
             home_goals, away_goals = self.get_home_away_goals(match, replay)
             winner_emoji = home_emoji if home_goals > away_goals else away_emoji
-            summary = f"{react} **Game {gi}:** {match['home']} {home_goals} - {away_goals} {match['away']}"
+            summary = f"{react} **G{gi}:** {match['home']} {home_goals} - {away_goals} {match['away']}"
             if winner_emoji:
                 summary += f" {winner_emoji}"
 
@@ -595,9 +594,10 @@ class BCManager(commands.Cog):
                 "home_goals": home_goals,
                 "away_goals": away_goals,
                 "game_no": gi,
-                "react_hex": react_hex,
+                "react": react_hex,
                 "reaction_str": react,
-                "replay": replay
+                "replay": replay,
+                "ff": False
             })
             r_description += "\n" + summary
             gi += 1
@@ -609,11 +609,10 @@ class BCManager(commands.Cog):
         if forfeits:
             embed.add_field(name="Forfeited Games", value="\n".join([f"{ff['team']} FF Game {ff['game_no']}" for ff in forfeits]), inline=True)
         else:
-            embed.add_field(name="Forfeited Games", value="[No Games Currently Forfeited]")
+            embed.add_field(name="Forfeited Games", value="[None]")
             
-        if status == "active":
-            embed.add_field(name="Instructions", value="React to report match games as forfeited.\nReact with :white_check_mark: to confirm, or :negative_squared_cross_mark: to cancel.",
-            inline=False)
+        embed.add_field(name="Instructions", value="React to report match games as forfeited.\nReact with :white_check_mark: to confirm, or :negative_squared_cross_mark: to cancel.",
+        inline=False)
         
         if match_emoji_url:
             embed.set_thumbnail(url=match_emoji_url)
@@ -629,6 +628,99 @@ class BCManager(commands.Cog):
 
 
         return deep_match_report, embed
+
+    async def update_deep_summary_and_message_embed(self, reaction: discord.Reaction, added: bool):
+        # TODO: outsource to helper function if reaction.emoji in [WHITE_X_REACT, WHITE_CHECK_MARK]
+
+        # member: discord.Member = reaction.member
+        message: discord.Message = reaction.message
+        emoji: discord.Emoji = reaction.emoji
+        guild = message.guild
+        match = self.ffp[guild][message]["match"]
+        # update and categorize FF'd games
+        non_ff_games = []
+        ff_games = []
+        home_w_adjust = 0
+        for gs in self.ffp[guild][message]["deep_match_report"]["game_summaries"]:
+            # Flip FFs
+            if self.get_select_reaction(gs['react']) == emoji:
+                if gs['ff']:
+                    gs['ff'] = False
+                else:
+                    # TODO: this might not save right -- we need to save it to game_summaries. maybe ...['game_summaries'] = new_game_summaries
+                    gs['ff'] = match['home'] if gs['home_goals'] > gs['away_goals'] else match['away']
+                    
+            if gs['ff']:
+                if gs['ff'] == match['home']:
+                    home_w_adjust -= 1
+                elif gs['ff'] == match['away']:
+                    home_w_adjust += 1
+                ff_games.append(gs['summary'])
+            else:
+                non_ff_games.append(gs['summary'])
+                
+        home_wins = match['report']['home_wins']
+        away_wins = match['report']['away_wins']
+        description = message.embeds[0].description
+        description_parts = description.split('\n')
+        if ff_games: # away_w_adjust is zero-sum
+            
+            home_wins += home_w_adjust
+            away_wins -= home_w_adjust
+            if len(description_parts) == 2:
+                if home_w_adjust:
+                    description_parts[1] = f"~~{description_parts[1]}~~"
+                    description_parts.append(f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**")
+                else:
+                    description_parts = description_parts[:2]
+                    description_parts[1] = description_parts[1].replace("~", "")
+
+            elif len(description_parts) == 3:
+                description_parts[2] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+        else:
+            description_parts = description_parts[:2]
+            description_parts[1] = description_parts[1].replace("~", "")
+
+        description = "\n".join(description_parts)
+
+        # Create Updated Embed
+        embed = discord.Embed(title=message.embeds[0].title, description=description, color=message.embeds[0].color)
+        
+        # add fields
+        if non_ff_games:
+            embed.add_field(name="Game Breakdown", value="\n".join(non_ff_games), inline=True)
+        else:
+            embed.add_field(name="Game Breakdown", value="ALL GAMES FF LOL", inline=True)
+
+        if ff_games:
+            embed.add_field(name="Forfeited Games", value="\n".join(ff_games))
+            #value="\n".join([f"{ff['team']} FF Game {ff['game_no']}" for ff in forfeits]), inline=True)
+        else:
+            embed.add_field(name="Forfeited Games", value="[None]")
+        
+        embed.add_field(name="Instructions", value="React to report match games as forfeited.\nReact with :white_check_mark: to confirm, or :negative_squared_cross_mark: to cancel.",
+        inline=False)
+
+        # update thumbnail
+        if home_wins > away_wins:
+            home_emoji = self.ffp[guild][message]['deep_match_report']['home_emoji']
+            if home_emoji:
+                embed.set_thumbnail(url=home_emoji.url)
+            else:
+                embed.set_thumbnail(url=guild.icon_url)
+        elif home_wins < away_wins:
+            away_emoji = self.ffp[guild][message]['deep_match_report']['away_emoji']
+            if away_emoji:
+                embed.set_thumbnail(url=away_emoji.url)
+            else:
+                embed.set_thumbnail(url=guild.icon_url)
+        else:
+            embed.set_thumbnail(url=guild.icon_url)
+        
+        await message.edit(embed=embed)
+    
+    def generate_ff_info_embed(self, ctx_or_member, match, status="active"):
+        pass 
 
     async def get_matchup(self, ctx, match_day, team_a, team_b):
         matches = await self.get_matches(ctx, team=team_a, match_day=match_day)

@@ -1066,7 +1066,7 @@ class TeamManager(commands.Cog):
         await self.config.guild(ctx.guild).Team_Roles.set(team_roles)
 
     def _find_role(self, ctx, role_id):
-        for role in ctx.message.guild.roles:
+        for role in ctx.guild.roles:
             if role.id == role_id:
                 return role
         raise LookupError(
