@@ -1,9 +1,13 @@
+from hmac import trans_5C
 import discord
 import re
 
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
+
+from teamManager import TeamManager
+from prefixManager import PrefixManager
 
 defaults = {
     "TransChannel": None,
@@ -14,15 +18,21 @@ defaults = {
 class Transactions(commands.Cog):
     """Used to set franchise and role prefixes and give to members in those franchises or with those roles"""
 
+    PERM_FA_ROLE = "PermFA"
     SUBBED_OUT_ROLE = "Subbed Out"
+    TROPHY_EMOJI = "\U0001F3C6" # :trophy:
+    GOLD_MEDAL_EMOJI = "\U0001F3C5" # gold medal
+    FIRST_PLACE_EMOJI = "\U0001F947" # first place medal
+    STAR_EMOJI = "\U00002B50" # :star:
+    LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
 
     def __init__(self, bot):
         self.bot = bot
         self.config = Config.get_conf(
             self, identifier=1234567895, force_registration=True)
         self.config.register_guild(**defaults)
-        self.prefix_cog = bot.get_cog("PrefixManager")
-        self.team_manager_cog = bot.get_cog("TeamManager")
+        self.prefix_cog : PrefixManager = bot.get_cog("PrefixManager")
+        self.team_manager_cog : TeamManager = bot.get_cog("TeamManager")
 
     @commands.guild_only()
     @commands.command()
@@ -35,6 +45,84 @@ class Transactions(commands.Cog):
             await ctx.send("Done")
         except KeyError:
             await ctx.send(":x: Transaction log channel not set")
+
+    
+    @commands.command(aliases=['makeFA'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def expireContracts(self, ctx: commands.Context, *userList):
+        """Displays each member that can be found from the userList a Free Agent in their respective tier"""
+        empty = True
+        free_agents = 0
+        notFound = 0
+        message = ""
+        fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
+        league_role = self.team_manager_cog._find_role_by_name(ctx, "League")
+
+        roles_to_remove = [
+            self.team_manager_cog._find_role_by_name(ctx, "Draft Eligible"),
+            self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE),
+            self.team_manager_cog._find_role_by_name(ctx, "Former Player")
+        ]
+
+        trans_channel : discord.TextChannel = await self._trans_channel(ctx)
+
+        for user in userList:
+            try:
+                member : discord.Member = await commands.MemberConverter().convert(ctx, user)
+
+                # For each user in guild
+                if member in ctx.guild.members:
+
+                    # prep roles to remove
+                    franchise_role = self.team_manager_cog.get_current_franchise_role(member)
+                    removable_roles = [franchise_role] if franchise_role else []
+                    for role in roles_to_remove:
+                        if role in member.roles:
+                            removable_roles.append(role)
+                    
+                    # prep roles to add
+                    tier_role = await self.team_manager_cog.get_current_tier_role(ctx, member)
+
+                    if tier_role:
+                        tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, tier_role.name + "FA")
+                        add_roles = [league_role, fa_role, tier_fa_role]
+                    else:
+                        add_roles = [league_role, fa_role]
+
+                    # performs role updates
+                    await member.remove_roles(*removable_roles)
+                    await member.add_roles(*add_roles)
+
+                    # Updates Name
+                    prefix, name, awards = self._get_name_components(member)
+                    new_name = self._generate_new_name('FA', name, awards)
+
+                    if member.nick != new_name:
+                        await member.edit(nick=new_name)
+                    
+                    team = (await self.team_manager_cog.teams_for_user(ctx, member))[0]
+                    gm = self.team_manager_cog._get_gm_name(franchise_role)
+                    transaction_msg = f"{member.mention}'s contract with {team} has expired ({gm} - {tier_role.name})"
+
+                    trans_channel.send(transaction_msg)
+
+                    empty = False
+            except Exception as e:
+                await ctx.send(f"Error: {e}")
+                if notFound == 0:
+                    message += "Couldn't find:\n"
+                message += "{0}\n".format(user)
+                notFound += 1
+        if empty:
+            message += ":x: Nobody was set as a free agent."
+        else:
+            message += ":white_check_mark: everyone that was found from list is now a free agent"
+        if notFound > 0:
+            message += ". {0} user(s) were not found".format(notFound)
+        if free_agents > 0:
+            message += ". {0} user(s) have been set as a free agent.".format(free_agents)
+        await ctx.send(message)
 
     @commands.guild_only()
     @commands.command()
@@ -98,7 +186,6 @@ class Transactions(commands.Cog):
                 await ctx.send("Done")
             except Exception as e:
                 await ctx.send(e)
-
 
     @commands.guild_only()
     @commands.command(aliases=['re-sign', "rs"])
@@ -434,6 +521,32 @@ class Transactions(commands.Cog):
             await member.send(message)
         except:
             await ctx.send(":x: Couldn't send message to this member.")
+
+    def _get_name_components(self, member: discord.Member):
+        if member.nick:
+            name = member.nick
+        else:
+            return "", member.name, ""
+        prefix = name[0:name.index(' | ')] if ' | ' in name else ''
+        if prefix:
+            name = name[name.index(' | ')+3:]
+        player_name = ""
+        awards = ""
+        for char in name[::-1]:
+            if char not in self.LEAGUE_AWARDS:
+                break
+            awards = char + awards
+
+        player_name = name.replace(" " + awards, "") if awards else name
+
+        return prefix.strip(), player_name.strip(), awards.strip()
+    
+    def _generate_new_name(self, prefix, name, awards):
+        new_name = "{} | {}".format(prefix, name) if prefix else name
+        if awards:
+            awards = ''.join(sorted(awards))
+            new_name += " {}".format(awards)
+        return new_name
 
     # json db
     async def _trans_channel(self, ctx):
