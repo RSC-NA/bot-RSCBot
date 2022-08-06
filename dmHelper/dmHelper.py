@@ -36,14 +36,17 @@ class DMHelper(commands.Cog):
     async def dmMember(self, ctx, member: discord.Member, *, message: str):
         """Sends a DM to member by adding them to the message queue"""
         await self.send_dm(member, content=message, ctx=ctx)
+        await ctx.reply("Done")
 
     @commands.command(aliases=['dmr'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def dmRole(self, ctx, role: discord.Role, *, message: str):
         """Sends a DM to all members with the specified role by adding them to the message queue"""
+        await ctx.reply("Queueing Messages.") # TODO: move after, may need to add async.to_thread()
         for member in role.members:
             await self.send_dm(member, content=message, ctx=ctx)
+        
 
     async def process_dm_queues(self):
         # Message Data: 
