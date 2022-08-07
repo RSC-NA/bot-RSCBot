@@ -62,10 +62,10 @@ class DMHelper(commands.Cog):
         
         if not self.actively_sending:
             self.actively_sending = True
-            await self.process_dm_queues()
+            await self._process_dm_queues()
 
     # Automated Processes
-    async def process_dm_queues(self):
+    async def _process_dm_queues(self):
         # Message Data: 
         # {
         #   send_to: <member>,
@@ -106,9 +106,9 @@ class DMHelper(commands.Cog):
         
         self.actively_sending = False
         if failed_msg_buffer:
-            await self.send_failed_msg_report(failed_msg_buffer)
+            await self._send_failed_msg_report(failed_msg_buffer)
 
-    async def send_failed_msg_report(self, failed_msg_buffer):
+    async def _send_failed_msg_report(self, failed_msg_buffer):
         # organize reports based on shared channel, ping sender - Feedback
 
         fmbc = {} # failed_messages_by_channel
