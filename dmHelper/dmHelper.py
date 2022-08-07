@@ -12,10 +12,6 @@ import logging
 
 log : logging.Logger = logging.getLogger("red.RSCBot.dmHelper")
 
-defaults = {
-    
-}
-
 dm_sleep_time = 0.5 # seconds, right?
 verify_timeout = 30
 DONE = "Done"
@@ -24,9 +20,6 @@ class DMHelper(commands.Cog):
     """Controls Bot-to-member Direct Messages (DMs) with code to prevent rate limiting."""
 
     def __init__(self, bot):
-        self.config = Config.get_conf(self, identifier=1234567893, force_registration=True)
-        self.config.register_guild(**defaults)
-
         self.bot = bot
         self.message_queue : list = []
         self.priority_message_queue : list = []
