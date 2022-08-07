@@ -1122,6 +1122,7 @@ class TeamManager(commands.Cog):
         for team in teams:
             if await self._roles_for_team(ctx, team) == (franchise_role, tier_role):
                 return team
+        return
 
     async def _find_teams_for_franchise(self, ctx, franchise_role):
         franchise_teams = []
@@ -1155,6 +1156,7 @@ class TeamManager(commands.Cog):
                     return role
             except:
                 continue
+        return None
 
     async def get_current_tier_role(self, ctx, user: discord.Member):
         tierList = await self.tiers(ctx)
