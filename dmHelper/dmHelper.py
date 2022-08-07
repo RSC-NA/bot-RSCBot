@@ -49,11 +49,29 @@ class DMHelper(commands.Cog):
         asyncio.create_task(self.add_message_players_to_dm_queue(members=role.members, content=message, ctx=ctx))
         await ctx.reply("All DMs have been queued.") # TODO: move after, may need to add async.to_thread
         
-        
+    # Helper functions - open to external cogs
     async def add_message_players_to_dm_queue(self, members: list, content: str, ctx=None):
         for member in members:
             await self.add_to_dm_queue(member, content=content, ctx=ctx)
 
+    async def add_to_dm_queue(self, member: discord.Member, content: str=None, embed: discord.Embed=None, ctx: commands.Context=None, priority: bool=False):
+        # Message Data: 
+        msg_data = {
+          "send_to": member,
+          "content": content,
+          "embed": embed,
+          "request_ctx": ctx
+        }
+        if priority:
+            self.priority_message_queue.append(msg_data)
+        else:
+            self.message_queue.append(msg_data)
+        
+        if not self.actively_sending:
+            self.actively_sending = True
+            await self.process_dm_queues()
+
+    # Automated Processes
     async def process_dm_queues(self):
         # Message Data: 
         # {
@@ -96,23 +114,6 @@ class DMHelper(commands.Cog):
         self.actively_sending = False
         if failed_msg_buffer:
             await self.send_failed_msg_report(failed_msg_buffer)
-
-    async def add_to_dm_queue(self, member: discord.Member, content: str=None, embed: discord.Embed=None, ctx: commands.Context=None, priority: bool=False):
-        # Message Data: 
-        msg_data = {
-          "send_to": member,
-          "content": content,
-          "embed": embed,
-          "request_ctx": ctx
-        }
-        if priority:
-            self.priority_message_queue.append(msg_data)
-        else:
-            self.message_queue.append(msg_data)
-        
-        if not self.actively_sending:
-            self.actively_sending = True
-            await self.process_dm_queues()
 
     async def send_failed_msg_report(self, failed_msg_buffer):
         # organize reports based on shared channel, ping sender - Feedback
