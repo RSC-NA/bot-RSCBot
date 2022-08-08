@@ -8,5 +8,5 @@ class TransactionsStringsTemplates:
         "become a Draft Eligible (DE) player, and will be drafted to a team. For more information, you may use the `{p}dates` "
         "command in the #bot-input channel."
 
-        "\n\nIf you have any questions or concerns, feel free to reach out to your previous GM ({gm}), or open a mod-mail."
+        "\n\nIf you have any questions or concerns, feel free to reach out to your previous GM ({gm}), or open a ModMail."
     )
