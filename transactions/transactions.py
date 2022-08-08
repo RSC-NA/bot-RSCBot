@@ -260,7 +260,7 @@ class Transactions(commands.Cog):
                         embed.set_thumbnail(url=ctx.guild.icon_url)
                     except:
                         pass
-                    await user.send(embed=embed)
+                    await self.dm_helper_cog.add_to_dm_queue(user, embed=embed)
 
                 await ctx.send("Done")
             except KeyError:
