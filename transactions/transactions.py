@@ -253,8 +253,9 @@ class Transactions(commands.Cog):
                 if cut_message:
                     # await ctx.send("```\n{}```".format(cut_message))
                     embed = discord.Embed(
-                        title="A Message from {}".format(ctx.guild.name),
-                        description=cut_message
+                        title=f"Message from {ctx.guild.name}",
+                        description=cut_message,
+                        color=discord.Color.red()
                     )
                     try:
                         embed.set_thumbnail(url=ctx.guild.icon_url)
@@ -436,8 +437,9 @@ class Transactions(commands.Cog):
         if cut_message:
             # await ctx.send("```\n{}```".format(cut_message))
             embed = discord.Embed(
-                title="A Message from {}".format(ctx.guild.name),
-                description=cut_message
+                title=f"Message from {ctx.guild.name}",
+                description=cut_message,
+                color=discord.Color.red()
             )
             try:
                 embed.set_thumbnail(url=ctx.guild.icon_url)
