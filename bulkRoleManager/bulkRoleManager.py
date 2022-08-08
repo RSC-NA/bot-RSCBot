@@ -8,6 +8,7 @@ from discord import File
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
 
+from dmHelper import DMHelper
 from teamManager import TeamManager
 
 defaults = {"DraftEligibleMessage": None, "PermFAMessage": None}
@@ -24,11 +25,10 @@ class BulkRoleManager(commands.Cog):
     PERM_FA_ROLE = "PermFA"
 
     def __init__(self, bot):
-        self.config = Config.get_conf(
-            self, identifier=1234567897, force_registration=True)
+        self.config = Config.get_conf(self, identifier=1234567897, force_registration=True)
         self.config.register_guild(**defaults)
-        # self.team_manager_cog = bot.get_cog("TeamManager")
         self.team_manager_cog: TeamManager = bot.get_cog("TeamManager")
+        self.dm_helper_cog : DMHelper = bot.get_cog("DMHelper")
         self.discord_bot = bot
 
 # region general
@@ -382,7 +382,6 @@ class BulkRoleManager(commands.Cog):
                 await member.remove_roles(spectatorRole, formerPlayerRole)
                 deMessage = await self._draft_eligible_message(ctx)
                 if deMessage:
-                    # await member.send(deMessage)
                     await self._send_member_message(ctx, member, deMessage)
 
                 empty = False
@@ -483,75 +482,6 @@ class BulkRoleManager(commands.Cog):
             message += ". {0} user(s) were already in this tier.".format(had)
         if added:
             message += ". {0} user(s) had the role added to them".format(added)
-        await ctx.send(message)
-
-    @commands.command(aliases=['makeFA'])
-    @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def expireContracts(self, ctx, *userList):
-        """Displays each member that can be found from the userList a Free Agent in their respective tier"""
-        empty = True
-        free_agents = 0
-        notFound = 0
-        message = ""
-        fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
-        league_role = self.team_manager_cog._find_role_by_name(ctx, "League")
-
-        roles_to_remove = [
-            self.team_manager_cog._find_role_by_name(ctx, "Draft Eligible"),
-            self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE),
-            self.team_manager_cog._find_role_by_name(ctx, "Former Player")
-        ]
-
-        for user in userList:
-            try:
-                member = await commands.MemberConverter().convert(ctx, user)
-
-                # For each user in guild
-                if member in ctx.guild.members:
-
-                    # prep roles to remove
-                    franchise_role = self.team_manager_cog.get_current_franchise_role(member)
-                    removable_roles = [franchise_role] if franchise_role else []
-                    for role in roles_to_remove:
-                        if role in member.roles:
-                            removable_roles.append(role)
-                    
-                    # prep roles to add
-                    tier_role = await self.team_manager_cog.get_current_tier_role(ctx, member)
-
-                    if tier_role:
-                        tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, tier_role.name + "FA")
-                        add_roles = [league_role, fa_role, tier_fa_role]
-                    else:
-                        add_roles = [league_role, fa_role]
-
-                    # performs role updates
-                    await member.remove_roles(*removable_roles)
-                    await member.add_roles(*add_roles)
-
-                    # Updates Name
-                    prefix, name, awards = self._get_name_components(member)
-                    new_name = self._generate_new_name('FA', name, awards)
-
-                    if member.nick != new_name:
-                        await member.edit(nick=new_name)
-
-                    empty = False
-            except Exception as e:
-                await ctx.send(f"Error: {e}")
-                if notFound == 0:
-                    message += "Couldn't find:\n"
-                message += "{0}\n".format(user)
-                notFound += 1
-        if empty:
-            message += ":x: Nobody was set as a free agent."
-        else:
-            message += ":white_check_mark: everyone that was found from list is now a free agent"
-        if notFound > 0:
-            message += ". {0} user(s) were not found".format(notFound)
-        if free_agents > 0:
-            message += ". {0} user(s) have been set as a free agent.".format(free_agents)
         await ctx.send(message)
 
     @commands.command(aliases=["retirePlayer", "retirePlayers", "setFormerPlayer"])
@@ -717,12 +647,9 @@ class BulkRoleManager(commands.Cog):
         message_title = "**Message from {0}:**\n\n".format(ctx.guild.name)
         command_prefix = ctx.prefix
         message = message.replace('[p]', command_prefix)
+        message = message.replace('{p}', command_prefix)
         message = message_title + message
-        try:
-            await member.send(message)
-        except Exception as e:
-            # await ctx.send(f"Error in command: {e}")
-            pass
+        await self.dm_helper_cog.add_to_dm_queue(member, content=message)
 
     def _get_name_components(self, member: discord.Member):
         if member.nick:

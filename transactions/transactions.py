@@ -1,29 +1,41 @@
 import discord
-import re
 
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
+from .transStringTemplates import TransactionsStringsTemplates as stringTemplates
+from teamManager import TeamManager
+from prefixManager import PrefixManager
+from dmHelper import DMHelper
+
 defaults = {
     "TransChannel": None,
-    "CutMessage": None
+    "CutMessage": None,
+    "ContractExpirationMessage": stringTemplates.contract_expiration_msg
 }
 
 
 class Transactions(commands.Cog):
     """Used to set franchise and role prefixes and give to members in those franchises or with those roles"""
 
+    PERM_FA_ROLE = "PermFA"
     SUBBED_OUT_ROLE = "Subbed Out"
+    TROPHY_EMOJI = "\U0001F3C6" # :trophy:
+    GOLD_MEDAL_EMOJI = "\U0001F3C5" # gold medal
+    FIRST_PLACE_EMOJI = "\U0001F947" # first place medal
+    STAR_EMOJI = "\U00002B50" # :star:
+    LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
 
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(
-            self, identifier=1234567895, force_registration=True)
+        self.config = Config.get_conf(self, identifier=1234567895, force_registration=True)
         self.config.register_guild(**defaults)
-        self.prefix_cog = bot.get_cog("PrefixManager")
-        self.team_manager_cog = bot.get_cog("TeamManager")
+        self.prefix_cog : PrefixManager = bot.get_cog("PrefixManager")
+        self.team_manager_cog : TeamManager = bot.get_cog("TeamManager")
+        self.dm_helper_cog : DMHelper = bot.get_cog("DMHelper")
 
+# region commands
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_roles=True)
@@ -35,6 +47,92 @@ class Transactions(commands.Cog):
             await ctx.send("Done")
         except KeyError:
             await ctx.send(":x: Transaction log channel not set")
+
+    @commands.command(aliases=['makeFA'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def expireContracts(self, ctx: commands.Context, *userList):
+        """Displays each member that can be found from the userList a Free Agent in their respective tier"""
+        empty = True
+        free_agents = 0
+        notFound = 0
+        message = ""
+        fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
+        league_role = self.team_manager_cog._find_role_by_name(ctx, "League")
+
+        roles_to_remove = [
+            self.team_manager_cog._find_role_by_name(ctx, "Draft Eligible"),
+            self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE),
+            self.team_manager_cog._find_role_by_name(ctx, "Former Player")
+        ]
+
+        trans_channel : discord.TextChannel = await self._trans_channel(ctx)
+
+        for user in userList:
+            try:
+                member : discord.Member = await commands.MemberConverter().convert(ctx, user)
+            except Exception as e:
+                await ctx.send(f"Error: {e}")
+                if notFound == 0:
+                    message += "Couldn't find:\n"
+                message += "{0}\n".format(user)
+                notFound += 1
+            
+            # Process Contract expiration
+            # For each user in guild
+            if member in ctx.guild.members:
+
+                # prep roles to remove
+                franchise_role = self.team_manager_cog.get_current_franchise_role(member)
+                removable_roles = [franchise_role] if franchise_role else []
+                for role in roles_to_remove:
+                    if role in member.roles:
+                        removable_roles.append(role)
+                
+                # prep roles to add
+                tier_role = await self.team_manager_cog.get_current_tier_role(ctx, member)
+
+                if tier_role:
+                    tier_fa_role: discord.Role = self.team_manager_cog._find_role_by_name(ctx, tier_role.name + "FA")
+                    add_roles = [league_role, fa_role, tier_fa_role]
+                else:
+                    add_roles = [league_role, fa_role]
+
+                # get team/franchise info before role removal
+                team = (await self.team_manager_cog.teams_for_user(ctx, member))[0]
+                gm_name = self.team_manager_cog._get_gm_name(franchise_role)
+                # franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
+                gm: discord.Member = self.team_manager_cog._find_member_by_name(ctx, gm_name)
+
+                # performs role updates
+                await member.remove_roles(*removable_roles)
+                await member.add_roles(*add_roles)
+
+                # Updates Name
+                prefix, name, awards = self._get_name_components(member)
+                new_name = self._generate_new_name('FA', name, awards)
+
+                if member.nick != new_name:
+                    try:
+                        await member.edit(nick=new_name)
+                    except:
+                        pass
+                
+                transaction_msg = f"Contract with {member.mention} and {team} has expired ({gm.mention} - {tier_role.name})"
+
+                await trans_channel.send(transaction_msg)
+                await self.send_player_expire_contract_message(ctx, member, franchise_role, team, gm)
+
+                empty = False
+        if empty:
+            message += ":x: Nobody was set as a free agent."
+        else:
+            message += ":white_check_mark: everyone that was found from list is now a free agent"
+        if notFound > 0:
+            message += ". {0} user(s) were not found".format(notFound)
+        if free_agents > 0:
+            message += ". {0} user(s) have been set as a free agent.".format(free_agents)
+        await ctx.send(message)
 
     @commands.guild_only()
     @commands.command()
@@ -99,7 +197,6 @@ class Transactions(commands.Cog):
             except Exception as e:
                 await ctx.send(e)
 
-
     @commands.guild_only()
     @commands.command(aliases=['re-sign', "rs"])
     @checks.admin_or_permissions(manage_roles=True)
@@ -140,29 +237,18 @@ class Transactions(commands.Cog):
                 if not self.team_manager_cog.is_gm(user):
                     if tier_fa_role is None:
                         role_name = "{0}FA".format((await self.team_manager_cog.get_current_tier_role(ctx, user)).name)
-                        tier_fa_role = self.team_manager_cog._find_role_by_name(
-                            ctx, role_name)
-                    fa_role = self.team_manager_cog._find_role_by_name(
-                        ctx, "Free Agent")
+                        tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, role_name)
+                    fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
                     await self.team_manager_cog._set_user_nickname_prefix(ctx, "FA", user)
                     await user.add_roles(tier_fa_role, fa_role)
                 gm_name = self._get_gm_name(ctx, franchise_role)
-                message = "{0} was cut by the {1} ({2} - {3})".format(
-                    user.mention, team_name, gm_name, tier_role.name)
+                message = f"{user.mention} was cut by the {team_name} ({gm_name} - {tier_role.name})"
                 await trans_channel.send(message)
 
-                cut_message = await self._get_cut_message(ctx.guild)
-                if cut_message:
-                    # await ctx.send("```\n{}```".format(cut_message))
-                    embed = discord.Embed(
-                        title="A Message from {}".format(ctx.guild.name),
-                        description=cut_message
-                    )
-                    try:
-                        embed.set_thumbnail(url=ctx.guild.icon_url)
-                    except:
-                        pass
-                    await user.send(embed=embed)
+                franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
+                cut_embed = await self.get_cut_embed(ctx, ctx.author, gm_name, franchise_name, team_name, tier_role.name)
+                if cut_embed:
+                    await self.dm_helper_cog.add_to_dm_queue(user, embed=cut_embed)
 
                 await ctx.send("Done")
             except KeyError:
@@ -289,7 +375,7 @@ class Transactions(commands.Cog):
             await ctx.send("Either {0} isn't on a team right now or his current team can't be found".format(user.name))
 
     @commands.guild_only()
-    @commands.command(aliases=["setTransChannel"])
+    @commands.command(aliases=["setTransChannel", "setTransactionsChannel"])
     @checks.admin_or_permissions(manage_guild=True)
     async def setTransactionChannel(self, ctx, trans_channel: discord.TextChannel):
         """Sets the channel where all transaction messages will be posted"""
@@ -334,20 +420,37 @@ class Transactions(commands.Cog):
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def getCutMessage(self, ctx):
-        cut_message = await self._get_cut_message(ctx.guild)
-        if cut_message:
-            # await ctx.send("```\n{}```".format(cut_message))
-            embed = discord.Embed(
-                title="A Message from {}".format(ctx.guild.name),
-                description=cut_message
-            )
-            try:
-                embed.set_thumbnail(url=ctx.guild.icon_url)
-            except:
-                pass
+        embed = await self.get_cut_embed(ctx, ctx.author, "{franchise_name}", "{gm}", "{team_name}", "{tier_name}")
+        if embed:
             await ctx.send(embed=embed)
         else:
             await ctx.send(":x: No cut message has been set.")
+
+# endregion
+
+# region helper functions
+    async def get_cut_embed(self, ctx: commands.Context, player: discord.Member, gm_name, franchise_name, team_name, tier):
+        cut_message = await self._get_cut_message(ctx.guild)
+        cut_message = cut_message.format(
+            player=player,
+            franchise=franchise_name,
+            gm=gm_name,
+            team=team_name,
+            tier=tier,
+            guild=ctx.guild.name
+        )
+        embed = discord.Embed(
+            title=f"Message from {ctx.guild.name}",
+            description=cut_message,
+            color=discord.Color.red()
+        )
+        
+        try:
+            embed.set_thumbnail(url=ctx.guild.icon_url)
+        except:
+            pass
+        
+        return embed
 
     async def add_player_to_team(self, ctx, user, team_name):
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
@@ -430,12 +533,51 @@ class Transactions(commands.Cog):
         command_prefix = ctx.prefix
         message = message.replace('[p]', command_prefix)
         message = message_title + message
-        try:
-            await member.send(message)
-        except:
-            await ctx.send(":x: Couldn't send message to this member.")
+        
+        await self.dm_helper_cog.add_to_dm_queue(member, content=message, ctx=ctx)
 
-    # json db
+    async def send_player_expire_contract_message(self, ctx: commands.Context, player: discord.Member, franchise_role: discord.Role, team: str, gm: discord.Member):
+        franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
+        msg = stringTemplates.contract_expiration_msg.format(
+            p=ctx.prefix, player=player, team=team, franchise=franchise_name, gm=gm.display_name
+        )
+        
+        embed = discord.Embed(title=f"Notice from {ctx.guild.name}", description=msg, color=discord.Color.blue())
+        if ctx.guild.icon_url:
+            embed.set_thumbnail(url=ctx.guild.icon_url)
+
+        await self.dm_helper_cog.add_to_dm_queue(member=player, embed=embed, ctx=ctx)
+
+    def _get_name_components(self, member: discord.Member):
+        if member.nick:
+            name = member.nick
+        else:
+            return "", member.name, ""
+        prefix = name[0:name.index(' | ')] if ' | ' in name else ''
+        if prefix:
+            name = name[name.index(' | ')+3:]
+        player_name = ""
+        awards = ""
+        for char in name[::-1]:
+            if char not in self.LEAGUE_AWARDS:
+                break
+            awards = char + awards
+
+        player_name = name.replace(" " + awards, "") if awards else name
+
+        return prefix.strip(), player_name.strip(), awards.strip()
+    
+    def _generate_new_name(self, prefix, name, awards):
+        new_name = "{} | {}".format(prefix, name) if prefix else name
+        if awards:
+            awards = ''.join(sorted(awards))
+            new_name += " {}".format(awards)
+        return new_name
+
+# endregion
+
+# region json db
+
     async def _trans_channel(self, ctx):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).TransChannel())
 
@@ -447,3 +589,5 @@ class Transactions(commands.Cog):
 
     async def _save_cut_message(self, guild, message):
         await self.config.guild(guild).CutMessage.set(message)
+
+# endregion
