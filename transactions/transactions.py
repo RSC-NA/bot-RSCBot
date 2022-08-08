@@ -72,58 +72,59 @@ class Transactions(commands.Cog):
         for user in userList:
             try:
                 member : discord.Member = await commands.MemberConverter().convert(ctx, user)
-
-                # For each user in guild
-                if member in ctx.guild.members:
-
-                    # prep roles to remove
-                    franchise_role = self.team_manager_cog.get_current_franchise_role(member)
-                    removable_roles = [franchise_role] if franchise_role else []
-                    for role in roles_to_remove:
-                        if role in member.roles:
-                            removable_roles.append(role)
-                    
-                    # prep roles to add
-                    tier_role = await self.team_manager_cog.get_current_tier_role(ctx, member)
-
-                    if tier_role:
-                        tier_fa_role: discord.Role = self.team_manager_cog._find_role_by_name(ctx, tier_role.name + "FA")
-                        add_roles = [league_role, fa_role, tier_fa_role]
-                    else:
-                        add_roles = [league_role, fa_role]
-
-                    # get team/franchise info before role removal
-                    team = (await self.team_manager_cog.teams_for_user(ctx, member))[0]
-                    gm_name = self.team_manager_cog._get_gm_name(franchise_role)
-                    # franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
-                    gm: discord.Member = self.team_manager_cog._find_member_by_name(ctx, gm_name)
-
-                    # performs role updates
-                    await member.remove_roles(*removable_roles)
-                    await member.add_roles(*add_roles)
-
-                    # Updates Name
-                    prefix, name, awards = self._get_name_components(member)
-                    new_name = self._generate_new_name('FA', name, awards)
-
-                    if member.nick != new_name:
-                        try:
-                            await member.edit(nick=new_name)
-                        except:
-                            pass
-                    
-                    transaction_msg = f"Contract with {member.mention} and {team} has expired ({gm.mention} - {tier_role.name})"
-
-                    await trans_channel.send(transaction_msg)
-                    await self.send_player_expire_contract_message(ctx, member, franchise_role, team, gm)
-
-                    empty = False
             except Exception as e:
                 await ctx.send(f"Error: {e}")
                 if notFound == 0:
                     message += "Couldn't find:\n"
                 message += "{0}\n".format(user)
                 notFound += 1
+            
+            # Process Contract expiration
+            # For each user in guild
+            if member in ctx.guild.members:
+
+                # prep roles to remove
+                franchise_role = self.team_manager_cog.get_current_franchise_role(member)
+                removable_roles = [franchise_role] if franchise_role else []
+                for role in roles_to_remove:
+                    if role in member.roles:
+                        removable_roles.append(role)
+                
+                # prep roles to add
+                tier_role = await self.team_manager_cog.get_current_tier_role(ctx, member)
+
+                if tier_role:
+                    tier_fa_role: discord.Role = self.team_manager_cog._find_role_by_name(ctx, tier_role.name + "FA")
+                    add_roles = [league_role, fa_role, tier_fa_role]
+                else:
+                    add_roles = [league_role, fa_role]
+
+                # get team/franchise info before role removal
+                team = (await self.team_manager_cog.teams_for_user(ctx, member))[0]
+                gm_name = self.team_manager_cog._get_gm_name(franchise_role)
+                # franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
+                gm: discord.Member = self.team_manager_cog._find_member_by_name(ctx, gm_name)
+
+                # performs role updates
+                await member.remove_roles(*removable_roles)
+                await member.add_roles(*add_roles)
+
+                # Updates Name
+                prefix, name, awards = self._get_name_components(member)
+                new_name = self._generate_new_name('FA', name, awards)
+
+                if member.nick != new_name:
+                    try:
+                        await member.edit(nick=new_name)
+                    except:
+                        pass
+                
+                transaction_msg = f"Contract with {member.mention} and {team} has expired ({gm.mention} - {tier_role.name})"
+
+                await trans_channel.send(transaction_msg)
+                await self.send_player_expire_contract_message(ctx, member, franchise_role, team, gm)
+
+                empty = False
         if empty:
             message += ":x: Nobody was set as a free agent."
         else:
