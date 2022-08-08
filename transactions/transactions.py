@@ -9,8 +9,6 @@ from teamManager import TeamManager
 from prefixManager import PrefixManager
 from dmHelper import DMHelper
 
-import asyncio
-
 defaults = {
     "TransChannel": None,
     "CutMessage": None,
@@ -31,8 +29,7 @@ class Transactions(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(
-            self, identifier=1234567895, force_registration=True)
+        self.config = Config.get_conf(self, identifier=1234567895, force_registration=True)
         self.config.register_guild(**defaults)
         self.prefix_cog : PrefixManager = bot.get_cog("PrefixManager")
         self.team_manager_cog : TeamManager = bot.get_cog("TeamManager")

@@ -8,6 +8,7 @@ from discord import File
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
 
+from dmHelper import DMHelper
 from teamManager import TeamManager
 
 defaults = {"DraftEligibleMessage": None, "PermFAMessage": None}
@@ -24,11 +25,10 @@ class BulkRoleManager(commands.Cog):
     PERM_FA_ROLE = "PermFA"
 
     def __init__(self, bot):
-        self.config = Config.get_conf(
-            self, identifier=1234567897, force_registration=True)
+        self.config = Config.get_conf(self, identifier=1234567897, force_registration=True)
         self.config.register_guild(**defaults)
-        # self.team_manager_cog = bot.get_cog("TeamManager")
         self.team_manager_cog: TeamManager = bot.get_cog("TeamManager")
+        self.dm_helper_cog : DMHelper = bot.get_cog("DMHelper")
         self.discord_bot = bot
 
 # region general
@@ -382,7 +382,6 @@ class BulkRoleManager(commands.Cog):
                 await member.remove_roles(spectatorRole, formerPlayerRole)
                 deMessage = await self._draft_eligible_message(ctx)
                 if deMessage:
-                    # await member.send(deMessage)
                     await self._send_member_message(ctx, member, deMessage)
 
                 empty = False
@@ -648,12 +647,9 @@ class BulkRoleManager(commands.Cog):
         message_title = "**Message from {0}:**\n\n".format(ctx.guild.name)
         command_prefix = ctx.prefix
         message = message.replace('[p]', command_prefix)
+        message = message.replace('{p}', command_prefix)
         message = message_title + message
-        try:
-            await member.send(message)
-        except Exception as e:
-            # await ctx.send(f"Error in command: {e}")
-            pass
+        await self.dm_helper_cog.add_to_dm_queue(member, content=message)
 
     def _get_name_components(self, member: discord.Member):
         if member.nick:
