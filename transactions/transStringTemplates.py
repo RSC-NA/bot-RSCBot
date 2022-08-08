@@ -10,3 +10,4 @@ class TransactionsStringsTemplates:
 
         "\n\nIf you have any questions or concerns, feel free to reach out to your previous GM ({gm}), or open a ModMail."
     )
+    

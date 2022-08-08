@@ -1,5 +1,3 @@
-
-from pydoc import describe
 import discord
 
 from redbot.core import Config
@@ -11,9 +9,12 @@ from teamManager import TeamManager
 from prefixManager import PrefixManager
 from dmHelper import DMHelper
 
+import asyncio
+
 defaults = {
     "TransChannel": None,
-    "CutMessage": None
+    "CutMessage": None,
+    "ContractExpirationMessage": stringTemplates.contract_expiration_msg
 }
 
 
@@ -37,6 +38,7 @@ class Transactions(commands.Cog):
         self.team_manager_cog : TeamManager = bot.get_cog("TeamManager")
         self.dm_helper_cog : DMHelper = bot.get_cog("DMHelper")
 
+# region commands
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_roles=True)
@@ -238,30 +240,18 @@ class Transactions(commands.Cog):
                 if not self.team_manager_cog.is_gm(user):
                     if tier_fa_role is None:
                         role_name = "{0}FA".format((await self.team_manager_cog.get_current_tier_role(ctx, user)).name)
-                        tier_fa_role = self.team_manager_cog._find_role_by_name(
-                            ctx, role_name)
-                    fa_role = self.team_manager_cog._find_role_by_name(
-                        ctx, "Free Agent")
+                        tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, role_name)
+                    fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
                     await self.team_manager_cog._set_user_nickname_prefix(ctx, "FA", user)
                     await user.add_roles(tier_fa_role, fa_role)
                 gm_name = self._get_gm_name(ctx, franchise_role)
-                message = "{0} was cut by the {1} ({2} - {3})".format(
-                    user.mention, team_name, gm_name, tier_role.name)
+                message = f"{user.mention} was cut by the {team_name} ({gm_name} - {tier_role.name})"
                 await trans_channel.send(message)
 
-                cut_message = await self._get_cut_message(ctx.guild)
-                if cut_message:
-                    # await ctx.send("```\n{}```".format(cut_message))
-                    embed = discord.Embed(
-                        title=f"Message from {ctx.guild.name}",
-                        description=cut_message,
-                        color=discord.Color.red()
-                    )
-                    try:
-                        embed.set_thumbnail(url=ctx.guild.icon_url)
-                    except:
-                        pass
-                    await self.dm_helper_cog.add_to_dm_queue(user, embed=embed)
+                franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
+                cut_embed = await self.get_cut_embed(ctx, ctx.author, gm_name, franchise_name, team_name, tier_role.name)
+                if cut_embed:
+                    await self.dm_helper_cog.add_to_dm_queue(user, embed=cut_embed)
 
                 await ctx.send("Done")
             except KeyError:
@@ -433,21 +423,37 @@ class Transactions(commands.Cog):
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def getCutMessage(self, ctx):
-        cut_message = await self._get_cut_message(ctx.guild)
-        if cut_message:
-            # await ctx.send("```\n{}```".format(cut_message))
-            embed = discord.Embed(
-                title=f"Message from {ctx.guild.name}",
-                description=cut_message,
-                color=discord.Color.red()
-            )
-            try:
-                embed.set_thumbnail(url=ctx.guild.icon_url)
-            except:
-                pass
+        embed = await self.get_cut_embed(ctx, ctx.author, "{franchise_name}", "{gm}", "{team_name}", "{tier_name}")
+        if embed:
             await ctx.send(embed=embed)
         else:
             await ctx.send(":x: No cut message has been set.")
+
+# endregion
+
+# region helper functions
+    async def get_cut_embed(self, ctx: commands.Context, player: discord.Member, gm_name, franchise_name, team_name, tier):
+        cut_message = await self._get_cut_message(ctx.guild)
+        cut_message = cut_message.format(
+            player=player,
+            franchise=franchise_name,
+            gm=gm_name,
+            team=team_name,
+            tier=tier,
+            guild=ctx.guild.name
+        )
+        embed = discord.Embed(
+            title=f"Message from {ctx.guild.name}",
+            description=cut_message,
+            color=discord.Color.red()
+        )
+        
+        try:
+            embed.set_thumbnail(url=ctx.guild.icon_url)
+        except:
+            pass
+        
+        return embed
 
     async def add_player_to_team(self, ctx, user, team_name):
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
@@ -534,7 +540,7 @@ class Transactions(commands.Cog):
         await self.dm_helper_cog.add_to_dm_queue(member, content=message, ctx=ctx)
 
     async def send_player_expire_contract_message(self, ctx: commands.Context, player: discord.Member, franchise_role: discord.Role, team: str, gm: discord.Member):
-        franchise_name = franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
+        franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
         msg = stringTemplates.contract_expiration_msg.format(
             p=ctx.prefix, player=player, team=team, franchise=franchise_name, gm=gm.display_name
         )
@@ -571,7 +577,10 @@ class Transactions(commands.Cog):
             new_name += " {}".format(awards)
         return new_name
 
-    # json db
+# endregion
+
+# region json db
+
     async def _trans_channel(self, ctx):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).TransChannel())
 
@@ -583,3 +592,5 @@ class Transactions(commands.Cog):
 
     async def _save_cut_message(self, guild, message):
         await self.config.guild(guild).CutMessage.set(message)
+
+# endregion
