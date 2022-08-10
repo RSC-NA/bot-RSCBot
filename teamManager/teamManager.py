@@ -1238,11 +1238,11 @@ class TeamManager(commands.Cog):
                 if emoji.name.lower() == prefix.lower() or emoji.name.lower() == gm_name.lower():
                     return emoji
 
-    def _get_gm(self, ctx, franchise_role):
-        for member in ctx.message.guild.members:
-            if franchise_role in member.roles:
-                if self.is_gm(member):
-                    return member
+    # TODO: remove unused ctx - must remove from other references
+    def _get_gm(self, ctx, franchise_role: discord.Role):
+        for member in franchise_role.members:
+            if self.is_gm(member):
+                return member
 
     def _get_gm_name(self, franchise_role):
         try:
