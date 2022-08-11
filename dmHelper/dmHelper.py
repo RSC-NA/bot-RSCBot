@@ -16,6 +16,7 @@ verify_timeout = 30
 # role for "Needs to DM Bot"
 needs_to_dm_bot_role = 1007395860151271455
 channel_to_notify = 978653830608744499 # #development-committee
+guild_id = 395806681994493964 # rsc3v3 only
 
 DONE = "Done"
 
@@ -119,7 +120,7 @@ class DMHelper(commands.Cog):
                 except Exception as e:
                     message_data['exception'] = e
                     failed_msg_buffer.append(message_data)
-                    log.debug(f"DM to recipient \"{recipient.name}\" failed due to Exception: {e}")
+                    log.debug(f"DM to recipient \"{recipient.name}{recipient.discriminator}\" failed due to Exception: {e}")
                     
                     # 1. apply the "needs to dm bot role 1007395860151271455"
                     try:
