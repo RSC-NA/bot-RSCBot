@@ -82,7 +82,7 @@ class DMHelper(commands.Cog):
                 message_data = self.message_queue.pop(0)
             
             try:
-                recepient: discord.User = message_data['send_to'] # TODO: is there any way to strongly type as member and user (union)?
+                recipient: discord.User = message_data['send_to'] # TODO: is there any way to strongly type as member and user (union)?
                 content: str = message_data.get("content", None)
                 embed: discord.Embed = message_data.get("embed", None)
                 req_ctx: commands.Context = message_data.get("request_ctx")
@@ -92,15 +92,20 @@ class DMHelper(commands.Cog):
                 failed_msg_buffer.append(message_data)
                 req_ctx: commands.Context = message_data.get("request_ctx")
                 if req_ctx:
-                    await req_ctx.reply(f"Direct Message to {recepient.mention} has failed.")
+                    await req_ctx.reply(f"Direct Message to {recipient.mention} has failed.")
             
             if content or embed:
                 try:
-                    await recepient.send(content=content, embed=embed)
+                    await recipient.send(content=content, embed=embed)
                 except Exception as e:
                     message_data['exception'] = e
                     failed_msg_buffer.append(message_data)
-                    log.debug(f"DM to recepient \"{recepient.name}\" failed due to Exception: {e}")
+                    log.debug(f"DM to recipient \"{recipient.name}\" failed due to Exception: {e}")
+                    # TODO(erh): 
+                    # 1. apply the "needs to dm bot role 1007395860151271455"
+                    # 2. Notify user in channel that they need to DM bot 
+                    # 3. Move DM to a "long queue" waiting for DM
+
 
             await asyncio.sleep(dm_sleep_time)
         
@@ -148,7 +153,7 @@ class DMHelper(commands.Cog):
             embed = discord.Embed(title="Failed Direct Messages", color=discord.Color.red())
 
             embed.description = f"Failed DMs since {data['oldest_msg_req']}"
-            embed.add_field(name="Receipient", value='\n'.join([r.display_name for r in data['recipients']]), inline=True)
+            embed.add_field(name="Recipient", value='\n'.join([r.display_name for r in data['recipients']]), inline=True)
             embed.add_field(name="Sender", value='\n'.join([r.display_name for r in data['senders']]), inline=True)
             embed.add_field(name="Source", value='\n'.join(data.get('ctx_links_list', '--')), inline=True)
 
