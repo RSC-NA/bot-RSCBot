@@ -1,8 +1,6 @@
 
 import discord
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
+from redbot.core import commands, Config, checks
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
 
@@ -14,6 +12,11 @@ log : logging.Logger = logging.getLogger("red.RSCBot.dmHelper")
 
 dm_sleep_time = 0.5 # seconds, right?
 verify_timeout = 30
+
+# role for "Needs to DM Bot"
+needs_to_dm_bot_role = 1007395860151271455
+channel_to_notify = 978653830608744499 # #development-committee
+
 DONE = "Done"
 
 class DMHelper(commands.Cog):
@@ -23,9 +26,26 @@ class DMHelper(commands.Cog):
         self.bot = bot
         self.message_queue : list = []
         self.priority_message_queue : list = []
+        self.errored_message_queue : list = [] # used to store DMs that were unable to be delivered
         self.actively_sending = False
+        self.bulk_role_manager_cog : BulkRoleManager = bot.get_cog("BulkRoleManager")
         # self.task = asyncio.create_task(self.process_dm_queues())  # TODO: protect queue from bot crashes -- json?
     
+    @commands.Cog.listener('on_message')
+    async def _message_listener(self, message: Discord.Message)
+        if message.channel.id == message.author.dm_channel.id:
+            # 0. ignore pre-existing commands?
+            # 1. Remove the role from all RSC guilds?
+            # HELP NULL
+            # 2. Say hello
+            await message.author.send('Hello!')
+
+            # 3. Move private messages from errored_message_queue into message_queue
+            for message_data in self.errored_message_queue:
+                if message_data.send_to.id == message.author.id:
+                    self.message_queue.append(message_data)
+                    self.errored_message_queue.remove(message_data)
+
     @commands.command(aliases=['dmm'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -101,10 +121,16 @@ class DMHelper(commands.Cog):
                     message_data['exception'] = e
                     failed_msg_buffer.append(message_data)
                     log.debug(f"DM to recipient \"{recipient.name}\" failed due to Exception: {e}")
-                    # TODO(erh): 
+                    
                     # 1. apply the "needs to dm bot role 1007395860151271455"
-                    # 2. Notify user in channel that they need to DM bot 
+                    await self.bulk_role_manager_cog.addRole(message_data.request_ctx, needs_to_dm_bot_role, message_data.send_to)
+
+                    # 2. Notify user in channel that they need to DM bot
+                    channel = self.bot.get_channel(channel_to_notify)
+                    await channel.send(f"{message_data.send_to.mention}: I have a message for you! Please DM me to receive it.")
+
                     # 3. Move DM to a "long queue" waiting for DM
+                    self.errored_message_queue.append(message_data)
 
 
             await asyncio.sleep(dm_sleep_time)
