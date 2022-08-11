@@ -31,21 +31,7 @@ class DMHelper(commands.Cog):
         self.actively_sending = False
         # self.task = asyncio.create_task(self.process_dm_queues())  # TODO: protect queue from bot crashes -- json?
     
-    @commands.Cog.listener('on_message')
-    async def _message_listener(self, message: Discord.Message)
-        if message.channel.id == message.author.dm_channel.id:
-            # 0. ignore pre-existing commands?
-            # 1. Remove the role from all RSC guilds?
-            # HELP NULL
-            # 2. Say hello
-            await message.author.send('Hello!')
-
-            # 3. Move private messages from errored_message_queue into message_queue
-            for message_data in self.errored_message_queue:
-                if message_data.send_to.id == message.author.id:
-                    self.message_queue.append(message_data)
-                    self.errored_message_queue.remove(message_data)
-
+    # Commands
     @commands.command(aliases=['dmm'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -61,7 +47,35 @@ class DMHelper(commands.Cog):
         """Sends a DM to all members with the specified role by adding them to the message queue"""
         asyncio.create_task(self.add_message_players_to_dm_queue(members=role.members, content=message, ctx=ctx))
         await ctx.reply("All DMs have been queued.") # TODO: move after, may need to add async.to_thread
+    
+    # Listeners
+    @commands.Cog.listener('on_member_join')
+    async def on_member_join(self, member: discord.Member):
+        dm_bot_role: discord.Role = await self._get_needs_dm_role(member.guild)
+        await member.add_roles(dm_bot_role)
+
+    @commands.Cog.listener('on_message')
+    async def _message_listener(self, message: discord.Message):
+        if message.channel.type != discord.DMChannel:
+            return
         
+        guild: discord.Guild = self.get_main_guild()
+        remove_needs_dm_role : discord.Role = self._get_needs_dm_role(guild)
+        member: discord.Member = guild.get_member(message.author.id)
+
+        # # 0. ignore pre-existing commands?
+        # # 1. Remove the role from all RSC guilds?
+        # # HELP NULL
+        # # 2. Say hello
+        # await message.author.send('Hello!')
+
+        # # 3. Move private messages from errored_message_queue into message_queue
+        # for message_data in self.errored_message_queue:
+        #     if message_data.send_to.id == message.author.id:
+        #         self.message_queue.append(message_data)
+        #         self.errored_message_queue.remove(message_data)
+
+
     # Helper functions - open to external cogs
     async def add_message_players_to_dm_queue(self, members: list, content: str, ctx=None):
         for member in members:
@@ -187,3 +201,23 @@ class DMHelper(commands.Cog):
             embed.add_field(name="Source", value='\n'.join(data.get('ctx_links_list', '--')), inline=True)
 
             await channel.send(content=f"{' '.join([sender.mention for sender in data['all_senders']])}", embed=embed)
+
+    # DM member mgmt
+    def get_main_guild(self) -> discord.Guild:
+        for guild in self.bot.guilds:
+            if guild.id == guild_id:
+                return guild
+
+    async def _ghost_ping_in_needs_dm_channel(self, member):
+        channel = self._get_needs_dm_channel(member.guild)
+        ghost_msg : discord.Message = await channel.send(f"{member.mention}")
+        await ghost_msg.delete()
+
+    # TODO: modify to be red json interfacing
+    async def _get_needs_dm_role(self, guild: discord.Guild):
+        return guild.get_role(needs_to_dm_bot_role)
+
+    async def _get_needs_dm_channel(self, guild: discord.Guild):
+        return guild.get_channel(channel_to_notify)
+
+    
