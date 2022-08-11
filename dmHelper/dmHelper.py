@@ -15,7 +15,7 @@ verify_timeout = 30
 
 # role for "Needs to DM Bot"
 needs_to_dm_bot_role = 1007395860151271455
-channel_to_notify = 978653830608744499 # #development-committee
+channel_to_notify = 1007433285934272523 # #please-dm-the-bot
 guild_id = 395806681994493964 # rsc3v3 only
 
 DONE = "Done"
