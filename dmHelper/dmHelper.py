@@ -28,7 +28,6 @@ class DMHelper(commands.Cog):
         self.priority_message_queue : list = []
         self.errored_message_queue : list = [] # used to store DMs that were unable to be delivered
         self.actively_sending = False
-        self.bulk_role_manager_cog : BulkRoleManager = bot.get_cog("BulkRoleManager")
         # self.task = asyncio.create_task(self.process_dm_queues())  # TODO: protect queue from bot crashes -- json?
     
     @commands.Cog.listener('on_message')
@@ -123,8 +122,11 @@ class DMHelper(commands.Cog):
                     log.debug(f"DM to recipient \"{recipient.name}\" failed due to Exception: {e}")
                     
                     # 1. apply the "needs to dm bot role 1007395860151271455"
-                    await self.bulk_role_manager_cog.addRole(message_data.request_ctx, needs_to_dm_bot_role, message_data.send_to)
-
+                    try:
+                        await message_data.send_to.add_roles(role)
+                    except:
+                        pass
+                    
                     # 2. Notify user in channel that they need to DM bot
                     channel = self.bot.get_channel(channel_to_notify)
                     await channel.send(f"{message_data.send_to.mention}: I have a message for you! Please DM me to receive it.")
