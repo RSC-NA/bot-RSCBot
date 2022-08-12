@@ -10,10 +10,13 @@ import logging
 
 log : logging.Logger = logging.getLogger("red.RSCBot.dmHelper")
 
-dm_sleep_time = 0.5 # seconds, right?
+dm_sleep_time = 0.5
 verify_timeout = 30
 
 # role for "Needs to DM Bot"
+global_defaults = {"FailedUserMessages": {}}
+guild_defaults = {"DMNotifyChannel": None, "DMNotifyRole": None}
+
 needs_to_dm_bot_role = 1007395860151271455
 channel_to_notify = 1007433285934272523 # #please-dm-the-bot
 guild_id = 395806681994493964 # rsc3v3 only
@@ -24,6 +27,9 @@ class DMHelper(commands.Cog):
     """Controls Bot-to-member Direct Messages (DMs) with code to prevent rate limiting."""
 
     def __init__(self, bot):
+        self.config.register_global(**global_defaults)
+        self.config.register_guild(**guild_defaults)
+
         self.bot = bot
         self.message_queue : list = []
         self.priority_message_queue : list = []
@@ -31,6 +37,34 @@ class DMHelper(commands.Cog):
         self.actively_sending = False
         # self.task = asyncio.create_task(self.process_dm_queues())  # TODO: protect queue from bot crashes -- json?
     
+    # Admin config commands
+    @commands.guild_only()
+    @commands.command(aliases=["setTransChannel", "setTransactionsChannel"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setTransactionChannel(self, ctx, trans_channel: discord.TextChannel):
+        """Sets the channel where all transaction messages will be posted"""
+        await self._save_trans_channel(ctx, trans_channel.id)
+        await ctx.send("Done")
+
+    @commands.guild_only()
+    @commands.command(aliases=["getTransChannel"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def getTransactionChannel(self, ctx):
+        """Gets the channel currently assigned as the transaction channel"""
+        try:
+            await ctx.send("Transaction log channel set to: {0}".format((await self._trans_channel(ctx)).mention))
+        except:
+            await ctx.send(":x: Transaction log channel not set")
+
+    @commands.guild_only()
+    @commands.command(aliases=["unsetTransChannel"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def unsetTransactionChannel(self, ctx):
+        """Unsets the transaction channel. Transactions will not be performed if no transaction channel is set"""
+        await self._save_trans_channel(ctx, None)
+        await ctx.send("Done")
+
+
     # Commands
     @commands.command(aliases=['dmm'])
     @commands.guild_only()
@@ -54,27 +88,13 @@ class DMHelper(commands.Cog):
         dm_bot_role: discord.Role = await self._get_needs_dm_role(member.guild)
         await member.add_roles(dm_bot_role)
 
-    @commands.Cog.listener('on_message')
+    @commands.Cog.listener('on_message_without_command')
     async def _message_listener(self, message: discord.Message):
         if message.channel.type != discord.DMChannel:
             return
         
-        guild: discord.Guild = self.get_main_guild()
-        remove_needs_dm_role : discord.Role = self._get_needs_dm_role(guild)
-        member: discord.Member = guild.get_member(message.author.id)
-
-        # # 0. ignore pre-existing commands?
-        # # 1. Remove the role from all RSC guilds?
-        # # HELP NULL
-        # # 2. Say hello
-        # await message.author.send('Hello!')
-
-        # # 3. Move private messages from errored_message_queue into message_queue
-        # for message_data in self.errored_message_queue:
-        #     if message_data.send_to.id == message.author.id:
-        #         self.message_queue.append(message_data)
-        #         self.errored_message_queue.remove(message_data)
-
+        await self._process_dms_unlocked(message)
+        
 
     # Helper functions - open to external cogs
     async def add_message_players_to_dm_queue(self, members: list, content: str, ctx=None):
@@ -110,11 +130,13 @@ class DMHelper(commands.Cog):
         # }
         failed_msg_buffer = []
         while self.priority_message_queue or self.message_queue:
+            # Grab next message
             if self.priority_message_queue:
                 message_data = self.priority_message_queue.pop(0)
             elif self.message_queue:
                 message_data = self.message_queue.pop(0)
             
+            # Grabs next message
             try:
                 recipient: discord.User = message_data['send_to'] # TODO: is there any way to strongly type as member and user (union)?
                 content: str = message_data.get("content", None)
@@ -128,6 +150,7 @@ class DMHelper(commands.Cog):
                 if req_ctx:
                     await req_ctx.reply(f"Direct Message to {recipient.mention} has failed.")
             
+            # Sends next message
             if content or embed:
                 try:
                     await recipient.send(content=content, embed=embed)
@@ -136,18 +159,22 @@ class DMHelper(commands.Cog):
                     failed_msg_buffer.append(message_data)
                     log.debug(f"DM to recipient \"{recipient.name}{recipient.discriminator}\" failed due to Exception: {e}")
                     
-                    # 1. apply the "needs to dm bot role 1007395860151271455"
-                    try:
-                        await message_data.send_to.add_roles(role)
-                    except:
-                        pass
-                    
-                    # 2. Notify user in channel that they need to DM bot
-                    channel = self.bot.get_channel(channel_to_notify)
-                    await channel.send(f"{message_data.send_to.mention}: I have a message for you! Please DM me to receive it.")
+                    # add needs to dm bot where applicable
+                    for guild in recipient.mutual_guilds:
+                        guild: discord.Guild
+                        # 1. apply the "needs to dm bot role 1007395860151271455"
+                        needs_dm_role: discord.Role = await self._get_needs_dm_role(guild)
+                        
+                        if needs_dm_role:
+                            recipient_as_member: discord.Member = guild.get_member(recipient.id)
+                            recipient_as_member.add_roles(needs_dm_role)
+                        
+                            # 2. Notify user in channel that they need to DM bot
+                            await self._ghost_ping_in_needs_dm_channel(recipient)
 
-                    # 3. Move DM to a "long queue" waiting for DM
-                    self.errored_message_queue.append(message_data)
+                        # 3. Move DM to a "long queue" waiting for DM
+                        # self.errored_message_queue.append(message_data) # INSTEAD:
+                        # TODO: await self._save_failed_message(member, content, embed)
 
 
             await asyncio.sleep(dm_sleep_time)
@@ -202,6 +229,47 @@ class DMHelper(commands.Cog):
 
             await channel.send(content=f"{' '.join([sender.mention for sender in data['all_senders']])}", embed=embed)
 
+    async def _process_dms_unlocked(self, dm: discord.Message):
+        guild: discord.Guild = self.get_main_guild()
+        remove_needs_dm_role: discord.Role = self._get_needs_dm_role(guild)
+        user: discord.User = guild.get_member(dm.author.id)
+
+        # Remove role from mutual servers where applicable
+        was_locked = False
+        for guild in user.mutual_guilds:
+            remove_needs_dm_role: discord.Role = self._get_needs_dm_role(guild)
+            if not remove_needs_dm_role:
+                continue
+            member: discord.Member = guild.get_member(user.id)
+            if needs_to_dm_bot_role in member.roles:
+                member.remove_roles(needs_to_dm_bot_role)
+                was_locked = True
+        
+        if not was_locked:
+            return None
+
+        # Sends old failed messages
+        unlock_msg = (
+            f"Hi {member.name}. Thanks for sending us a DM! The bot can now send you DMs! "
+            "If you run into any further issues, please open a ModMail!"
+        )
+        await self.add_to_dm_queue(member, content=unlock_msg)
+
+        failed_messages = await self._pop_failed_user_messages(user)
+        
+        if not failed_messages:
+            return None 
+        
+        msg = "It looks like you have some old failed DMs. Here's what you've missed..."
+        await self.add_message_players_to_dm_queue(member, msg)
+        for failed_message in failed_messages:
+            await self.add_message_players_to_dm_queue(
+                member,
+                content=failed_message.get("content"),
+                embed=failed_message.get("embed"),
+                ctx=failed_message.get("req_ctx")
+            )
+
     # DM member mgmt
     def get_main_guild(self) -> discord.Guild:
         for guild in self.bot.guilds:
@@ -213,11 +281,32 @@ class DMHelper(commands.Cog):
         ghost_msg : discord.Message = await channel.send(f"{member.mention}")
         await ghost_msg.delete()
 
-    # TODO: modify to be red json interfacing
+    # region json
+    # GET
     async def _get_needs_dm_role(self, guild: discord.Guild):
-        return guild.get_role(needs_to_dm_bot_role)
+        return guild.get_role(await self.config.guild(guild).DMNotifyRole())
 
     async def _get_needs_dm_channel(self, guild: discord.Guild):
-        return guild.get_channel(channel_to_notify)
+        return guild.get_channel(await self.config.guild(guild).DMNotifyChannel())
 
+    # BOTH
+    async def _pop_failed_user_messages(self, user: discord.User):
+        failed_messages = await self.config.FailedUserMessages()
+        failed_user_messages = failed_messages.get(user)
+        if failed_user_messages:
+            del failed_messages[user]
+            await self._save_failed_user_messages(failed_messages)
+            return failed_user_messages
+
+
+    # SAVE
+    async def _save_needs_dm_role(self, guild: discord.Guild, role: discord.Role):
+        await self.config.guild(guild).DMNotifyRole.set(role.id)
+
+    async def _save_needs_dm_channel(self, guild: discord.Guild, channel: discord.TextChannel):
+        await self.config.guild(guild).DMNotifyChannel.set(channel.id)
     
+    async def _save_failed_user_messages(self, failed_messages: dict):
+        await self.config.FailedUserMessages.set(failed_messages)
+
+    # endregion
