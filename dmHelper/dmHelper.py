@@ -17,19 +17,16 @@ verify_timeout = 30
 global_defaults = {"FailedUserMessages": {}}
 guild_defaults = {"DMNotifyChannel": None, "DMNotifyRole": None}
 
-needs_to_dm_bot_role = 1007395860151271455
-channel_to_notify = 1007433285934272523 # #please-dm-the-bot
-guild_id = 395806681994493964 # rsc3v3 only
-
 DONE = "Done"
 
 class DMHelper(commands.Cog):
     """Controls Bot-to-member Direct Messages (DMs) with code to prevent rate limiting."""
 
     def __init__(self, bot):
+        self.config = Config.get_conf(self, identifier=1234567895, force_registration=True)
         self.config.register_global(**global_defaults)
         self.config.register_guild(**guild_defaults)
-
+        
         self.bot = bot
         self.message_queue : list = []
         self.priority_message_queue : list = []
@@ -37,35 +34,62 @@ class DMHelper(commands.Cog):
         self.actively_sending = False
         # self.task = asyncio.create_task(self.process_dm_queues())  # TODO: protect queue from bot crashes -- json?
     
-    # Admin config commands
+    # region Admin config commands
+    # CHANNEL
     @commands.guild_only()
-    @commands.command(aliases=["setTransChannel", "setTransactionsChannel"])
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setTransactionChannel(self, ctx, trans_channel: discord.TextChannel):
-        """Sets the channel where all transaction messages will be posted"""
-        await self._save_trans_channel(ctx, trans_channel.id)
-        await ctx.send("Done")
+    async def setNeedsToDMBotChannel(self, ctx, channel: discord.TextChannel):
+        """Sets the channel where all members who need to DM the bot will be pinged"""
+        await self._save_needs_to_dm_channel(ctx.guild, channel)
+        await ctx.reply(DONE)
 
     @commands.guild_only()
-    @commands.command(aliases=["getTransChannel"])
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
-    async def getTransactionChannel(self, ctx):
+    async def getNeedsToDMBotChannel(self, ctx):
         """Gets the channel currently assigned as the transaction channel"""
         try:
-            await ctx.send("Transaction log channel set to: {0}".format((await self._trans_channel(ctx)).mention))
+            await ctx.reply(f"Needs to DM Bot channel set to: {(await self._get_needs_to_dm_channel(ctx.guild)).mention}")
         except:
-            await ctx.send(":x: Transaction log channel not set")
+            await ctx.reply(":x: Needs to DM Bot Channel not set.")
 
     @commands.guild_only()
-    @commands.command(aliases=["unsetTransChannel"])
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
-    async def unsetTransactionChannel(self, ctx):
-        """Unsets the transaction channel. Transactions will not be performed if no transaction channel is set"""
-        await self._save_trans_channel(ctx, None)
-        await ctx.send("Done")
+    async def unsetNeedsToDMBotChannel(self, ctx):
+        await self._save_needs_to_dm_channel(ctx.guild, None)
+        await ctx.reply(DONE)
 
+    # ROLE
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setNeedsToDMBotRole(self, ctx, role: discord.Role):
+        """Sets the channel where all members who need to DM the bot will be pinged"""
+        await self._save_needs_to_dm_role(ctx.guild, role)
+        await ctx.reply(DONE)
 
-    # Commands
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def getNeedsToDMBotRole(self, ctx):
+        """Gets the channel currently assigned as the transaction channel"""
+        try:
+            await ctx.reply(f"Needs to DM Bot role set to: {(await self._get_needs_to_dm_role(ctx.guild))}")
+        except:
+            await ctx.reply(":x: Needs to DM Bot role not set")
+
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def unsetNeedsDMToDMBotRole(self, ctx):
+        await self._save_needs_to_dm_role(ctx.guild, None)
+        await ctx.reply(DONE)
+
+    # endregion
+
+    # region Commands
     @commands.command(aliases=['dmm'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -80,12 +104,14 @@ class DMHelper(commands.Cog):
     async def dmRole(self, ctx: commands.Context, role: discord.Role, *, message: str):
         """Sends a DM to all members with the specified role by adding them to the message queue"""
         asyncio.create_task(self.add_message_players_to_dm_queue(members=role.members, content=message, ctx=ctx))
-        await ctx.reply("All DMs have been queued.") # TODO: move after, may need to add async.to_thread
+        await ctx.reply("All DMs have been queued.")
     
-    # Listeners
+    # endregion
+
+    # region Listeners
     @commands.Cog.listener('on_member_join')
     async def on_member_join(self, member: discord.Member):
-        dm_bot_role: discord.Role = await self._get_needs_dm_role(member.guild)
+        dm_bot_role: discord.Role = await self._get_needs_to_dm_role(member.guild)
         await member.add_roles(dm_bot_role)
 
     @commands.Cog.listener('on_message_without_command')
@@ -94,7 +120,8 @@ class DMHelper(commands.Cog):
             return
         
         await self._process_dms_unlocked(message)
-        
+    
+    # endregion
 
     # Helper functions - open to external cogs
     async def add_message_players_to_dm_queue(self, members: list, content: str, ctx=None):
@@ -118,7 +145,7 @@ class DMHelper(commands.Cog):
             self.actively_sending = True
             await self._process_dm_queues()
 
-    # Automated Processes
+    # region Automated Processes
     async def _process_dm_queues(self):
         # Message Data: 
         # {
@@ -154,6 +181,15 @@ class DMHelper(commands.Cog):
             if content or embed:
                 try:
                     await recipient.send(content=content, embed=embed)
+                    # TODO: add code to remove needs DM role if member has it
+                    try:
+                        guild: discord.Guild = message_data.get("request_ctx").guild
+                        dm_bot_role = await self._get_needs_to_dm_role(guild)
+                        member: discord.Member = guild.get_member(recipient.id)
+                        if dm_bot_role in member.roles:
+                            await member.remove_roles(dm_bot_role)
+                    except:
+                        pass 
                 except Exception as e:
                     message_data['exception'] = e
                     failed_msg_buffer.append(message_data)
@@ -163,7 +199,7 @@ class DMHelper(commands.Cog):
                     for guild in recipient.mutual_guilds:
                         guild: discord.Guild
                         # 1. apply the "needs to dm bot role 1007395860151271455"
-                        needs_dm_role: discord.Role = await self._get_needs_dm_role(guild)
+                        needs_dm_role: discord.Role = await self._get_needs_to_dm_role(guild)
                         
                         if needs_dm_role:
                             recipient_as_member: discord.Member = guild.get_member(recipient.id)
@@ -231,13 +267,13 @@ class DMHelper(commands.Cog):
 
     async def _process_dms_unlocked(self, dm: discord.Message):
         guild: discord.Guild = self.get_main_guild()
-        remove_needs_dm_role: discord.Role = self._get_needs_dm_role(guild)
+        remove_needs_dm_role: discord.Role = self._get_needs_to_dm_role(guild)
         user: discord.User = guild.get_member(dm.author.id)
 
         # Remove role from mutual servers where applicable
         was_locked = False
         for guild in user.mutual_guilds:
-            remove_needs_dm_role: discord.Role = self._get_needs_dm_role(guild)
+            remove_needs_dm_role: discord.Role = self._get_needs_to_dm_role(guild)
             if not remove_needs_dm_role:
                 continue
             member: discord.Member = guild.get_member(user.id)
@@ -270,6 +306,8 @@ class DMHelper(commands.Cog):
                 ctx=failed_message.get("req_ctx")
             )
 
+    # endregion
+
     # DM member mgmt
     def get_main_guild(self) -> discord.Guild:
         for guild in self.bot.guilds:
@@ -277,16 +315,16 @@ class DMHelper(commands.Cog):
                 return guild
 
     async def _ghost_ping_in_needs_dm_channel(self, member):
-        channel = self._get_needs_dm_channel(member.guild)
+        channel = self._get_needs_to_dm_channel(member.guild)
         ghost_msg : discord.Message = await channel.send(f"{member.mention}")
         await ghost_msg.delete()
 
     # region json
     # GET
-    async def _get_needs_dm_role(self, guild: discord.Guild):
+    async def _get_needs_to_dm_role(self, guild: discord.Guild):
         return guild.get_role(await self.config.guild(guild).DMNotifyRole())
 
-    async def _get_needs_dm_channel(self, guild: discord.Guild):
+    async def _get_needs_to_dm_channel(self, guild: discord.Guild):
         return guild.get_channel(await self.config.guild(guild).DMNotifyChannel())
 
     # BOTH
@@ -298,12 +336,11 @@ class DMHelper(commands.Cog):
             await self._save_failed_user_messages(failed_messages)
             return failed_user_messages
 
-
     # SAVE
-    async def _save_needs_dm_role(self, guild: discord.Guild, role: discord.Role):
+    async def _save_needs_to_dm_role(self, guild: discord.Guild, role: discord.Role):
         await self.config.guild(guild).DMNotifyRole.set(role.id)
 
-    async def _save_needs_dm_channel(self, guild: discord.Guild, channel: discord.TextChannel):
+    async def _save_needs_to_dm_channel(self, guild: discord.Guild, channel: discord.TextChannel):
         await self.config.guild(guild).DMNotifyChannel.set(channel.id)
     
     async def _save_failed_user_messages(self, failed_messages: dict):
