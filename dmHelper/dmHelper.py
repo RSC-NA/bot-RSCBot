@@ -273,7 +273,8 @@ class DMHelper(commands.Cog):
         guild: discord.Guild = self.get_main_guild()
         remove_needs_dm_role: discord.Role = self._get_needs_to_dm_role(guild)
         user: discord.User = guild.get_member(dm.author.id)
-
+        await dm.channel.send("Thank you for messaging the bot")
+        
         # Remove role from mutual servers where applicable
         was_locked = False
         for guild in user.mutual_guilds:
