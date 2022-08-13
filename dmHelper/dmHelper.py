@@ -34,7 +34,7 @@ class DMHelper(commands.Cog):
         self.actively_sending = False
         # self.task = asyncio.create_task(self.process_dm_queues())  # TODO: protect queue from bot crashes -- json?
     
-    # region Admin config commands
+# region Admin config commands
     # CHANNEL
     @commands.guild_only()
     @commands.command()
@@ -87,9 +87,9 @@ class DMHelper(commands.Cog):
         await self._save_needs_to_dm_role(ctx.guild, None)
         await ctx.reply(DONE)
 
-    # endregion
+# endregion
 
-    # region Commands
+# region Commands
     @commands.command(aliases=['dmm'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -106,9 +106,9 @@ class DMHelper(commands.Cog):
         asyncio.create_task(self.add_message_players_to_dm_queue(members=role.members, content=message, ctx=ctx))
         await ctx.reply("All DMs have been queued.")
     
-    # endregion
+# endregion
 
-    # region Listeners
+# region Listeners
     @commands.Cog.listener('on_member_join')
     async def on_member_join(self, member: discord.Member):
         dm_bot_role: discord.Role = await self._get_needs_to_dm_role(member.guild)
@@ -121,9 +121,9 @@ class DMHelper(commands.Cog):
         
         await self._process_dms_unlocked(message)
     
-    # endregion
+# endregion
 
-    # Helper functions - open to external cogs
+# region Helper functions - open to external cogs
     async def add_message_players_to_dm_queue(self, members: list, content: str, ctx=None):
         for member in members:
             await self.add_to_dm_queue(member, content=content, ctx=ctx)
@@ -319,7 +319,9 @@ class DMHelper(commands.Cog):
         ghost_msg : discord.Message = await channel.send(f"{member.mention}")
         await ghost_msg.delete()
 
-    # region json
+# endregion
+
+# region json
     # GET
     async def _get_needs_to_dm_role(self, guild: discord.Guild):
         return guild.get_role(await self.config.guild(guild).DMNotifyRole())
@@ -345,5 +347,5 @@ class DMHelper(commands.Cog):
     
     async def _save_failed_user_messages(self, failed_messages: dict):
         await self.config.FailedUserMessages.set(failed_messages)
-
-    # endregion
+ 
+ # endregion
