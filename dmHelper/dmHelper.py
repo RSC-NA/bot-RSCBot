@@ -122,7 +122,7 @@ class DMHelper(commands.Cog):
     async def _message_listener(self, message: discord.Message):
         if not isinstance(message.channel, discord.DMChannel):
             return
-        message.channel.send('hello')
+        await message.channel.send('hello')
         await self._process_dms_unlocked(message)
     
 # endregion
