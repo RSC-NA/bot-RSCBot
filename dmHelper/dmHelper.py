@@ -319,7 +319,7 @@ class DMHelper(commands.Cog):
                 return guild
 
     async def _ghost_ping_in_needs_dm_channel(self, member):
-        channel = self._get_needs_to_dm_channel(member.guild)
+        channel = await self._get_needs_to_dm_channel(member.guild)
         ghost_msg : discord.Message = await channel.send(f"{member.mention}")
         await ghost_msg.delete()
 
