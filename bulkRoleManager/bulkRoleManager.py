@@ -76,9 +76,19 @@ class BulkRoleManager(commands.Cog):
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
     async def addRoleToEveryone(self, ctx, role: discord.Role):
+        added = 0
+        had = 0
+        failed = 0
         for member in ctx.guild.members:
-            await member.add_roles(role)
-        await ctx.reply(f"Added role {role.name} to all {len(ctx.guild.members)} members in this server.")
+            try:
+                if role in member.roles:
+                    had += 1
+                else:
+                    await member.add_roles(role)
+                    added += 1
+            except:
+                failed += 1
+        await ctx.reply(f"Added role {role.name} to {added} members in this server. ({had} already had it, and {failed} failed.")
 
     @commands.command()
     @commands.guild_only()
