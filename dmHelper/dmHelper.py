@@ -120,7 +120,7 @@ class DMHelper(commands.Cog):
 
     @commands.Cog.listener('on_message_without_command')
     async def _message_listener(self, message: discord.Message):
-        if not isinstance(message.channel, discord.DMChannel):
+        if isinstance(message.channel, discord.DMChannel):
             return
         
         await self._process_dms_unlocked(message)
