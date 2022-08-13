@@ -19,6 +19,10 @@ guild_defaults = {"DMNotifyChannel": None, "DMNotifyRole": None}
 
 DONE = "Done"
 
+# TODO: Changes/additions
+# Send previously failed messages
+# Sync roles on server join
+
 class DMHelper(commands.Cog):
     """Controls Bot-to-member Direct Messages (DMs) with code to prevent rate limiting."""
 
@@ -198,7 +202,7 @@ class DMHelper(commands.Cog):
                     # add needs to dm bot where applicable
                     for guild in recipient.mutual_guilds:
                         guild: discord.Guild
-                        # 1. apply the "needs to dm bot role 1007395860151271455"
+                        # 1. apply the "needs to dm bot role"
                         needs_dm_role: discord.Role = await self._get_needs_to_dm_role(guild)
                         
                         if needs_dm_role:
