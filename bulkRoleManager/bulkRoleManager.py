@@ -75,6 +75,14 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
+    async def addRoleToEveryone(self, ctx, role: discord.Role):
+        for member in ctx.guild.members:
+            await member.add_roles(role)
+        await ctx.reply(f"Added role {role.name} to all {len(ctx.guild.members)} members in this server.")
+
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_roles=True)
     async def addRole(self, ctx, role: discord.Role, *userList):
         """Adds the role to every member that can be found from the userList"""
         empty = True
