@@ -15,7 +15,7 @@ verify_timeout = 30
 
 # role for "Needs to DM Bot"
 global_defaults = {"FailedUserMessages": {}}
-guild_defaults = {"DMNotifyChannel": None, "DMNotifyRole": None}
+guild_defaults = {"DMNotifyChannel": None, "DMNotifyRole": None, "AutoAssignDMBotRole": True}
 
 DONE = "Done"
 
@@ -36,6 +36,8 @@ class DMHelper(commands.Cog):
         self.priority_message_queue : list = []
         self.errored_message_queue : list = [] # used to store DMs that were unable to be delivered
         self.actively_sending = False
+        self.auto_assign_dmbr = {}
+        asyncio.create_task(self._pre_load_data())
         # self.task = asyncio.create_task(self.process_dm_queues())  # TODO: protect queue from bot crashes -- json?
     
 # region Admin config commands
@@ -91,6 +93,16 @@ class DMHelper(commands.Cog):
         await self._save_needs_to_dm_role(ctx.guild, None)
         await ctx.reply(DONE)
 
+    # OTHER
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def toggleAutoDMBR(self, ctx):
+        auto_assign = await self._toggle_auto_assign_dmbr(ctx.guild)
+        dmbr = await self._get_needs_to_dm_role(ctx.guild)
+        action = "will" if auto_assign else "will not"
+        await ctx.reply(f"The bot **{action}** add the **{dmbr}** role to new guild members.")
+
 # endregion
 
 # region Commands
@@ -112,16 +124,39 @@ class DMHelper(commands.Cog):
     
 # endregion
 
+# region preload data
+
+    async def _pre_load_data(self):
+        await self.bot.wait_until_ready()
+        self.auto_assign_dmbr = {}
+        for guild in self.bot.guilds:
+            self.auto_assign_dmbr[guild] = (await self._get_auto_assign_dmbr(guild))
+
+# endregion
+
 # region Listeners
     @commands.Cog.listener('on_member_join')
     async def on_member_join(self, member: discord.Member):
+        # ignore bots
+        if member.bot:
+            return
+            
+        # Don't add role if auto-assign is disabled (false)
+        if not self.auto_assign_dmbr[member.guild]:
+            return
+
         dm_bot_role: discord.Role = await self._get_needs_to_dm_role(member.guild)
         await member.add_roles(dm_bot_role)
 
     @commands.Cog.listener('on_message_without_command')
     async def _message_listener(self, message: discord.Message):
+        #ignore non-dms
         if not isinstance(message.channel, discord.DMChannel):
             return
+        # ignore all self messages
+        if message.author == self.bot.user:
+            return
+
         # await message.channel.send('hello')
         await self._process_dms_unlocked(message)
     
@@ -270,20 +305,17 @@ class DMHelper(commands.Cog):
             await channel.send(content=f"{' '.join([sender.mention for sender in data['all_senders']])}", embed=embed)
 
     async def _process_dms_unlocked(self, dm: discord.Message):
-        guild: discord.Guild = self.get_main_guild()
-        remove_needs_dm_role: discord.Role = await self._get_needs_to_dm_role(guild)
-        user: discord.User = guild.get_member(dm.author.id)
-        # await dm.channel.send("Thank you for messaging the bot")
+        user: discord.User = dm.author
         
         # Remove role from mutual servers where applicable
         was_locked = False
         for guild in user.mutual_guilds:
-            remove_needs_dm_role: discord.Role = await self._get_needs_to_dm_role(guild)
-            if not remove_needs_dm_role:
+            needs_to_dm_bot_role: discord.Role = await self._get_needs_to_dm_role(guild)
+            if not needs_to_dm_bot_role:
                 continue
             member: discord.Member = guild.get_member(user.id)
             if needs_to_dm_bot_role in member.roles:
-                member.remove_roles(needs_to_dm_bot_role)
+                await member.remove_roles(needs_to_dm_bot_role)
                 was_locked = True
         
         if not was_locked:
@@ -296,28 +328,23 @@ class DMHelper(commands.Cog):
         )
         await self.add_to_dm_queue(member, content=unlock_msg)
 
-        failed_messages = await self._pop_failed_user_messages(user)
+        # TODO: Code here is GOOD, but saving failed messages is not yet supported
+        # failed_messages = await self._pop_failed_user_messages(user)
         
-        if not failed_messages:
-            return None 
+        # if not failed_messages:
+        #     return None 
         
-        msg = "It looks like you have some old failed DMs. Here's what you've missed..."
-        await self.add_message_players_to_dm_queue(member, msg)
-        for failed_message in failed_messages:
-            await self.add_message_players_to_dm_queue(
-                member,
-                content=failed_message.get("content"),
-                embed=failed_message.get("embed"),
-                ctx=failed_message.get("req_ctx")
-            )
+        # msg = "It looks like you have some old failed DMs. Here's what you've missed..."
+        # await self.add_message_players_to_dm_queue(member, msg)
+        # for failed_message in failed_messages:
+        #     await self.add_message_players_to_dm_queue(
+        #         member,
+        #         content=failed_message.get("content"),
+        #         embed=failed_message.get("embed"),
+        #         ctx=failed_message.get("req_ctx")
+        #     )
 
     # endregion
-
-    # DM member mgmt
-    def get_main_guild(self) -> discord.Guild:
-        for guild in self.bot.guilds:
-            if guild.id == guild_id:
-                return guild
 
     async def _ghost_ping_in_needs_dm_channel(self, member):
         channel = await self._get_needs_to_dm_channel(member.guild)
@@ -334,6 +361,9 @@ class DMHelper(commands.Cog):
     async def _get_needs_to_dm_channel(self, guild: discord.Guild):
         return guild.get_channel(await self.config.guild(guild).DMNotifyChannel())
 
+    async def _get_auto_assign_dmbr(self, guild: discord.Guild):
+        return await self.config.guild(guild).AutoAssignDMBotRole()
+
     # BOTH
     async def _pop_failed_user_messages(self, user: discord.User):
         failed_messages = await self.config.FailedUserMessages()
@@ -342,6 +372,12 @@ class DMHelper(commands.Cog):
             del failed_messages[user]
             await self._save_failed_user_messages(failed_messages)
             return failed_user_messages
+
+    async def _toggle_auto_assign_dmbr(self, guild: discord.Guild):
+        auto_assign_dmbr = not (await self._get_auto_assign_dmbr(guild))
+        await self.config.guild(guild).AutoAssignDMBotRole.set(auto_assign_dmbr)
+        self.auto_assign_dmbr[guild] = auto_assign_dmbr
+        return auto_assign_dmbr
 
     # SAVE
     async def _save_needs_to_dm_role(self, guild: discord.Guild, role: discord.Role):
