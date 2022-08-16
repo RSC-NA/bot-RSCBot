@@ -1,3 +1,4 @@
+import logging
 from sys import prefix
 from typing import NewType
 import discord
@@ -14,6 +15,7 @@ from redbot.core.utils.predicates import MessagePredicate
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
 
+log = logging.getLogger("red.RSCBot.teamManager")
 
 defaults = {"Tiers": [], "Teams": [], "Team_Roles": {}}
 verify_timeout = 30
@@ -418,6 +420,18 @@ class TeamManager(commands.Cog):
                 return
 
         await ctx.send("No tier, franchise, prefix, or GM with name: {0}".format(franchise_tier_identifier))
+
+    @commands.command()
+    @commands.guild_only()
+    async def getTeam(self, ctx: commands.Context, player: discord.Member) -> None:
+        """Fetches current team of discord user and returns the active roster"""
+        log.debug(f"Fetching team name for {player}")
+        team = await self.get_current_team_name(ctx, player)
+        if team:
+            log.debug(f"Found Team: {team}")
+            await ctx.send(embed=await self.create_roster_embed(ctx, team))
+        else:
+            await ctx.send(f"{player.display_name} is not currently on a team.")
 
     @commands.command()
     @commands.guild_only()
