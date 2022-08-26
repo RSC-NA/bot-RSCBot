@@ -5,3 +5,4 @@ __pycache__/
 Lib/
 Scripts/
 pyvenv.cfg
+Tracker*.json
