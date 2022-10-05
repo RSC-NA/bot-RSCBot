@@ -196,7 +196,7 @@ class StatsManager(commands.Cog):
     async def get_player_stats_embed(self, ctx, player, team, player_stats):
         under_contract = bool(team)
         player_name = self.get_name_components(player)[1]
-        player_name = player_name.replace(player_name[0], player_name[0].upper())
+        player_name = player_name.replace(player_name[0], player_name[0].upper(), 1)
         
         if under_contract:
             franchise_role, tier_role = await self.team_manager._roles_for_team(ctx, team)
