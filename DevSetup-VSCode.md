@@ -40,6 +40,10 @@ This set of instructions informs developers how to configure their dev environme
 1. Enter Virtual Environment with:
 
      `$ & c:/Users/<path_to_project>/.venv/Scripts/Activate.ps1`
+
+     or
+
+     `$ ./.venv/Scripts/Activate.ps1` (using local path)
 1. Use the hotkey (`Ctrl+Shift+P`) and click "Python: Select Interpreter" 
     - Select the virtual environment you just created: `('.venv': venv) ./.venv/Scripts.python.exe`
 

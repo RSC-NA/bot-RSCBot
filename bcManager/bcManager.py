@@ -36,6 +36,7 @@ RSC_WEB_APP = "http://24.151.186.188:4443"
 DONE = "Done"
 WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
 WHITE_CHECK_REACT = "\U00002705"            # :white_check_mark:
+RSC_STEAM_ID = 76561199096013422
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
@@ -273,7 +274,7 @@ class BCManager(commands.Cog):
         
         await self.assign_ff_reactions(message, deep_match_report)
 
-    @commands.command(aliases=['mmr'])
+    @commands.command()
     @commands.guild_only()
     async def missingMatchReport(self, ctx):
         if not await self.has_perms(ctx.author):
@@ -525,9 +526,6 @@ class BCManager(commands.Cog):
             channel = message.channel
             ff_processing_data = self.ffp[guild][message]
             if user.id is not ff_processing_data['reporter'].id:
-                await channel.send("WHAT")
-                await channel.send(user)
-                await channel.send(ff_processing_data['reporter'])
                 return
         except:
             return 
@@ -1600,10 +1598,11 @@ class BCManager(commands.Cog):
                     return player
         return {}
     
+    # TODO: can we make this async AND have it be referenced with a to_thread call?
     def get_latest_player_data_by_platform_name(self, guild, platform, plat_name):        
         bapi : ballchasing.Api = self.ballchasing_api[guild]
-        rsc_steam_id = "76561199096013422"
-        data = bapi.get_replays(sort_by="replay-date", sort_dir="desc", player_name=plat_name, uploader=rsc_steam_id, count=10)
+        
+        data = bapi.get_replays(sort_by="replay-date", sort_dir="desc", player_name=plat_name, uploader=RSC_STEAM_ID, count=10)
 
         for replay in data:
             for team in ['blue', 'orange']:
