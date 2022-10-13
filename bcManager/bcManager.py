@@ -140,7 +140,7 @@ class BCManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     async def getBCLogChannel(self, ctx):
-        if not self.has_perms(ctx.author):
+        if not await self.has_perms(ctx.author):
             return
         channel: discord.Channel = await self._get_log_channel(ctx.guild)
         await ctx.reply(channel.mention)
@@ -148,7 +148,7 @@ class BCManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     async def getStatsManagerRole(self, ctx):
-        if not self.has_perms(ctx.author):
+        if not await self.has_perms(ctx.author):
             return
         role: discord.Role = await self._get_stats_manager_role(ctx.guild)
         await ctx.reply(role.mention)
@@ -159,7 +159,7 @@ class BCManager(commands.Cog):
     @commands.command(aliases=['reportAllMatches', 'ram'])
     @commands.guild_only()
     async def reportMatches(self, ctx, match_day: int=None):
-        if not self.has_perms(ctx.author):
+        if not await self.has_perms(ctx.author):
             return
         log.debug("Reporting matches...")
         if not match_day:
@@ -240,7 +240,7 @@ class BCManager(commands.Cog):
     @commands.command(aliases=['rff', 'reportFF'])
     @commands.guild_only()
     async def reportForfeits(self, ctx, match_day, team_a, team_b):
-        if not self.has_perms(ctx.author):
+        if not await self.has_perms(ctx.author):
             return
         match = await self.get_matchup(ctx, match_day, team_a, team_b)
         if not match:
@@ -269,7 +269,7 @@ class BCManager(commands.Cog):
     @commands.command(aliases=['mmr'])
     @commands.guild_only()
     async def missingMatchReport(self, ctx):
-        if not self.has_perms(ctx.author):
+        if not await self.has_perms(ctx.author):
             return
         await self.process_missing_replays(ctx) #, all_missing_replays)  
 
@@ -281,7 +281,7 @@ class BCManager(commands.Cog):
         Example:
         [p]manualMatchReport 4 Gorillas 3 Peppermint 1
         """
-        if not self.has_perms(ctx.author):
+        if not await self.has_perms(ctx.author):
             return
         match = await self.get_matchup(ctx, match_day, team_a, team_b)
 
@@ -325,7 +325,7 @@ class BCManager(commands.Cog):
     @commands.command(aliases=['mmu', 'manuallyUpdateMatch', 'mum'])
     @commands.guild_only()
     async def manualMatchUpdate(self, ctx, match_day: int, bc_match_link_or_id):
-        if not self.has_perms(ctx.author):
+        if not await self.has_perms(ctx.author):
             return
         match_code = self.parse_group_code(bc_match_link_or_id)
         
