@@ -58,7 +58,7 @@ class BCManager(commands.Cog):
     @commands.command(aliases=['setAuthKey'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setAuthToken(self, ctx, auth_token):
+    async def setBCAuthToken(self, ctx, auth_token):
         """Sets the Auth Key for Ballchasing API requests.
         Note: Auth Token must be generated from the Ballchasing group owner
         """
@@ -79,6 +79,13 @@ class BCManager(commands.Cog):
                 return await ctx.send(f":white_check_mark: {DONE}")
 
         await ctx.send(":x: The Auth Token you've provided is invalid.")
+
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setTopLevelGroup(self, ctx, rsc_app_token):
+        await self._save_rsc_app_token(self, ctx.guild, rsc_app_token)
+        await ctx.reply(DONE)
 
     @commands.command(aliases=['setLeagueSeasonGroup', 'stlg'])
     @commands.guild_only()
@@ -1426,7 +1433,7 @@ class BCManager(commands.Cog):
         url =  f"{RSC_WEB_APP}/api/member/{player.id}/accounts"
         rsc_app_token: str = await self._get_rsc_app_token(player.guild)
         headers = {"X-Api-Key": rsc_app_token}
-        data = requests.get(url, headers=headers).json()
+        data = (await asyncio.to_thread(requests.get, url, headers=headers)).json()
         accounts = data.get('accounts', [])
         
         if not platforms:
