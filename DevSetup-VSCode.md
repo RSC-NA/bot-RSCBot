@@ -26,8 +26,16 @@ This set of instructions informs developers how to configure their dev environme
         - `.[style]` is a literal value
         - `.[dev]` or `.[style]` may be used
 
+<br>
 
-1. Follow the "Installing Red" section Redbot's [official documentation](https://docs.discord.red/en/stable/install_guides/windows.html#installing-red).
+1. Follow the "Installing Red" section Redbot's [official documentation](https://docs.discord.red/en/stable/install_guides/windows.html#installing-red):
+
+    ```
+    python -m pip install -U pip setuptools wheel
+    python -m pip install -U Red-DiscordBot
+    ```
+
+    If running the code in debug mode is failing, you may need to re-execute these installation steps.
 
 1. Enter Virtual Environment with:
 
