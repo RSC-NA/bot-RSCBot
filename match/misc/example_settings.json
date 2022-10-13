@@ -9,6 +9,7 @@
                                 "matchDay": "4",
                                 "matchDate": "July 6, 2022",
                                 "matchType": "Regular Season",
+                                "matchFormat": "4-gs",
                                 "home": "Gorillas",
                                 "away": "Peppermint",
                                 "roomName": "badlands",
@@ -18,6 +19,7 @@
                                 "matchDay": "4",
                                 "matchDate": "May 25, 2022",
                                 "matchType": "Regular Season",
+                                "matchFormat": "4-gs",
                                 "home": "Thermal",
                                 "away": "Gorillas",
                                 "roomName": "fury",
@@ -27,15 +29,30 @@
                                     "home_wins": 4,
                                     "away_wins": 0,
                                     "summary": "**Thermal** 4 - 0 **Gorillas**",
-                                    "ballchasing_link": "https://ballchasing.com/group/thermal-vs-gorillas-ljbshz1yd9"
+                                    "ballchasing_id": "thermal-vs-gorillas-ljbshz1yd9",
+                                    "ballchasing_link": "https://ballchasing.com/group/thermal-vs-gorillas-ljbshz1yd9",
+                                    "message_report_ids": [],
+                                    "forfeits": [
+                                        {
+                                            "team": "Gorillas",
+                                            "game_no": 1,
+                                            "game_by_time": "2022-07-14 06:49 UTC"
+                                        }
+                                    ]
                                 }
                             }
                         ]
                     }
                 },
                 "LobbyHashes": {
-                    "1": [-8600427675859063065, 7192519824993810708],
-                    "2": [4301634076316122128, 6282479947756218303]
+                    "1": [
+                        -8600427675859063065,
+                        7192519824993810708
+                    ],
+                    "2": [
+                        4301634076316122128,
+                        6282479947756218303
+                    ]
                 },
                 "MatchDay": "4"
             }

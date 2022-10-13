@@ -1080,7 +1080,7 @@ class TeamManager(commands.Cog):
         await self.config.guild(ctx.guild).Team_Roles.set(team_roles)
 
     def _find_role(self, ctx, role_id):
-        for role in ctx.message.guild.roles:
+        for role in ctx.guild.roles:
             if role.id == role_id:
                 return role
         raise LookupError(
@@ -1251,6 +1251,7 @@ class TeamManager(commands.Cog):
             for emoji in emojis:
                 if emoji.name.lower() == prefix.lower() or emoji.name.lower() == gm_name.lower():
                     return emoji
+        return None
 
     # TODO: remove unused ctx - must remove from other references
     def _get_gm(self, ctx, franchise_role: discord.Role):

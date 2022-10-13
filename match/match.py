@@ -123,8 +123,7 @@ class Match(commands.Cog):
         """
         schedule = await self._schedule(ctx)
         dump = json.dumps(schedule, indent=4, sort_keys=True)
-        await ctx.send("Here is all of the schedule data in "
-                       "JSON format.\n```json\n{0}\n```".format(dump))
+        await ctx.send("Here is all of the schedule data in JSON format.\n```json\n{0}\n```".format(dump))
 
     @commands.command()
     @commands.guild_only()
@@ -285,8 +284,7 @@ class Match(commands.Cog):
 # Helper Functions
     async def _add_match(self, ctx, match_day, match_date, home, away, match_type, match_format):
         """Does the actual work to save match data."""
-        # Process inputs to normalize the data (e.g. convert team names to
-        # roles)
+        # Process inputs to normalize the data (e.g. convert team names to roles)
         match_date_error = None
         try:
             datetime.strptime(match_date, '%B %d, %Y').date()
@@ -701,6 +699,18 @@ class Match(commands.Cog):
             if match_matches_match_i:
                 return i 
         return None 
+
+    async def get_unreported_matches(self, ctx):
+        schedule = await self._schedule(ctx)
+        missing_matches = {}
+        for tier, match_day_matches in schedule.items():
+            for match_day, matches in match_day_matches.items():
+                for match in matches:
+                    if not match.get("report"):
+                        missing_tier_matches = missing_matches.setdefault(tier, [])
+                        missing_tier_matches.append(match)
+                        missing_matches[tier] = missing_tier_matches
+        return missing_matches
 
 # json
     async def _schedule(self, ctx):

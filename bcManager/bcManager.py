@@ -10,11 +10,13 @@ from .BCConfig import BCConfig
 from teamManager import TeamManager
 from match import Match
 
+import struct
 import tempfile
 import asyncio
 from pytz import all_timezones_set, timezone, UTC
-from datetime import datetime
+from datetime import datetime, timedelta
 import ballchasing
+import requests
 
 log = logging.getLogger("red.RSCBot.bcManager")
 
@@ -22,11 +24,18 @@ defaults = {
     "ReplayDumpChannel": None,
     "AuthToken": None,
     "TopLevelGroup": None,
-    "TimeZone": 'America/New_York'
+    "RscAppToken": None,
+    "TimeZone": 'America/New_York',
+    "LogChannel": None,
+    "StatsManagerRole": None
 }
+global_defaults = {}
 
 verify_timeout = 30
+RSC_WEB_APP = "http://24.151.186.188:4443"
 DONE = "Done"
+WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
+WHITE_CHECK_REACT = "\U00002705"            # :white_check_mark:
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
@@ -34,19 +43,22 @@ class BCManager(commands.Cog):
     def __init__(self, bot):
         self.config = Config.get_conf(self, identifier=1234567893, force_registration=True)
         self.config.register_guild(**defaults)
-
+        self.config.register_global(**global_defaults)
         self.bot = bot
         self.team_manager_cog : TeamManager = bot.get_cog("TeamManager")
         self.match_cog : Match = bot.get_cog("Match")
         self.ballchasing_api = {}
         self.task = asyncio.create_task(self.pre_load_data())
+        self.ffp = {} # forfeit processing
 
 # region admin commands
    
+    # region setup
+        # region admin only
     @commands.command(aliases=['setAuthKey'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setAuthToken(self, ctx, auth_token):
+    async def setBCAuthToken(self, ctx, auth_token):
         """Sets the Auth Key for Ballchasing API requests.
         Note: Auth Token must be generated from the Ballchasing group owner
         """
@@ -68,6 +80,13 @@ class BCManager(commands.Cog):
 
         await ctx.send(":x: The Auth Token you've provided is invalid.")
 
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setTopLevelGroup(self, ctx, rsc_app_token):
+        await self._save_rsc_app_token(self, ctx.guild, rsc_app_token)
+        await ctx.reply(DONE)
+
     @commands.command(aliases=['setLeagueSeasonGroup', 'stlg'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -76,8 +95,7 @@ class BCManager(commands.Cog):
         Note: Auth Token must be generated from the Ballchasing group owner
         """
         
-        if 'group/' in top_level_group:
-            top_level_group = top_level_group.split('group/')[-1]
+        top_level_group = self.parse_group_code(top_level_group)
 
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
         data = bapi.get_group(top_level_group)
@@ -91,11 +109,25 @@ class BCManager(commands.Cog):
 
         await ctx.send(DONE)
 
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setBCLogChannel(self, ctx, channel: discord.TextChannel=None):
+        await self._save_log_channel(ctx.guild, channel)
+        await ctx.send(DONE)
+    
+    @commands.command()
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setStatsManagerRole(self, ctx, role: discord.Role=None):
+        await self._save_stats_manager_role(ctx.guild, role)
+        await ctx.send(DONE)
+
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setTimeZone(self, ctx, time_zone):
-        """Sets timezone for the guild. Valid time zone codes are listed in the "TZ database name" column of
+        """Sets timezone for the guild. (Default: America/New_York) Valid time zone codes are listed in the "TZ database name" column of
          the following wikipedia page: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"""
 
         if time_zone not in all_timezones_set:
@@ -107,12 +139,35 @@ class BCManager(commands.Cog):
             return await ctx.send(msg)
 
         await self._save_time_zone(ctx.guild, time_zone)
-        await ctx.send("Done")
+        await ctx.reply("Done")
 
+    
+        # endregion
+
+    @commands.command()
+    @commands.guild_only()
+    async def getBCLogChannel(self, ctx):
+        if not await self.has_perms(ctx.author):
+            return
+        channel: discord.Channel = await self._get_log_channel(ctx.guild)
+        await ctx.reply(channel.mention)
+
+    @commands.command()
+    @commands.guild_only()
+    async def getStatsManagerRole(self, ctx):
+        if not await self.has_perms(ctx.author):
+            return
+        role: discord.Role = await self._get_stats_manager_role(ctx.guild)
+        await ctx.reply(role.mention)
+
+    # endregion
+
+    # region normal use
     @commands.command(aliases=['reportAllMatches', 'ram'])
     @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
     async def reportMatches(self, ctx, match_day: int=None):
+        if not await self.has_perms(ctx.author):
+            return
         log.debug("Reporting matches...")
         if not match_day:
             match_day = await self.match_cog._match_day(ctx)
@@ -141,7 +196,9 @@ class BCManager(commands.Cog):
             }
         
         guild_emoji_url = ctx.guild.icon_url
-        processing_status_msg = await ctx.send(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+        channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
+        status_messages = await self.send_ram_message(channels, self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+        # TODO: remove: processing_status_msg = await ctx.send(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
 
         # Process/Report All Replays
         for tier_role in tier_roles:
@@ -152,8 +209,8 @@ class BCManager(commands.Cog):
             for match in schedule.get(tier_role.name, {}).get(match_day, []):
                 match_group_info = {}
                 # update status message
-                await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
-
+                # TODO: remove: await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+                await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
                 # update status embed
                 bc_report_summary_json[tier_role]['index'] += 1
                 
@@ -184,27 +241,188 @@ class BCManager(commands.Cog):
             bc_report_summary_json[tier_role]['active'] = False
         
         # update status message
-        await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
-        # TODO: enable:
-        # await self.process_missing_replays(ctx.guild, all_missing_replays)       
+        # TODO: remove: await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
+        await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))     
+    
+    @commands.command(aliases=['rff', 'reportFF'])
+    @commands.guild_only()
+    async def reportForfeits(self, ctx, match_day, team_a, team_b):
+        if not await self.has_perms(ctx.author):
+            return
+        match = await self.get_matchup(ctx, match_day, team_a, team_b)
+        if not match:
+            return await ctx.reply(f":x: No match could be found for **{team_a} vs {team_b}** on match day {match_day}.")
         
+        if not match.get('report'):
+            return await ctx.reply(":x: This match has not been reported.")
+
+        deep_match_report, embed = await self.get_init_score_deep_summary_and_embed(ctx, match)
+        message = await ctx.reply(embed=embed)
+        
+        msg_val = {
+            "reporter": ctx.author,
+            "message": message,
+            "deep_match_report": deep_match_report,
+            "match": match,
+            "status": "active",
+            "timeout": datetime.now() + timedelta(seconds=15),
+            "ctx": ctx
+        }
+
+        self.ffp.setdefault(ctx.guild, {}).setdefault(message, msg_val)
+        
+        await self.assign_ff_reactions(message, deep_match_report)
+
+    @commands.command(aliases=['mmr'])
+    @commands.guild_only()
+    async def missingMatchReport(self, ctx):
+        if not await self.has_perms(ctx.author):
+            return
+        await self.process_missing_replays(ctx) #, all_missing_replays)  
+
+    @commands.command(aliases=['manuallyReportMatch'])
+    @commands.guild_only()
+    async def manualMatchReport(self, ctx, match_day: int, team_a, a_wins: int, team_b, b_wins: int):
+        """Submits a manual report for a match without performing ballchasing requests
+        
+        Example:
+        [p]manualMatchReport 4 Gorillas 3 Peppermint 1
+        """
+        if not await self.has_perms(ctx.author):
+            return
+        match = await self.get_matchup(ctx, match_day, team_a, team_b)
+
+        if not match:
+            return await ctx.reply(":x: Match could not be found.")
+        
+        if match.get('report'):
+            return await ctx.reply("This match has already been reported:\n{}".format(match['report']['summary']))
+
+        if match['home'].lower() == team_a.lower():
+            home_wins = a_wins 
+            away_wins = b_wins
+        else:
+            home_wins = b_wins 
+            away_wins = a_wins
+
+        tier_role = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[1]
+
+        winner = None
+        if home_wins != away_wins:
+            winner = match['home'] if home_wins > away_wins else match['away']
+
+        report = {
+            "match_format": match['matchFormat'],
+            "winner": winner,
+            "home_wins": home_wins,
+            "away_wins": away_wins,
+            "summary": f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**",
+            "manual": True
+        }
+
+        if not self.is_valid_replay_set(report):
+            return await ctx.reply(f":x: This is not a valid result set for the format `{match['matchFormat']}`")
+        
+        match = await self.update_match_report(ctx, tier_role.name, match, report)
+        
+        # TODO: if match was previously reported, should replays persist?
+
+        await ctx.reply(DONE)
+
+    @commands.command(aliases=['mmu', 'manuallyUpdateMatch', 'mum'])
+    @commands.guild_only()
+    async def manualMatchUpdate(self, ctx, match_day: int, bc_match_link_or_id):
+        if not await self.has_perms(ctx.author):
+            return
+        match_code = self.parse_group_code(bc_match_link_or_id)
+        
+        bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
+
+        data = bapi.get_group(match_code)
+        name = data.get("name")
+        teams = name.split(" vs ")
+
+        match = None
+        matches = await self.match_cog.get_team_matches(ctx, teams[0], str(match_day))
+        for m in matches:
+            match_teams = [m['home'], m['away']]
+            if set(teams) == set(match_teams):
+                match = m
+                break
+        
+        if not match:
+            return await ctx.reply(":x: No match could be found in association with this match day and group.")
+        
+        destination_data = await self.get_replay_destination(ctx, match)
+
+        if destination_data['id'] != match_code:
+            return await ctx.reply(":x: Something went wrong.")
+        
+        tier_role : discord.Role = (await self.team_manager_cog._roles_for_team(ctx, teams[0]))[1]
+
+
+        discovery_data = {
+            "winner": None,
+            "home_wins": 0,
+            "away_wins": 0,
+            "summary": f"{match['home']} {home_goals} - {away_goals} {match['away']}",
+        }
+        bc_group_data = {
+            "id": match_code,
+            "ballchasing_link": f"https://ballchasing.com/group/{match_code}"
+        }
+
+
+        replays = bapi.get_replays(group_id=match_code)
+
+        for replay in replays:
+
+            home_goals, away_goals = self.get_home_away_goals(match, replay)
+
+            if home_goals > away_goals:
+                discovery_data['home_wins'] += 1
+            else:
+                discovery_data['away_wins'] += 1
+            
+        discovery_data['summary'] = f"**{match['home']}** {discovery_data['home_wins']} - {discovery_data['away_wins']} **{match['away']}**"
+
+        if discovery_data['home_wins'] > discovery_data['away_wins']:
+            discovery_data['winner'] = match['home']
+        elif discovery_data['away_wins'] > discovery_data['home_wins']:
+            discovery_data['winner'] = match['away']
+
+        match_report = {
+            "winner": discovery_data.get('winner'),
+            "home_wins": discovery_data.get('home_wins'),
+            "away_wins": discovery_data.get('away_wins'),
+            "summary": discovery_data.get('summary'),
+            "ballchasing_id": bc_group_data.get('id'),
+            "ballchasing_link": bc_group_data.get('link', 
+                f"https://ballchasing.com/group/{bc_group_data.get('id')}")
+        }
+        match = await self.update_match_report(ctx, tier_role.name, match, match_report)
+        sr_channel = await self.get_score_reporting_channel(tier_role)
+        await self.send_match_summary(ctx, match, sr_channel)
+        await ctx.reply(DONE)
+
+    # endregion
 
 # endregion 
 
 # region player commands 
     @commands.command(aliases=['bcr', 'bcpull'])
     @commands.guild_only()
-    async def bcreport(self, ctx): # , team_name=None, match_day=None):
+    async def bcreport(self, ctx, match_day: int=None): # , team_name=None, match_day=None):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
         """        
-        await self.process_bcreport(ctx)
+        await self.process_bcreport(ctx, match_day=match_day)
     
     @commands.command(aliases=['fbcr', 'fbcpull'])
     @commands.guild_only()
-    async def forcebcreport(self, ctx): # , team_name=None, match_day=None):
+    async def forcebcreport(self, ctx, match_day: int=None): # , team_name=None, match_day=None):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
         """        
-        await self.process_bcreport(ctx, True)
+        await self.process_bcreport(ctx, True, match_day=match_day)
     
     @commands.command(aliases=['bcGroup', 'ballchasingGroup', 'bcg'])
     @commands.guild_only()
@@ -217,16 +435,117 @@ class BCManager(commands.Cog):
         else:
             await ctx.send(":x: A ballchasing group has not been set for this season.")
 
-    @commands.command(aliases=['accs', 'myAccounts', 'registeredAccounts'])
+    @commands.command(aliases=['accs', 'myAccounts', 'registeredAccounts', 'bcp'])
     @commands.guild_only()
-    async def accounts(self, ctx):
+    async def accounts(self, ctx, player: discord.Member=None):
         """View all accounts that have been registered to with your discord account in this guild."""
-        await ctx.send("None lmao")
+        if not player:
+            player = ctx.author
+
+        # Searching Embed Msg
+        tier_role = await self.team_manager_cog.get_current_tier_role(ctx, player)
+        franchise_role = self.team_manager_cog.get_current_franchise_role(player)
+        accounts_embed = discord.Embed(
+            title = f"{player.nick if player.nick else player.name}'s Accounts",
+            color = discord.Color.blue(),
+            description = f"Searching [RSC Tracker Links](https://tinyurl.com/TrackerLinks) for accounts registered to `{player.display_name}`..."
+        )
+        if tier_role:
+            accounts_embed.color = tier_role.color
+        
+        if franchise_role:
+            franchise_emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
+            accounts_embed.set_thumbnail(url=franchise_emoji.url)
+        else:
+            accounts_embed.set_thumbnail(url=ctx.guild.icon_url)
+        
+        accounts_embed.set_footer(icon_url=ctx.guild.icon_url, text="RSC Tracker Links: https://tinyurl.com/TrackerLinks")
+
+        msg : discord.Message = await ctx.send(embed=accounts_embed)
+        linked_accounts = []
+        for acc in await self.get_player_accounts(player):
+            platform = acc.get("platform").lower()
+            plat_id = acc.get("platform_id")
+            plat_name = acc.get("name")
+
+            if plat_id:
+                latest_replay = await asyncio.to_thread(self.get_latest_account_replay_by_plat_id, ctx.guild, platform, plat_id)
+                if latest_replay:
+                    player_data = await asyncio.to_thread(self.get_player_data_from_replay_by_plat_id, latest_replay, platform, plat_id)
+                    plat_name = player_data.get('name', plat_id)
+            elif plat_name:
+                player_data = await asyncio.to_thread(self.get_latest_player_data_by_platform_name, ctx.guild, platform, plat_name)
+                plat_id = player_data.get('id', {}).get('id')
+            
+           
+            if plat_id and plat_name:
+                linked_accounts.append(f"[{platform} | {plat_name}](https://ballchasing.com/player/{platform}/{plat_id})")
+            elif plat_name:
+                linked_accounts.append(f"{platform} | {plat_name}")
+
+        all_accounts_linked = " - " + "\n - ".join(linked_accounts)
+        accounts_embed.description = all_accounts_linked if linked_accounts else "No accounts have been registered."
+        await msg.edit(embed=accounts_embed)
+
 
 # endregion
 
-# region helper commands
+# region helper functions
+
+    # region listeners
+    @commands.guild_only()
+    @commands.Cog.listener("on_reaction_add")
+    async def on_reaction_add(self, reaction: discord.Reaction, user: discord.User):
+        if user.id == self.bot.user.id:
+            return
+        await self.process_ff_reacts(reaction, user, True)
+        
+    @commands.guild_only()
+    @commands.Cog.listener("on_reaction_remove")
+    async def on_reaction_remove(self, reaction: discord.Reaction, user: discord.User):
+        if user.id == self.bot.user.id:
+            return
+        await self.process_ff_reacts(reaction, user, False)
     
+    # Listener helpers
+    def reaction_guild(self, reaction: discord.Reaction):
+        try:
+            return reaction.message.guild
+        except:
+            return None
+
+    def get_channel(self, message: discord.Message):
+        return message.channel
+
+    async def process_ff_reacts(self, reaction: discord.Reaction, user: discord.User, added: bool):
+        try:
+            message = reaction.message
+            member = message.author
+            guild = message.guild
+            channel = message.channel
+            ff_processing_data = self.ffp[guild][message]
+            if user.id is not ff_processing_data['reporter'].id:
+                await channel.send("WHAT")
+                await channel.send(user)
+                await channel.send(ff_processing_data['reporter'])
+                return
+        except:
+            return 
+
+        ff_emojis = ff_processing_data['deep_match_report']['ff_able_reacts']
+        
+        if reaction.emoji not in ff_emojis:
+            return await reaction.clear()
+        
+        now = datetime.now()
+        if reaction.emoji in ff_emojis: # and now <= ff_processing_data['timeout']:
+            await self.update_deep_summary_and_message_embed(reaction, added)
+
+    async def process_rff_timeout(self):
+        pass
+    
+    # endregion
+
     # region primary helpers
     
     async def pre_load_data(self):
@@ -236,10 +555,10 @@ class BCManager(commands.Cog):
             if token:
                 self.ballchasing_api[guild] = ballchasing.Api(token)
 
-    async def process_bcreport(self, ctx, force=False):
+    async def process_bcreport(self, ctx, force=False, match_day: int=None):
         # Step 1: Find Match
         player = ctx.author
-        matches = await self.get_matches(ctx, player)
+        matches = await self.get_matches(ctx, player, match_day=match_day)
         if not matches:
             return await ctx.send(":x: No matches found.")
         
@@ -307,21 +626,294 @@ class BCManager(commands.Cog):
         await bc_status_msg.edit(embed=embed)
 
         # Step 6: Update match cog info
-        await self.update_match_info(ctx, tier_role.name, match, discovery_data, match_subgroup_json)
+        report = {
+            "winner": discovery_data.get('winner'),
+            "home_wins": discovery_data.get('home_wins'),
+            "away_wins": discovery_data.get('away_wins'),
+            "summary": discovery_data.get('summary'),
+            "ballchasing_id": match_subgroup_json.get('id'),
+            "ballchasing_link": match_subgroup_json.get('link', 
+                f"https://ballchasing.com/group/{match_subgroup_json.get('id')}")
+        }
+        await self.update_match_report(ctx, tier_role.name, match, report)
 
         match_subgroup_json['is_valid_set'] = discovery_data['is_valid_set']
 
         return match_subgroup_json
 
+    async def get_init_score_deep_summary_and_embed(self, ctx, match):
+        title = f"MD {match['matchDay']}: {match['home']} vs {match['away']} [FF Report]"
+        tier_role, match_emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
+        
+        home_franchise_role = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[0]
+        away_franchise_role = (await self.team_manager_cog._roles_for_team(ctx, match['away']))[0]
+        home_emoji = await self.team_manager_cog._get_franchise_emoji(ctx, home_franchise_role)
+        away_emoji = await self.team_manager_cog._get_franchise_emoji(ctx, away_franchise_role)
+        ballchasing_link = match['report']['ballchasing_link']
+
+        bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
+
+        replays = bapi.get_replays(group_id=match['report']['ballchasing_id'])
+
+        description = "Match Summary\n" + match['report']['summary'] + "\n"
+        embed = discord.Embed(title=title, description=description, color=tier_role.color)
+
+        # previously ff games
+        forfeits = match['report'].get('forfeits')
+        ff_indexes = [ff['game_num'] for ff in forfeits] if forfeits else []
+
+        # valid games
+        r_description = ""
+        game_summaries = []
+        ff_able_reacts = []
+        gi = 1
+        i = 0
+        react_hex_code = 0x1F1E6 # A
+        for replay in replays:
+            while gi in ff_indexes:
+                gi += 1
+                i += 1
+            react_hex = hex(react_hex_code+i)
+            react = self.get_select_reaction(int(react_hex, base=16))
+            ff_able_reacts.append(react)
+            home_goals, away_goals = self.get_home_away_goals(match, replay)
+            winner_emoji = home_emoji if home_goals > away_goals else away_emoji
+            summary = f"{react} **G{gi}:** {match['home']} {home_goals} - {away_goals} {match['away']}"
+            if winner_emoji:
+                summary += f" {winner_emoji}"
+
+            game_summaries.append({
+                "summary": summary,
+                "home_goals": home_goals,
+                "away_goals": away_goals,
+                "game_no": gi,
+                "react": react_hex,
+                "reaction_str": react,
+                "replay": replay,
+                "ff": False
+            })
+            r_description += "\n" + summary
+            gi += 1
+            i += 1
+            
+        # add fields
+        embed.add_field(name="Game Breakdown", value=r_description, inline=True)
+
+        if forfeits:
+            embed.add_field(name="Forfeited Games", value="\n".join([f"{ff['ff_team']} FF Game {ff['game_num']}" for ff in forfeits]), inline=True)
+        else:
+            embed.add_field(name="Forfeited Games", value="[None]")
+        
+        embed.add_field(name="View in Ballchasing", value=f"[Click here to view the group]({ballchasing_link})", inline=False)
+        embed.add_field(name="Instructions", value="React to report match games as forfeited.\nReact with :white_check_mark: to confirm, or :negative_squared_cross_mark: to cancel.",
+        inline=False)
+        
+        if match_emoji_url:
+            embed.set_thumbnail(url=match_emoji_url)
+
+        deep_match_report = {
+            "ff_able_reacts": ff_able_reacts + [WHITE_CHECK_REACT, WHITE_X_REACT],
+            "home_emoji": home_emoji,
+            "away_emoji": away_emoji,
+            "game_summaries": game_summaries
+        }
+        if forfeits:
+            deep_match_report["ff_summaries"] = forfeits
+
+
+        return deep_match_report, embed
+
+    async def update_deep_summary_and_message_embed(self, reaction: discord.Reaction, added: bool):
+
+        # member: discord.Member = reaction.member
+        message: discord.Message = reaction.message
+        emoji: discord.Emoji = reaction.emoji
+        guild = message.guild
+        ff_processing_data = self.ffp[guild][message]
+        match = ff_processing_data["match"]
+        reporter: discord.Member = ff_processing_data['reporter']
+
+        if emoji == WHITE_X_REACT:
+            return await self.finalize_ff_report(guild, message, emoji)
+
+        # Capture previously ff games
+        forfeits = match['report'].get('forfeits')
+        if forfeits:
+            locked_ffs = [f"{ff['ff_team']} FF Game {ff['game_num']}" for ff in forfeits]
+        else:
+            locked_ffs = []
+        
+        # update and categorize FF'd games
+        non_ff_games = []
+        ff_games = []
+        match_ffs_record = []
+        home_w_adjust = 0
+        for gs in self.ffp[guild][message]["deep_match_report"]["game_summaries"]:
+            # Flip FFs
+
+            # If reaction emoji is equal to the one assigned to this game summary
+            if self.get_select_reaction(gs['react']) == emoji:
+                if gs['ff']:
+                    # old_ff = match['home'] if gs['ff'] == match['home'] else match['away']
+                    # home_w_adjust += 1 if old_ff == match['home'] else -1
+                    gs['ff'] = False
+                else:
+                    gs['ff'] = match['home'] if gs['home_goals'] > gs['away_goals'] else match['away']
+                    
+            if gs['ff']:
+                if gs['ff'] == match['home']:
+                    home_w_adjust -= 1
+                elif gs['ff'] == match['away']:
+                    home_w_adjust += 1
+                ff_games.append(gs['summary'])
+
+                match_ffs_record.append({
+                    "game_num": gs['game_no'],
+                    "ff_team": gs['ff'],
+                    "replay_id": gs['replay']['id'],
+                    "reason": f"Updated by {reporter.display_name}",
+                    "reporter": f"{reporter.name}#{reporter.discriminator}"
+                })
+            else:
+                non_ff_games.append(gs['summary'])
+        
+        home_wins = match['report']['home_wins']
+        away_wins = match['report']['away_wins']
+        description = message.embeds[0].description
+        description_parts = description.split('\n')
+
+        # ff_games = locked_ffs + ff_games
+        if ff_games: # away_w_adjust is zero-sum
+            home_wins += home_w_adjust
+            away_wins -= home_w_adjust
+            if len(description_parts) == 2:
+                if home_w_adjust:
+                    description_parts[1] = f"~~{description_parts[1]}~~"
+                    description_parts.append(f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**")
+                else:
+                    description_parts = description_parts[:2]
+                    description_parts[1] = description_parts[1].replace("~", "")
+
+            elif len(description_parts) == 3:
+                description_parts[2] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+        else:
+            description_parts = description_parts[:2]
+            description_parts[1] = description_parts[1].replace("~", "")
+
+        description = "\n".join(description_parts)
+
+        # Create Updated Embed
+        embed = discord.Embed(title=message.embeds[0].title, description=description, color=message.embeds[0].color)
+        
+        # add fields
+        if non_ff_games:
+            embed.add_field(name="Game Breakdown", value="\n".join(non_ff_games), inline=True)
+        else:
+            embed.add_field(name="Game Breakdown", value="ALL GAMES FF LOL", inline=True)
+
+        # ff_games = locked_ffs + ff_games
+        if ff_games or locked_ffs:
+            embed.add_field(name="Forfeited Games", value="\n".join(locked_ffs + ff_games))
+        else:
+            embed.add_field(name="Forfeited Games", value="[None]")
+        
+        embed.add_field(name="View in Ballchasing", value=f"[Click here to view the group]({match['report']['ballchasing_link']})", inline=False)
+        embed.add_field(name="Instructions", value="React to report match games as forfeited.\nReact with :white_check_mark: to confirm, or :negative_squared_cross_mark: to cancel.",
+        inline=False)
+
+        # update thumbnail
+        if home_wins > away_wins:
+            winner = match['home']
+            home_emoji = self.ffp[guild][message]['deep_match_report']['home_emoji']
+            if home_emoji:
+                embed.set_thumbnail(url=home_emoji.url)
+            else:
+                embed.set_thumbnail(url=guild.icon_url)
+        elif home_wins < away_wins:
+            winner = match['away']
+            away_emoji = self.ffp[guild][message]['deep_match_report']['away_emoji']
+            if away_emoji:
+                embed.set_thumbnail(url=away_emoji.url)
+            else:
+                embed.set_thumbnail(url=guild.icon_url)
+        else:
+            winner = None
+            embed.set_thumbnail(url=guild.icon_url)
+        
+        # update match info
+        match['report']['summary'] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+        match['report']['winner'] = winner
+        if emoji == WHITE_CHECK_REACT:
+            match['report']['forfeits'] = forfeits + match_ffs_record # WARNING: duplicate applied FF reports will override any preceeding ones
+            match['report']['home_wins'] = home_wins
+            match['report']['away_wins'] = away_wins
+            return await self.finalize_ff_report(guild, message, emoji)
+        self.ffp[guild][message]['match'] = match
+        
+        await message.edit(embed=embed)
+    
+    async def finalize_ff_report(self, guild: discord.Guild, message: discord.Message, emoji: discord.Emoji, reason='canceled'):
+        from pprint import pprint as pp
+        embed_update = message.embeds[0]
+        embed_update.remove_field(-1)
+
+        if emoji == WHITE_CHECK_REACT:
+            match = self.ffp[guild][message]['match']
+            ctx : commands.Context = self.ffp[guild][message]['ctx']
+            tier_role = (await self.team_manager_cog._roles_for_team(ctx, match['home']))[1]
+            ff_replay_ids = match.get('report', {}).get('forfeits', [])
+            if ff_replay_ids:
+                description = ("The match info has been updated, and the replay has been " +
+                "removed from the ballchasing group (if applicable).")
+                for ff in ff_replay_ids:
+                    replay_id = ff['replay_id']
+                    bapi : ballchasing.Api = self.ballchasing_api[guild]
+                    await asyncio.to_thread(
+                        bapi.patch_replay,
+                        replay_id=replay_id,
+                        group=""
+                    )
+                await self.update_match_report(ctx, tier_role.name, match, match['report'])
+            else:
+                description = "No changes have been applied."
+
+            embed_update.add_field(
+                name = f"{WHITE_CHECK_REACT} This FF Report has been completed.",
+                value = description,
+                inline=False
+            )
+        else:
+            stop_reason = "been canceled" if reason == 'canceled' else 'timed out'
+            embed_update.add_field(
+                name = f"{WHITE_X_REACT} This FF Report has {stop_reason}.",
+                value = "If you wish to report a forfeit for this match, please try again.",
+                inline=False
+            )
+
+        await message.edit(embed=embed_update)
+        del self.ffp[guild][message]
+        
+    async def get_matchup(self, ctx, match_day, team_a, team_b):
+        matches = await self.get_matches(ctx, team=team_a, match_day=match_day)
+        search_teams = [team_a.lower(), team_b.lower()]
+        for match in matches:
+            match_teams = [match['home'].lower(), match['away'].lower()]
+            if len(set(search_teams + match_teams)) == 2:
+                return match 
+        return None
+
     async def get_match(self, ctx, member, team=None, match_day=None, match_index=0):
         return (await self.get_matches(ctx, member, team, match_day))[match_index]
 
-    async def get_matches(self, ctx, member, team=None, match_day=None):
+    # this method got a little sloppy
+    async def get_matches(self, ctx, member=None, team=None, match_day=None):
         if not match_day:
             match_day = await self.match_cog._match_day(ctx)
         if not team:
             team = (await self.team_manager_cog.teams_for_user(ctx, member))[0]
-        
+        if not team and not member:
+            return None 
+
         matches = await self.match_cog.get_team_matches(ctx, team, match_day)
         
         return matches
@@ -369,8 +961,9 @@ class BCManager(commands.Cog):
 
         # Search all players in game for replays until match is found
         
+        is_valid_set = False
         for player in all_players:
-            for steam_id in (await self.get_steam_ids(ctx.guild, player)):
+            for steam_id in (await self.get_steam_ids(player)):
 
                 data = await asyncio.to_thread(
                     bapi.get_replays,
@@ -382,61 +975,48 @@ class BCManager(commands.Cog):
                     uploader=steam_id
                 )
 
+                min_games_required = self.get_min_replay_count(discovery_data.get('match_format', '4-gs'))
+
                 # checks for MATCHing ;) replays
                 for replay in data:
-                    if self.is_valid_match_replay(match, replay):
-                        # replay_ids.append(replay['id'])
-                        replay_hash = self.generate_replay_hash(replay)
-                        if replay_hash not in discovery_data['replay_hashes']:
-                            discovery_data['replay_hashes'].append(replay_hash)
-                            discovery_data['match_replay_ids'].append(replay['id'])
+                    replay_hash = self.should_add_replay_to_set(replay, discovery_data)
+                    if replay_hash:
+                        discovery_data['replay_hashes'].append(replay_hash)
+                        discovery_data['match_replay_ids'].append(replay['id'])
 
-                            if (replay.get('blue', {}).get('name', 'blue').lower() in match.get('home', '').lower()
-                                or replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()):
-                                home = 'blue'
-                                away = 'orange'
-                            elif (replay.get('orange', {}).get('name', 'orange').lower() in match.get('home', '').lower()
-                                or replay.get('blue', {}).get('name', 'blue').lower() in match.get('away', '').lower()):
-                                home = 'orange'
-                                away = 'blue'
-                            else:
-                                await ctx.send(":x: something may have gone wrong? guessing on home/away lol")
-                                home = 'orange'
-                                away = 'blue'
-                            
-                            home_goals = replay[home].get('goals', 0)
-                            away_goals = replay[away].get('goals', 0)
-                            if home_goals > away_goals:
-                                discovery_data['home_wins'] += 1
-                            else:
-                                discovery_data['away_wins'] += 1
-                    else:
-                        pass
+                        home_goals, away_goals = self.get_home_away_goals(match, replay)
+
+                        if home_goals > away_goals:
+                            discovery_data['home_wins'] += 1
+                        else:
+                            discovery_data['away_wins'] += 1
+                        
+                        # see if replay set is valid
+                        if len(discovery_data['replay_hashes']) >= min_games_required:
+                            is_valid_set = self.is_valid_replay_set(discovery_data)
+                            discovery_data['is_valid_set'] = is_valid_set
+                            if is_valid_set:
+                                discovery_data = self.set_series_winner(match, discovery_data)
+                                if discovery_data.get("is_valid_set", is_valid_set):
+                                    discovery_data['summary'] = f"**{match['home']}** {discovery_data['home_wins']} - {discovery_data['away_wins']} **{match['away']}**"
+                                    return discovery_data
                 
                 # update accounts searched to avoid duplicate searches (maybe not needed)
                 discovery_data['accounts_searched'].append(steam_id)
-
-                # see if replay set is valid
-                is_valid_set = self.is_valid_replay_set(discovery_data)
-
-                # Update disco data with current info
-                discovery_data['is_valid_set'] = is_valid_set
-                discovery_data['summary'] = f"**{match['home']}** {discovery_data['home_wins']} - {discovery_data['away_wins']} **{match['away']}**"
-                # discovery_data['match_replay_ids'] = discovery_data.get('match_replay_ids', []) + replay_ids
-
-                winner = None
-                if discovery_data['home_wins'] > discovery_data['away_wins']:
-                    winner = match['home']
-                elif discovery_data['home_wins'] < discovery_data['away_wins']:
-                    winner = match['away']
-
-                discovery_data['winner'] = winner
-
-                if discovery_data.get("is_valid_set", False):
-                    return discovery_data
-        
+                
             # update players searched to avoid duplicate searches (maybe not needed)
             discovery_data['players_searched'].append(player)
+
+        return discovery_data
+
+    async def set_series_winner(self, match, discovery_data):
+        winner = None
+        if discovery_data['home_wins'] > discovery_data['away_wins']:
+            winner = match['home']
+        elif discovery_data['home_wins'] < discovery_data['away_wins']:
+            winner = match['away']
+
+        discovery_data['winner'] = winner
 
         return discovery_data
 
@@ -528,8 +1108,9 @@ class BCManager(commands.Cog):
         return replay_ids_in_group
 
     # TODO
-    async def process_missing_replays(self, ctx, missing_replays: dict):
+    async def process_missing_replays(self, ctx): #, missing_replays: dict):
         # Step 0: Load old missing replays
+        missing_matches = await self.match_cog.get_unreported_matches(ctx)
 
         # Step 1: search ballchasing for old missing replays, update old missing replays
 
@@ -538,16 +1119,57 @@ class BCManager(commands.Cog):
         # Step 3: combine old and new missing replays data set
 
         # Step 4: generate missing replays report message
+        missing_replays_report = await self.generate_missing_replays_msg(ctx.guild, missing_matches)
 
         # Step 5: save all missing replay data to json
 
         # Step 6: send missing replays report to stats-updates channel
-        channel : discord.TextChannel = await self.get_stats_updates_channel(ctx.guild)
-        await channel.send(missing_replays)
+        # channel : discord.TextChannel = await self.get_stats_updates_channel(ctx.guild)
+        channel = await self._get_log_channel(ctx.guild)
+        await channel.send(missing_replays_report)
+
+    async def generate_missing_replays_msg(self, guild, missing_matches):
+        tier_chunks = []
+
+        for tier, matches in missing_matches.items():
+            tier_str = f"__{tier}__"
+            tier_str += "\n```\n"
+
+            for match in matches:
+                tier_str += "\n"
+                if match['matchDay'].isdigit():
+                    tier_str += f"{match['home']} vs {match['away']} - MD{match['matchDay']}"
+                else:
+                    tier_str += f"{match['home']} vs {match['away']} - MD-{match['matchDay']}"
+                    mt = match.get('matchType')
+                    if mt:
+                        tier_str += f" ({mt})"
+
+            tier_str += "\n```\n"
+
+            tier_chunks.append(tier_str)
+        
+        report = ""
+        report += "\n".join(tier_chunks)
+
+        ballchasing_link = await self._get_top_level_group(guild)
+        report += "\n"
+        report += f"RSC Ballchasing group: <https://ballchasing.com/group/{ballchasing_link}>"
+        report += "\nRSC Match Day Rules: <https://tinyurl.com/MatchDayRules>"
+        
+        return report
 
     # endregion
 
     # region validations
+
+    def should_add_replay_to_set(self, replay, discovery_data):
+        if self.is_valid_match_replay(match, replay):
+            # replay_ids.append(replay['id'])
+            replay_hash = self.generate_replay_hash(replay)
+            if replay_hash not in discovery_data['replay_hashes']:
+                return replay_hash
+        return False
 
     def is_full_replay(self, replay_data):
         if replay_data['duration'] < 300:
@@ -612,56 +1234,81 @@ class BCManager(commands.Cog):
         }
         return team_data
 
+    def get_min_replay_count(self, match_format: str):
+        format_type, fmt_games = self.get_match_fmt_components(match_format)
+        if format_type == 'gs':
+            return fmt_games
+        return (fmt_games+1)/2
+
     def is_valid_replay_set(self, discovery_data):
-        match_format = discovery_data.get('match_format', '4-gs').lower()
+        format_type, fmt_games = self.get_match_fmt_components(discovery_data.get('match_format'), '4-gs')
+        gp = discovery_data.get('home_wins', 0) + discovery_data.get('away_wins', 0)
+
+        if format_type == 'gs':    
+            return (gp == fmt_games)
+
+        elif format_type == 'bo':
+            winning_team_wins = int(fmt_games/2) + 1 
+            return (gp <= fmt_games and (
+                discovery_data.get('home_wins', 0) == winning_team_wins
+                or
+                discovery_data.get('away_wins', 0) == winning_team_wins
+            ))
+        
+        return False
+    
+    def get_match_fmt_components(self, match_format: str):
         format_components = match_format.split('-')
 
         for component in format_components:
             if component.isdigit():
-                num_games = int(component)
+                fmt_games = int(component)
                 break
         
-        format_components.remove(str(num_games))
-        format_type = format_components[0]
-
-        if format_type == 'gs':
-            gp = discovery_data.get('home_wins', 0) + discovery_data.get('away_wins', 0)
-            return (gp == num_games)
-
-        elif format_type == 'bo':
-            winning_team_wins = int(num_games/2) + 1 
-            return (
-                discovery_data.get('home_wins', 0) == winning_team_wins
-                or
-                discovery_data.get('away_wins', 0) == winning_team_wins
-            )
-        
-        return False
+        format_components.remove(str(fmt_games))
+        fmt_type = format_components[0]
+        return fmt_type, fmt_games
 
     # endregion 
 
     # region secondary helpers
+    async def has_perms(self, member: discord.Member):
+        if member.guild_permissions.administrator:
+            return True
+        stats_role = await self._get_stats_manager_role(member.guild)
+        return stats_role and stats_role in member.roles
 
-    async def update_match_info(self, ctx, tier, match, discovery_data, bc_group_data):
-        report = {
-            "winner": discovery_data.get('winner'),
-            "home_wins": discovery_data.get('home_wins'),
-            "away_wins": discovery_data.get('away_wins'),
-            "summary": discovery_data.get('summary'),
-            "ballchasing_id": bc_group_data.get('id'),
-            "ballchasing_link": bc_group_data.get('link', 
-                f"https://ballchasing.com/group/{bc_group_data.get('id')}")
-        }
+    def get_home_away_goals(self, match, replay):
 
+        if (replay.get('blue', {}).get('name', 'blue').lower() in match.get('home', '').lower()
+            or replay.get('orange', {}).get('name', 'orange').lower() in match.get('away', '').lower()):
+            home = 'blue'
+            away = 'orange'
+        elif (replay.get('orange', {}).get('name', 'orange').lower() in match.get('home', '').lower()
+            or replay.get('blue', {}).get('name', 'blue').lower() in match.get('away', '').lower()):
+            home = 'orange'
+            away = 'blue'
+        else:
+            return None, None
+        
+        home_goals = replay[home].get('goals', 0)
+        away_goals = replay[away].get('goals', 0)
+
+        return home_goals, away_goals
+
+    async def update_match_report(self, ctx, tier, match, report):
+        
         schedule = await self.match_cog._schedule(ctx)
         match_index = self.match_cog.get_match_index_in_day(schedule, tier, match)
 
         schedule[tier][match['matchDay']][match_index]['report'] = report
 
         await self.match_cog._save_schedule(ctx, schedule)
+        
+        match['report'] = report
+        return match
 
     async def send_match_summary(self, ctx, match, report_channel: discord.TextChannel=None):
-
         title = f"Match day {match['matchDay']}: {match['home']} vs {match['away']}"
 
         if report_channel:
@@ -669,16 +1316,13 @@ class BCManager(commands.Cog):
         else:
             description = "This match has already been reported:\n{}\n\n".format(match['report']['summary'])
             report_channel = ctx.channel
-            
-        description += f"[Click here to view this group on ballchasing!]({match['report']['ballchasing_link']})"
-        franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['report']['winner'])
-        embed = discord.Embed(title=title, description=description, color=tier_role.color)
         
-        emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
-        if emoji:
-            embed.set_thumbnail(url=emoji.url)
-        elif ctx.guild.icon_url:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+        description += f"[Click here to view this group on ballchasing!]({match['report']['ballchasing_link']})"
+
+        tier_role, emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
+        embed = discord.Embed(title=title, description=description, color=tier_role.color)
+        if emoji_url:
+            embed.set_thumbnail(url=emoji_url)
         
         await report_channel.send(embed=embed)
     
@@ -707,12 +1351,6 @@ class BCManager(commands.Cog):
                 tier_summary = f"**{tier_summary} [Processing]**"
                 embed.color = tier_role.color
             tier_summaries.append(tier_summary)
-
-            # # using embed fields
-            # value_str = f"Replay Processing Summary: {data['success_count']}/{data['total']}"
-            # if data['active']:
-            #     value_str = f"**{value_str}**"
-            # embed.add_field(name=tier_role.name, value=value_str)
         
         description = '\n\n'.join(tier_summaries)
 
@@ -773,9 +1411,45 @@ class BCManager(commands.Cog):
             }
         }
     
-    # TODO: update to lookup request
-    async def get_steam_ids(self, guild, player: discord.Member):    
-        return ['76561198380344413', '76561199064986643']
+    async def send_ram_message(self, channels, embed: discord.Embed):
+        messages = []
+        for channel in channels:
+            if channel:
+                message = await channel.send(embed=embed)
+                messages.append(message)
+        return messages
+
+    async def update_messages(self, messages, embed: discord.Embed):
+        for message in messages:
+            await message.edit(embed=embed)
+
+    def parse_group_code(self, code_or_link: str):
+        if 'group/' in code_or_link:
+            code_or_link = code_or_link.split('group/')[-1]
+        
+        return code_or_link  # returns code
+
+    async def get_player_accounts(self, player: discord.Member, platforms=[]):
+        url =  f"{RSC_WEB_APP}/api/member/{player.id}/accounts"
+        rsc_app_token: str = await self._get_rsc_app_token(player.guild)
+        headers = {"X-Api-Key": rsc_app_token}
+        data = (await asyncio.to_thread(requests.get, url, headers=headers)).json()
+        accounts = data.get('accounts', [])
+        
+        if not platforms:
+            return accounts
+        
+        platforms = [platform.upper() for platform in platforms]
+        filtered_accounts = []
+        for account in accounts:
+            if account.get('platform') == 'STEAM':
+                filtered_accounts.append(account)
+        
+        return filtered_accounts
+
+    async def get_steam_ids(self, player: discord.Member):    
+        steam_accounts = self.get_player_accounts(player, ['steam'])
+        return [account['platform_id'] for account in steam_accounts]
 
     def generate_replay_hash(self, short_replay_json):
         # hash of replay file based on:
@@ -880,17 +1554,76 @@ class BCManager(commands.Cog):
 
         return await ii_cat.create_text_channel(STATS_UPDATES_CHANNLE, sync=True)
 
+    async def get_match_tier_role_and_emoji_url(self, ctx, match):
+        if match['report'].get('winner'):
+            franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['report']['winner'])
+            emoji_url = (await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)).url
+        else:
+            franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
+            emoji_url = ctx.guild.icon_url
+        
+        return tier_role, emoji_url
+
+    async def assign_ff_reactions(self, message, deep_report):
+        for react in deep_report['ff_able_reacts']:
+            await message.add_reaction(react)
+
+    def get_select_reaction(self, int_or_hex):
+        try:
+            if type(int_or_hex) == int:
+                return struct.pack('<I', int_or_hex).decode('utf-32le')
+            if type(int_or_hex) == str:
+                return struct.pack('<I', int(int_or_hex, base=16)).decode('utf-32le') # i == react_hex
+        except:
+            return None
+
     def is_captain(self, player):
         for role in player.roles:
             if role.name.lower() == "captain":
                 return True
         return False
-        
+    
+    def get_latest_account_replay_by_plat_id(self, guild, platform, plat_id):        
+        bapi : ballchasing.Api = self.ballchasing_api[guild]
+        data = bapi.get_replays(player_id=f"{platform}:{plat_id}", sort_by="replay-date", sort_dir="desc", count=1)
+        return next(data, {})
+
+    def get_player_data_from_replay_by_plat_id(self, replay_json, platform, platform_id):
+        for team in ['blue', 'orange']:
+            for player in replay_json[team].get('players', []):
+                account_match = (
+                    player.get("id", {}).get('platform', None) == platform
+                    and
+                    player.get("id", {}).get('id', None) == platform_id
+                )
+                if account_match:
+                    return player
+        return {}
+    
+    def get_latest_player_data_by_platform_name(self, guild, platform, plat_name):        
+        bapi : ballchasing.Api = self.ballchasing_api[guild]
+        rsc_steam_id = "76561199096013422"
+        data = bapi.get_replays(sort_by="replay-date", sort_dir="desc", player_name=plat_name, uploader=rsc_steam_id, count=10)
+
+        for replay in data:
+            for team in ['blue', 'orange']:
+                for player in replay[team].get('players', []):
+                    account_match = (
+                        player.get("id", {}).get('platform', None) == platform
+                        and
+                        player.get('name', None) == plat_name
+                    )
+                    if account_match:
+                        return player
+        return {}
+
+    def admin_or_permissions():
+        pass
     # endregion
 
 # endregion
 
-# region json
+# region json db
 
     async def _get_auth_token(self, guild: discord.Guild):
         return await self.config.guild(guild).AuthToken()
@@ -906,9 +1639,26 @@ class BCManager(commands.Cog):
     
     async def _save_time_zone(self, guild, time_zone):
         await self.config.guild(guild).TimeZone.set(time_zone)
-        # self.time_zones[guild] = time_zone
 
     async def _get_time_zone(self, guild):
         return await self.config.guild(guild).TimeZone()
+
+    async def _get_log_channel(self, guild: discord.Guild):
+        return guild.get_channel(await self.config.guild(guild).LogChannel())
+    
+    async def _save_log_channel(self, guild: discord.Guild, channel: discord.TextChannel):
+        await self.config.guild(guild).LogChannel.set(channel.id)
+    
+    async def _get_stats_manager_role(self, guild: discord.Guild):
+        return guild.get_role(await self.config.guild(guild).StatsManagerRole())
+    
+    async def _save_stats_manager_role(self, guild: discord.Guild, role: discord.Role):
+        await self.config.guild(guild).StatsManagerRole.set(role.id)
+    
+    async def _get_rsc_app_token(self, guild: discord.Guild):
+        return await self.config.guild(guild).RscAppToken()
+
+    async def _save_rsc_app_token(self, guild: discord.Guild, token: str):
+        await self.config.guild(guild).RscAppToken.set(token)
 
 # endregion
