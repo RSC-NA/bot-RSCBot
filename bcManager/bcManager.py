@@ -1446,7 +1446,7 @@ class BCManager(commands.Cog):
         return filtered_accounts
 
     async def get_steam_ids(self, player: discord.Member):    
-        steam_accounts = self.get_player_accounts(player, ['steam'])
+        steam_accounts = await self.get_player_accounts(player, ['steam'])
         return [account['platform_id'] for account in steam_accounts]
 
     def generate_replay_hash(self, short_replay_json):
