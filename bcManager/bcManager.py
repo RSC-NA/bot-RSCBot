@@ -977,7 +977,7 @@ class BCManager(commands.Cog):
 
                 # checks for MATCHing ;) replays
                 for replay in data:
-                    replay_hash = self.should_add_replay_to_set(replay, discovery_data)
+                    replay_hash = self.should_add_replay_to_set(match, replay, discovery_data)
                     if replay_hash:
                         discovery_data['replay_hashes'].append(replay_hash)
                         discovery_data['match_replay_ids'].append(replay['id'])
@@ -1161,7 +1161,7 @@ class BCManager(commands.Cog):
 
     # region validations
 
-    def should_add_replay_to_set(self, replay, discovery_data):
+    def should_add_replay_to_set(self, match, replay, discovery_data):
         if self.is_valid_match_replay(match, replay):
             # replay_ids.append(replay['id'])
             replay_hash = self.generate_replay_hash(replay)
