@@ -17,6 +17,7 @@ from pytz import all_timezones_set, timezone, UTC
 from datetime import datetime, timedelta
 import ballchasing
 import requests
+import re
 
 log = logging.getLogger("red.RSCBot.bcManager")
 
@@ -49,6 +50,7 @@ class BCManager(commands.Cog):
         self.team_manager_cog : TeamManager = bot.get_cog("TeamManager")
         self.match_cog : Match = bot.get_cog("Match")
         self.ballchasing_api = {}
+        self.rsc_api = {}
         self.task = asyncio.create_task(self.pre_load_data())
         self.ffp = {} # forfeit processing
 
@@ -56,7 +58,7 @@ class BCManager(commands.Cog):
    
     # region setup
         # region admin only
-    @commands.command(aliases=['setAuthKey'])
+    @commands.command(aliases=['setBCAuthKey'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def setBCAuthToken(self, ctx, auth_token):
@@ -71,7 +73,7 @@ class BCManager(commands.Cog):
 
         if api:
             self.ballchasing_api[ctx.guild] = api
-            await self._save_auth_token(ctx.guild, auth_token)
+            await self._save_bc_auth_token(ctx.guild, auth_token)
 
             if await self._get_top_level_group(ctx.guild):
                 await self._save_top_level_group(ctx.guild, None)
@@ -80,6 +82,44 @@ class BCManager(commands.Cog):
                 return await ctx.send(f":white_check_mark: {DONE}")
 
         await ctx.send(":x: The Auth Token you've provided is invalid.")
+
+    @commands.command(aliases=['setRSCAuthKey'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setRSCAuthToken(self, ctx, auth_token):
+        """Sets the Auth Key for the RSC web app API requests.
+        """
+        await ctx.message.delete()
+        # TODO: add RSC web app validation
+
+        self.rsc_api[ctx.guild] = auth_token
+        await self._save_rsc_app_token(ctx.guild, auth_token)
+
+        await ctx.send(":WHITE_CHECK_MARK: The RSC API token has been saved.")
+
+    @commands.command(aliases=['tokencheck'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def tokenCheck(self, ctx):
+        guild: discord.Guild = ctx.guild
+
+        # BC token check
+        bc_token = await self._get_bc_auth_token(guild)
+        valid_bc_token = True if bc_token else False
+        
+        # RSC token check
+        rsc_token = await self._get_rsc_app_token(guild)
+        valid_rsc_token = True if rsc_token else False
+
+        wcm = ":white_check_mark:"
+        x = ":x:"
+
+        output_parts = ["**RSC Guild Tokens Registered**"]
+        output_parts += [f"{wcm} Ballchasing"] if valid_bc_token else [f"{x} Ballchasing"]
+        output_parts += [f"{wcm} RSC Web Api"] if valid_bc_token else [f"{x} RSC Web Api"]
+
+        output_str = "\n".join(output_parts)
+        await ctx.send(output_str)
 
     @commands.command()
     @commands.guild_only()
@@ -411,7 +451,7 @@ class BCManager(commands.Cog):
 # endregion 
 
 # region player commands 
-    @commands.command(aliases=['bcr', 'bcpull'])
+    @commands.command(aliases=['bcr', 'gg'])
     @commands.guild_only()
     async def bcreport(self, ctx, match_day: int=None): # , team_name=None, match_day=None):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
@@ -425,7 +465,7 @@ class BCManager(commands.Cog):
         """        
         await self.process_bcreport(ctx, True, match_day=match_day)
     
-    @commands.command(aliases=['bcGroup', 'ballchasingGroup', 'bcg'])
+    @commands.command(aliases=['bcGroup', 'ballchasingGroup', 'bcg', 'gsg'])
     @commands.guild_only()
     async def bcgroup(self, ctx):
         """Links to the top level ballchasing group for the current season."""
@@ -549,9 +589,12 @@ class BCManager(commands.Cog):
     async def pre_load_data(self):
         await self.bot.wait_until_ready()
         for guild in self.bot.guilds:
-            token = await self._get_auth_token(guild)
-            if token:
-                self.ballchasing_api[guild] = ballchasing.Api(token)
+            bc_token = await self._get_bc_auth_token(guild)
+            if bc_token:
+                self.ballchasing_api[guild] = ballchasing.Api(bc_token)
+            rsc_token = await self._get_rsc_app_token(guild)
+            if rsc_token:
+                self.rsc_api[guild] = rsc_token
 
     async def process_bcreport(self, ctx, force=False, match_day: int=None):
         # Step 1: Find Match
@@ -595,7 +638,7 @@ class BCManager(commands.Cog):
         ## Not found:
         if not discovery_data.get("is_valid_set", False):
             embed.description = discovery_data['summary']
-            await bc_status_msg.delete()
+            await bc_status_msg.edit(embed=embed)
             return {}
 
         ## Found:
@@ -994,7 +1037,7 @@ class BCManager(commands.Cog):
                             is_valid_set = self.is_valid_replay_set(discovery_data)
                             discovery_data['is_valid_set'] = is_valid_set
                             if is_valid_set:
-                                discovery_data = self.set_series_winner(match, discovery_data)
+                                discovery_data = await self.set_series_winner(match, discovery_data)
                                 if discovery_data.get("is_valid_set", is_valid_set):
                                     discovery_data['summary'] = f"**{match['home']}** {discovery_data['home_wins']} - {discovery_data['away_wins']} **{match['away']}**"
                                     return discovery_data
@@ -1193,8 +1236,14 @@ class BCManager(commands.Cog):
 
         replay_teams = self.get_replay_teams_and_players(replay_data)
 
-        home_team_found = replay_teams['blue']['name'].lower() in home_team.lower() or replay_teams['orange']['name'].lower() in home_team.lower()
-        away_team_found = replay_teams['blue']['name'].lower() in away_team.lower() or replay_teams['orange']['name'].lower() in away_team.lower()
+        home_team_found = (
+            re.sub(r'\W+', '', replay_teams['blue']['name'].lower()) in re.sub(r'\W+', '', home_team.lower())
+            or re.sub(r'\W+', '', replay_teams['orange']['name'].lower()) in re.sub(r'\W+', '', home_team.lower())
+        )
+        away_team_found = (
+            re.sub(r'\W+', '', replay_teams['blue']['name'].lower()) in re.sub(r'\W+', '', away_team.lower()) 
+            or re.sub(r'\W+', '', replay_teams['orange']['name'].lower()) in re.sub(r'\W+', '', away_team.lower())
+        )
 
         return home_team_found and away_team_found
 
@@ -1234,18 +1283,18 @@ class BCManager(commands.Cog):
 
     def get_min_replay_count(self, match_format: str):
         format_type, fmt_games = self.get_match_fmt_components(match_format)
-        if format_type == 'gs':
+        if format_type.lower() == 'gs':
             return fmt_games
         return (fmt_games+1)/2
 
     def is_valid_replay_set(self, discovery_data):
-        format_type, fmt_games = self.get_match_fmt_components(discovery_data.get('match_format'), '4-gs')
+        format_type, fmt_games = self.get_match_fmt_components(discovery_data.get('match_format', '4-gs'))
         gp = discovery_data.get('home_wins', 0) + discovery_data.get('away_wins', 0)
 
-        if format_type == 'gs':    
+        if format_type.lower() == 'gs':    
             return (gp == fmt_games)
 
-        elif format_type == 'bo':
+        elif format_type.lower() == 'bo':
             winning_team_wins = int(fmt_games/2) + 1 
             return (gp <= fmt_games and (
                 discovery_data.get('home_wins', 0) == winning_team_wins
@@ -1624,10 +1673,10 @@ class BCManager(commands.Cog):
 
 # region json db
 
-    async def _get_auth_token(self, guild: discord.Guild):
+    async def _get_bc_auth_token(self, guild: discord.Guild):
         return await self.config.guild(guild).AuthToken()
     
-    async def _save_auth_token(self, guild: discord.Guild, token):
+    async def _save_bc_auth_token(self, guild: discord.Guild, token):
         await self.config.guild(guild).AuthToken.set(token)
     
     async def _save_top_level_group(self, guild: discord.Guild, group_id):
