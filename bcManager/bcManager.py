@@ -66,20 +66,31 @@ class BCManager(commands.Cog):
         Note: Auth Token must be generated from the Ballchasing group owner
         """
         await ctx.message.delete()
+
+        tlg = await self._get_top_level_group(ctx.guild)
+        if tlg:
+            bapi: ballchasing.Api = self.ballchasing_api[ctx.guild]
+            ping_data = await asyncio.to_thread(bapi.ping)
+
         try:
-            api = ballchasing.Api(auth_token)
+            api: ballchasing.Api = ballchasing.Api(auth_token)
         except ValueError:
             return await ctx.send(":x: The Auth Token you've provided is invalid.")
 
+        change_action = "updated" if tlg else "set"
+        success_msg = f":white_check_mark: Ballchasing token has been {change_action}."
         if api:
-            self.ballchasing_api[ctx.guild] = api
+            self.ballchasing_api[ctx.guild]: ballchasing.Api = api
+            bapi: ballchasing.Api = api
             await self._save_bc_auth_token(ctx.guild, auth_token)
 
-            if await self._get_top_level_group(ctx.guild):
-                await self._save_top_level_group(ctx.guild, None)
-                return await ctx.send(f":white_check_mark: {DONE}. Top Level Group has been cleared.")
-            else:
-                return await ctx.send(f":white_check_mark: {DONE}")
+            if tlg:
+                group_data = await asyncio.to_thread(bapi.get_group, tlg)
+                if group_data['creator']['steam_id'] != ping_data['steam_id']:
+                    await self._save_top_level_group(ctx.guild, None)
+                    return await ctx.send(f"{success_msg}. Top Level Group has been cleared.")
+            
+            return await ctx.send(success_msg)
 
         await ctx.send(":x: The Auth Token you've provided is invalid.")
 
@@ -116,7 +127,7 @@ class BCManager(commands.Cog):
 
         output_parts = ["**RSC Guild Tokens Registered**"]
         output_parts += [f"{wcm} Ballchasing"] if valid_bc_token else [f"{x} Ballchasing"]
-        output_parts += [f"{wcm} RSC Web Api"] if valid_bc_token else [f"{x} RSC Web Api"]
+        output_parts += [f"{wcm} RSC Web Api"] if valid_rsc_token else [f"{x} RSC Web Api"]
 
         output_str = "\n".join(output_parts)
         await ctx.send(output_str)
