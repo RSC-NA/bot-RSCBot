@@ -483,7 +483,12 @@ class BCManager(commands.Cog):
         group_code = await self._get_top_level_group(ctx.guild)
         url = f"https://ballchasing.com/group/{group_code}"
         if group_code:
-            await ctx.send(f"See all season replays in the top level ballchasing group: {url}")
+            embed = discord.Embed(title="RSC Ballchasing Group", description=f"[Click to view]({url})", color=discord.Color.blue())
+            
+            if ctx.guild.icon_url:
+                embed.set_thumbnail(url=ctx.guild.icon_url)
+
+            await ctx.send(embed=embed)
         else:
             await ctx.send(":x: A ballchasing group has not been set for this season.")
 
