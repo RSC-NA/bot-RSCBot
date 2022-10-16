@@ -155,7 +155,7 @@ class Match(commands.Cog):
     # endregion
 
 # General Info Commands
-    @commands.command()
+    @commands.command(aliases=['gmd'])
     @commands.guild_only()
     async def getMatchDay(self, ctx):
         """Gets the currently active match day."""
@@ -164,8 +164,7 @@ class Match(commands.Cog):
             await ctx.send(
                 "Current match day is: {0}".format(match_day))
         else:
-            await ctx.send(":x: Match day not set. Set with setMatchDay "
-                           "command.")
+            await ctx.send(":x: Match day not set. Set with setMatchDay command.")
 
 # Player Commands
     @commands.command()

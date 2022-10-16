@@ -270,8 +270,7 @@ class BCManager(commands.Cog):
                     await self.send_match_summary(ctx, match, tier_report_channel)
                     bc_report_summary_json[tier_role]['success_count'] += 1
                 else:
-                    match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, report_channel=tier_report_channel)
-                    
+                    match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, score_report_channel=tier_report_channel)
 
                     if not tier_md_group_id and match_group_info.get('is_valid_set', False):
                         tier_md_group_id = match_group_info.get("tier_md_group_id")
@@ -468,6 +467,9 @@ class BCManager(commands.Cog):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
         """        
         await self.process_bcreport(ctx, match_day=match_day)
+        
+        # if match.get("report", {}):
+        #     await self.send_match_summary(ctx, match, tier_report_channel)
     
     @commands.command(aliases=['fbcr', 'fbcpull'])
     @commands.guild_only()
@@ -617,7 +619,8 @@ class BCManager(commands.Cog):
         player = ctx.author
         matches = await self.get_matches(ctx, player, match_day=match_day)
         if not matches:
-            return await ctx.send(":x: No matches found.")
+            await ctx.send(":x: No matches found.")
+            return None
         
         for match in matches:
             if not match.get("report", {}) or force:
@@ -625,36 +628,41 @@ class BCManager(commands.Cog):
             else:
                 await self.send_match_summary(ctx, match)
         
-    async def process_match_bcreport(self, ctx, match, tier_md_group_code: str=None, report_channel: discord.TextChannel=None):
+    async def process_match_bcreport(self, ctx, match, tier_md_group_code: str=None, score_report_channel: discord.TextChannel=None):
         # Step 0: Constants
         SEARCHING = "Searching https://ballchasing.com for publicly uploaded replays of this match..."
         FOUND_AND_UPLOADING = "\n:signal_strength: Results confirmed. Creating a ballchasing replay group. This may take a few seconds..."
-        SUCCESS_EMBED = "Match Summary:\n{}\n\n[Click to view the group on ballchasing!]({})"
-        
-        if not report_channel:
-            report_channel = ctx.channel
+        SUCCESS_EMBED = "Match Summary:\n{}\n\n[View group on ballchasing!]({})"
 
         # Step 2: Send initial embed (Searching...)
-        match_day = match['matchDay']
+        match_day: int = match['matchDay']
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
         emoji_url = ctx.guild.icon_url
 
         embed = discord.Embed(
-            title=f"Match Day {match_day}: {match['home']} vs {match['away']}",
+            title=f"MD {match_day}: {match['home']} vs {match['away']}",
             description=SEARCHING,
             color=tier_role.color
         )
         if emoji_url:
             embed.set_thumbnail(url=emoji_url)
-        bc_status_msg = await report_channel.send(embed=embed)
+        
+        single_player_call = (not score_report_channel)
+        score_report_channel = score_report_channel if score_report_channel else await self.get_score_reporting_channel(tier_role)
+        
+        if single_player_call:
+            bc_status_msg: discord.Message = await ctx.reply(embed=embed)
 
         # Step 3: Search for replays on ballchasing
         discovery_data = await self.find_match_replays(ctx, match)
 
         ## Not found:
         if not discovery_data.get("is_valid_set", False):
-            embed.description = discovery_data['summary']
-            await bc_status_msg.edit(embed=embed)
+            if single_player_call:
+                replays_found = len(discovery_data.get('replay_hashes'))
+                embed.description = ":x: A valid set of replays could not be found for this match."
+                embed.description += f" (only {replays_found} found)" if replays_found else " (0 found)"
+                await bc_status_msg.edit(embed=embed)
             return {}
 
         ## Found:
@@ -681,6 +689,7 @@ class BCManager(commands.Cog):
         # Step 5: Group created, Finalize embed
         embed.description = SUCCESS_EMBED.format(discovery_data.get('summary'), match_subgroup_json.get('link'))
         await bc_status_msg.edit(embed=embed)
+        match_report_message = await score_report_channel.send(embed=embed)
 
         # Step 6: Update match cog info
         report = {
@@ -688,11 +697,12 @@ class BCManager(commands.Cog):
             "home_wins": discovery_data.get('home_wins'),
             "away_wins": discovery_data.get('away_wins'),
             "summary": discovery_data.get('summary'),
+            "score_report_msg_id": match_report_message.id,
             "ballchasing_id": match_subgroup_json.get('id'),
             "ballchasing_link": match_subgroup_json.get('link', 
                 f"https://ballchasing.com/group/{match_subgroup_json.get('id')}")
         }
-        await self.update_match_report(ctx, tier_role.name, match, report)
+        await self.update_match_report(ctx, tier_role.name, match, report) # returns match
 
         match_subgroup_json['is_valid_set'] = discovery_data['is_valid_set']
 
@@ -1371,26 +1381,34 @@ class BCManager(commands.Cog):
         match['report'] = report
         return match
 
-    async def send_match_summary(self, ctx, match, report_channel: discord.TextChannel=None):
-        title = f"Match day {match['matchDay']}: {match['home']} vs {match['away']}"
-
-        if report_channel:
-            description = "Match Summary:\n{}\n\n".format(match['report']['summary'])
-        else:
-            description = "This match has already been reported:\n{}\n\n".format(match['report']['summary'])
-            report_channel = ctx.channel
+    # TODO: UPDATE match summary -- Note: if report_channel is NOT provided, then this is called from bcr
+    async def send_match_summary(self, ctx, match, score_report_channel: discord.TextChannel=None):
         
-        description += f"[Click here to view this group on ballchasing!]({match['report']['ballchasing_link']})"
+        title = f"MD {match['matchDay']}: {match['home']} vs {match['away']}"
+        if not match.get('report', False):
+            log.debug(f"Cannot post for unreported game, {title}")
+            return 
 
         tier_role, emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
+        
+        description = "Match Summary:\n{}\n\n".format(match['report']['summary'])
+        description += f"[View on ballchasing!]({match['report']['ballchasing_link']})"
+
         embed = discord.Embed(title=title, description=description, color=tier_role.color)
         if emoji_url:
             embed.set_thumbnail(url=emoji_url)
         
-        await report_channel.send(embed=embed)
+        if not score_report_channel:
+            await ctx.reply(embed=embed)
+
+        if 'score_report_msg_id' not in match['report']:
+            score_report_channel = score_report_channel if score_report_channel else await self.get_score_reporting_channel(tier_role)
+            score_report_message = await score_report_channel.send(embed=embed)
+            match['report']['score_report_msg_id'] = score_report_message.id
+            await self.update_match_report(ctx, tier_role.name, match, match['report'])
     
     def get_bc_match_day_status_report(self, match_day, report_summary_json: dict, emoji_url = None, complete=False):
-        embed = discord.Embed(title=f"Replay Processing Report: Match Day {match_day}", color=discord.Color.blue())
+        embed = discord.Embed(title=f"Replay Processing Report: MD {match_day}", color=discord.Color.blue())
         
         if emoji_url:
             embed.set_thumbnail(url=emoji_url)
@@ -1531,6 +1549,7 @@ class BCManager(commands.Cog):
 
         return hash(hash_input_str)
 
+    # TODO: resolve 14 game bug
     async def get_all_match_players(self, ctx, match_info):
         all_players = []
         
