@@ -675,7 +675,8 @@ class BCManager(commands.Cog):
         
         # Step 4: Send updated embed (Status: found, uploading)
         embed.description = "Match Summary:\n{}\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
-        await bc_status_msg.edit(embed=embed)
+        if single_player_call:
+            await bc_status_msg.edit(embed=embed)
         
         # Find or create ballchasing subgroup
         match_subgroup_json = await self.get_replay_destination(ctx, match, tier_md_group_code=tier_md_group_code)
@@ -688,7 +689,8 @@ class BCManager(commands.Cog):
 
         # Step 5: Group created, Finalize embed
         embed.description = SUCCESS_EMBED.format(discovery_data.get('summary'), match_subgroup_json.get('link'))
-        await bc_status_msg.edit(embed=embed)
+        if single_player_call:
+            await bc_status_msg.edit(embed=embed)
         match_report_message = await score_report_channel.send(embed=embed)
 
         # Step 6: Update match cog info
