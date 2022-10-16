@@ -33,6 +33,7 @@ defaults = {
 global_defaults = {}
 
 verify_timeout = 30
+BALLCHASING_URL = "https://ballchasing.com"
 RSC_WEB_APP = "http://24.151.186.188:4443"
 DONE = "Done"
 WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
@@ -238,13 +239,16 @@ class BCManager(commands.Cog):
         log.debug(f"Tier Roles: {tier_roles}")
         bc_report_summary_json = {}
         for tier_role in tier_roles:
+            tier_md_bc_code = schedule.get(tier_role.name, {}).get('ballchasing_group_code', '')
             bc_report_summary_json[tier_role] = {
                 "role": tier_role,
                 "index": 0,
                 "success_count": 0,
                 "bc_group_link": None,
                 "total_matches": len(schedule.get(tier_role.name, {}).get(match_day, [])),
-                "active": False
+                "bc_hyperlink": f"[View Group]({BALLCHASING_URL}/group/{tier_md_bc_code})" if tier_md_bc_code else '',
+                "active": False,
+                "active_match": None
             }
         
         guild_emoji_url = ctx.guild.icon_url
@@ -259,8 +263,8 @@ class BCManager(commands.Cog):
             tier_report_channel = await self.get_score_reporting_channel(tier_role)
             for match in schedule.get(tier_role.name, {}).get(match_day, []):
                 match_group_info = {}
-
-                # update status message
+                bc_report_summary_json[tier_role]['active_match'] = f"{match['home']} vs {match['away']}"
+                # update RAM status message
                 await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
                 
                 # update status embed
@@ -274,7 +278,8 @@ class BCManager(commands.Cog):
 
                     if not tier_md_group_id and match_group_info.get('is_valid_set', False):
                         tier_md_group_id = match_group_info.get("tier_md_group_id")
-                        tier_md_group_link = f"https://ballchasing.com/group/{tier_md_group_id}"
+                        # TODO: save tier_md_group_id to tier/md in schedule if not there (hyperlink not defined (transitive))
+                        tier_md_group_link = f"{BALLCHASING_URL}/group/{tier_md_group_id}"
                         log.debug(f"MD Group ID: {tier_md_group_id}")
                         log.debug(f"BC Report Tier Role: {tier_role}")
                         log.debug(f"BC Report Summary JSON: {bc_report_summary_json[tier_role]}")
@@ -286,6 +291,8 @@ class BCManager(commands.Cog):
                     else:
                         bc_report_summary_json[tier_role]['success_count'] += 1
                 
+                bc_report_summary_json[tier_role]['active_match'] = None
+
             if missing_tier_replays:
                 all_missing_replays[tier_role.name] = missing_tier_replays
             
@@ -417,7 +424,7 @@ class BCManager(commands.Cog):
         }
         bc_group_data = {
             "id": match_code,
-            "ballchasing_link": f"https://ballchasing.com/group/{match_code}"
+            "ballchasing_link": f"{BALLCHASING_URL}/group/{match_code}"
         }
 
 
@@ -446,7 +453,7 @@ class BCManager(commands.Cog):
             "summary": discovery_data.get('summary'),
             "ballchasing_id": bc_group_data.get('id'),
             "ballchasing_link": bc_group_data.get('link', 
-                f"https://ballchasing.com/group/{bc_group_data.get('id')}")
+                f"{BALLCHASING_URL}/group/{bc_group_data.get('id')}")
         }
         match = await self.update_match_report(ctx, tier_role.name, match, match_report)
         sr_channel = await self.get_score_reporting_channel(tier_role)
@@ -480,7 +487,7 @@ class BCManager(commands.Cog):
     async def bcgroup(self, ctx):
         """Links to the top level ballchasing group for the current season."""
         group_code = await self._get_top_level_group(ctx.guild)
-        url = f"https://ballchasing.com/group/{group_code}"
+        url = f"{BALLCHASING_URL}/group/{group_code}"
         if group_code:
             embed = discord.Embed(title="RSC Ballchasing Group", description=f"[Click to view]({url})", color=discord.Color.blue())
             
@@ -535,7 +542,7 @@ class BCManager(commands.Cog):
             
            
             if plat_id and plat_name:
-                linked_accounts.append(f"[{platform} | {plat_name}](https://ballchasing.com/player/{platform}/{plat_id})")
+                linked_accounts.append(f"[{platform} | {plat_name}]({BALLCHASING_URL}/player/{platform}/{plat_id})")
             elif plat_name:
                 linked_accounts.append(f"{platform} | {plat_name}")
 
@@ -627,7 +634,7 @@ class BCManager(commands.Cog):
         
     async def process_match_bcreport(self, ctx, match, tier_md_group_code: str=None, score_report_channel: discord.TextChannel=None):
         # Step 0: Constants
-        SEARCHING = "Searching https://ballchasing.com for publicly uploaded replays of this match..."
+        SEARCHING = f"Searching {BALLCHASING_URL} for publicly uploaded replays of this match..."
         FOUND_AND_UPLOADING = "\n:signal_strength: Results confirmed. Creating a ballchasing replay group. This may take a few seconds..."
         SUCCESS_EMBED = "Match Summary:\n{}\n\n[View group on ballchasing!]({})"
 
@@ -699,7 +706,7 @@ class BCManager(commands.Cog):
             "score_report_msg_id": match_report_message.id,
             "ballchasing_id": match_subgroup_json.get('id'),
             "ballchasing_link": match_subgroup_json.get('link', 
-                f"https://ballchasing.com/group/{match_subgroup_json.get('id')}")
+                f"{BALLCHASING_URL}/group/{match_subgroup_json.get('id')}")
         }
         await self.update_match_report(ctx, tier_role.name, match, report) # returns match
 
@@ -1148,7 +1155,7 @@ class BCManager(commands.Cog):
         return {
             "id": next_subgroup_id,
             "tier_md_group_id": current_subgroup_id,
-            "link": f"https://ballchasing.com/group/{next_subgroup_id}"
+            "link": f"{BALLCHASING_URL}/group/{next_subgroup_id}"
         }
 
     async def upload_replays(self, ctx, subgroup_id, files_to_upload):
@@ -1220,7 +1227,7 @@ class BCManager(commands.Cog):
 
         ballchasing_link = await self._get_top_level_group(guild)
         report += "\n"
-        report += f"RSC Ballchasing group: <https://ballchasing.com/group/{ballchasing_link}>"
+        report += f"RSC Ballchasing group: <{BALLCHASING_URL}/group/{ballchasing_link}>"
         report += "\nRSC Match Day Rules: <https://tinyurl.com/MatchDayRules>"
         
         return report
@@ -1408,7 +1415,7 @@ class BCManager(commands.Cog):
             await self.update_match_report(ctx, tier_role.name, match, match['report'])
     
     def get_bc_match_day_status_report(self, match_day, report_summary_json: dict, emoji_url = None, complete=False):
-        embed = discord.Embed(title=f"Replay Processing Report: MD {match_day}", color=discord.Color.blue())
+        embed = discord.Embed(title=f"MD: {match_day} Replay Processing Report", color=discord.Color.blue())
         
         if emoji_url:
             embed.set_thumbnail(url=emoji_url)
@@ -1418,18 +1425,27 @@ class BCManager(commands.Cog):
         #     "bc_group_link": None,
         #     "success_count": 0,
         #     "total_matches": len(schedule.get(tier_role.name, {}).get(match_day, [])),
-        #     "active": False
+        #     "active": True | False
+        #     "active_match": MATCHUP | None
         # }
         tier_summaries = []
         for tier_role, data in report_summary_json.items():
             # using standard strings
             tier_summary = f"{tier_role.mention} ({data['success_count']}/{data['total_matches']})"
-            link = data.get('bc_group_link')
-            if link:
-                tier_summary += f" [View Group]({link})"  
+            
+            hyperlink = data.get('bc_hyperlink')
+            if hyperlink:
+                tier_summaries += f" {hyperlink}"
+            else:
+                link = data.get('bc_group_link')
+                if link:
+                    tier_summary += f" [View Group]({link})"  
 
             if data['active']:
                 tier_summary = f"**{tier_summary} [Processing]**"
+                active_match = data.get('active_match')
+                if active_match:
+                    tier_summary += "\n" + f"_Searching {active_match}..._"
                 embed.color = tier_role.color
             tier_summaries.append(tier_summary)
         
@@ -1639,7 +1655,11 @@ class BCManager(commands.Cog):
     async def get_match_tier_role_and_emoji_url(self, ctx, match):
         if match['report'].get('winner'):
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['report']['winner'])
-            emoji_url = (await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)).url
+            franchise_emoji = (await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role))
+            if franchise_emoji:
+                emoji_url = franchise_emoji.url
+            else:
+                emoji_url = ctx.guild.icon_url
         else:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
             emoji_url = ctx.guild.icon_url
