@@ -803,7 +803,7 @@ class BCManager(commands.Cog):
             return await self.finalize_ff_report(guild, message, emoji)
 
         # Capture previously ff games
-        forfeits = match['report'].get('forfeits')
+        forfeits = match['report'].get('forfeits', [])
         if forfeits:
             locked_ffs = [f"{ff['ff_team']} FF Game {ff['game_num']}" for ff in forfeits]
         else:
