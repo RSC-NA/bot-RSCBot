@@ -1415,7 +1415,7 @@ class BCManager(commands.Cog):
             await self.update_match_report(ctx, tier_role.name, match, match['report'])
     
     def get_bc_match_day_status_report(self, match_day, report_summary_json: dict, emoji_url = None, complete=False):
-        embed = discord.Embed(title=f"MD: {match_day} Replay Processing Report", color=discord.Color.blue())
+        embed = discord.Embed(title=f"MD {match_day}: Replay Processing Report", color=discord.Color.blue())
         
         if emoji_url:
             embed.set_thumbnail(url=emoji_url)
