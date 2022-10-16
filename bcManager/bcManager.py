@@ -250,7 +250,6 @@ class BCManager(commands.Cog):
         guild_emoji_url = ctx.guild.icon_url
         channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
         status_messages = await self.send_ram_message(channels, self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
-        # TODO: remove: processing_status_msg = await ctx.send(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
 
         # Process/Report All Replays
         for tier_role in tier_roles:
@@ -260,9 +259,10 @@ class BCManager(commands.Cog):
             tier_report_channel = await self.get_score_reporting_channel(tier_role)
             for match in schedule.get(tier_role.name, {}).get(match_day, []):
                 match_group_info = {}
+
                 # update status message
-                # TODO: remove: await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
                 await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+                
                 # update status embed
                 bc_report_summary_json[tier_role]['index'] += 1
                 
@@ -292,7 +292,6 @@ class BCManager(commands.Cog):
             bc_report_summary_json[tier_role]['active'] = False
         
         # update status message
-        # TODO: remove: await processing_status_msg.edit(embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))
         await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))     
     
     @commands.command(aliases=['rff', 'reportFF'])
@@ -375,8 +374,6 @@ class BCManager(commands.Cog):
             return await ctx.reply(f":x: This is not a valid result set for the format `{match['matchFormat']}`")
         
         match = await self.update_match_report(ctx, tier_role.name, match, report)
-        
-        # TODO: if match was previously reported, should replays persist?
 
         await ctx.reply(DONE)
 
@@ -1383,7 +1380,8 @@ class BCManager(commands.Cog):
         match['report'] = report
         return match
 
-    # TODO: UPDATE match summary -- Note: if report_channel is NOT provided, then this is called from bcr
+    # TODO: UPDATE match summary (similar)
+    # Note: if report_channel is NOT provided, then this is called from bcr
     async def send_match_summary(self, ctx, match, score_report_channel: discord.TextChannel=None):
         
         title = f"MD {match['matchDay']}: {match['home']} vs {match['away']}"
@@ -1551,7 +1549,7 @@ class BCManager(commands.Cog):
 
         return hash(hash_input_str)
 
-    # TODO: resolve 14 game bug
+    # TODO: validate resolution to 12-14 game bug from reportAllMatches
     async def get_all_match_players(self, ctx, match_info):
         all_players = []
         
