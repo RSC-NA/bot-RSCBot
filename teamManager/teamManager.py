@@ -763,10 +763,9 @@ class TeamManager(commands.Cog):
         indicated by the provided franchise_role and tier_role.
         """
         team_members = []
-        for member in ctx.guild.members:
-            if franchise_role in member.roles:
-                if tier_role in member.roles:
-                    team_members.append(member)
+        for member in franchise_role.members:
+            if tier_role in member.roles:
+                team_members.append(member)
         return team_members
 
     async def create_roster_embed(self, ctx, team_name):
