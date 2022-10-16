@@ -763,7 +763,7 @@ class TeamManager(commands.Cog):
         indicated by the provided franchise_role and tier_role.
         """
         team_members = []
-        for member in ctx.message.guild.members:
+        for member in ctx.guild.members:
             if franchise_role in member.roles:
                 if tier_role in member.roles:
                     team_members.append(member)
