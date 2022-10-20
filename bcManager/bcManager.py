@@ -1107,14 +1107,16 @@ class BCManager(commands.Cog):
                 # match.get("match_type", "Regular Season"), # TODO: Match Type Removed for the remainder of Season 15 - can't move RSC subgroups
                 tier_group,
                 f"Match Day {str(match['matchDay']).zfill(2)}",
-                f"{match['home']} vs {match['away']}"
+                # f"{match['home']} vs {match['away']}"
+                f"{match['away']} vs {match['home']}"
             ]
             
         else:
             # The parent group for the match group has already been determined
             top_level_group = tier_md_group_code
             ordered_subgroup_names = [
-                f"{match['home']} vs {match['away']}".title()
+                # f"{match['home']} vs {match['away']}" # TODO: update again?
+                f"{match['away']} vs {match['home']}"
             ]
 
         # Begin Ballchasing Group Mgmt
