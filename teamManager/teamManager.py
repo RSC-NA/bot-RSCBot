@@ -973,6 +973,11 @@ class TeamManager(commands.Cog):
         embed.set_thumbnail(url=ctx.guild.icon_url)
         return embed
 
+    async def tier_roles(self, ctx):
+        tier_roles = [(self._find_role_by_name(ctx, tier_name)) for tier_name in (await self.tiers(ctx))]
+        tier_roles.sort(key=lambda role: role.position, reverse=True)
+        return tier_roles
+
     async def tiers(self, ctx):
         return await self.config.guild(ctx.guild).Tiers()
 

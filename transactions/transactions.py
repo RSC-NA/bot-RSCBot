@@ -19,6 +19,7 @@ defaults = {
 class Transactions(commands.Cog):
     """Used to set franchise and role prefixes and give to members in those franchises or with those roles"""
 
+    LEAGUE_ROLE = "League"
     PERM_FA_ROLE = "PermFA"
     SUBBED_OUT_ROLE = "Subbed Out"
     TROPHY_EMOJI = "\U0001F3C6" # :trophy:
@@ -374,6 +375,31 @@ class Transactions(commands.Cog):
                 await ctx.send("Done")
         else:
             await ctx.send("Either {0} isn't on a team right now or his current team can't be found".format(user.name))
+
+    @commands.command(aliases=['lpwt'])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def leaguePlayersWithoutTier(self, ctx: commands.Context):
+        guild: discord.Guild = ctx.guild
+        league_role: discord.Role = None
+        for role in guild.roles:
+            if role.name == self.LEAGUE_ROLE:
+                league_role = role
+                break
+        if not league_role:
+            return await ctx.send(":x: League role not found.")
+        
+        no_tier_league_players = []
+        tier_roles_set = set(await self.team_manager_cog.tier_roles(ctx))
+        for player in league_role.members:
+            if not list(set(player.roles) & tier_roles_set):
+                no_tier_league_players.append(player)
+        
+        
+        description: str = "\n".join([player.mention for player in no_tier_league_players]) if no_tier_league_players else "All League Players have tier assignmentss"
+        color: discord.Color = discord.Color.red() if no_tier_league_players else discord.Color.green()
+        embed = discord.Embed(title="League Players Without Tiers", description=description, color=color)
+        await ctx.send(embed=embed)
 
     @commands.guild_only()
     @commands.command(aliases=["setTransChannel", "setTransactionsChannel"])
