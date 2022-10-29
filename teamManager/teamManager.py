@@ -986,8 +986,7 @@ class TeamManager(commands.Cog):
             return False
         else:
             tier_role = self._get_tier_role(ctx, tier_name)
-            tier_fa_role = self._find_role_by_name(
-                ctx, "{0}FA".format(tier_name))
+            tier_fa_role = self._find_role_by_name(ctx, "{0}FA".format(tier_name))
             if tier_role:
                 await tier_role.delete()
             if tier_fa_role:
