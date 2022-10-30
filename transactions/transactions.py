@@ -376,6 +376,7 @@ class Transactions(commands.Cog):
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def leaguePlayersWithoutTier(self, ctx: commands.Context):
+        # Perform Search
         guild: discord.Guild = ctx.guild
         league_role: discord.Role = None
         for role in guild.roles:
@@ -391,17 +392,46 @@ class Transactions(commands.Cog):
             if not list(set(player.roles) & tier_roles_set):
                 no_tier_league_players.append(player)
         
-
+        # Create embed groups (avoid char limit)
         embed = discord.Embed(title="League Players Without Tiers")
-        if no_tier_league_players:
-            embed.add_field(name="Player", value="\n".join([f"{player.display_name}" for player in no_tier_league_players]))
-            embed.add_field(name="Mention", value="\n".join([f"\<@{player.id}>" for player in no_tier_league_players]))
-            embed.color = discord.Color.red()
-        else:
+        if not no_tier_league_players:
             embed.description = "All League Players have tier assignmentss"
             embed.color = discord.Color.green()
+            return await ctx.send(embed=embed)
 
-        await ctx.send(embed=embed)
+        name_char_count = len("player")
+        mention_char_count = len("mention")
+        active_embed_list = []
+        complete_player_embed_lists = []
+
+        while no_tier_league_players:
+            player = no_tier_league_players.pop()
+            player_name = player.display_name
+            player_mention = f"\\<@{player.id}>"
+
+            if name_char_count + len(player_name) <= 1024 and mention_char_count + len(player_mention) <= 1024:
+                active_embed_list.append(player)
+                name_char_count += len(player_name)
+                mention_char_count += len(player_mention)
+            else:
+                complete_player_embed_lists.append(active_embed_list)
+                name_char_count = len("player") + len(player_name)
+                mention_char_count = len("mention") + len(player_mention)
+                active_embed_list = [player]
+
+        # Build Embeds
+        complete_player_embed_lists.append(active_embed_list)
+        embeds = []
+        for player_group in complete_player_embed_lists:
+            embed = discord.Embed(title="League Players Without Tiers", color=discord.Color.red())
+            embed.add_field(name="Player", value="\n".join([f"{player.display_name}" for player in player_group]))
+            embed.add_field(name="Mention", value="\n".join([f"\\<@{player.id}>" for player in player_group]))
+            embeds.append(embed)
+        
+        # Send Embeds
+        # await ctx.send(embeds=embeds)
+        for embed in embeds:
+            await ctx.send(embed=embed)
 
     @commands.guild_only()
     @commands.command(aliases=["setTransChannel", "setTransactionsChannel"])
