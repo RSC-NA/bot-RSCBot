@@ -966,10 +966,12 @@ class TeamManager(commands.Cog):
                 color = role.color
 
         embed = discord.Embed(title="{0} Tier Teams".format(tier), color=color)
-        embed.add_field(name="Team", value="{}\n".format(
-            "\n".join(teams)), inline=True)
-        embed.add_field(name="Franchise", value="{}\n".format(
-            "\n".join(franchises)), inline=True)
+        
+        if teams and franchises:
+            embed.add_field(name="Team", value="{}\n".format("\n".join(teams)), inline=True)
+            embed.add_field(name="Franchise", value="{}\n".format("\n".join(franchises)), inline=True)
+        else:
+            embed.description = "No teams have been set up for this tier."
         embed.set_thumbnail(url=ctx.guild.icon_url)
         return embed
 

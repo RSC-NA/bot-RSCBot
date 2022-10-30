@@ -295,6 +295,7 @@ class Transactions(commands.Cog):
         This command is also used to end substitution periods"""
         trans_channel = await self._trans_channel(ctx)
         free_agent_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
+        perm_fa_role = self.team_manager_cog._find_role_by_name(ctx, "permFA")
         if trans_channel:
             leagueRole = self.team_manager_cog._find_role_by_name(ctx, self.LEAGUE_ROLE)
             if leagueRole:
@@ -302,7 +303,7 @@ class Transactions(commands.Cog):
 
                 # End Substitution
                 if franchise_role in user.roles and team_tier_role in user.roles:
-                    if free_agent_role in user.roles:
+                    if list(set([free_agent_role, perm_fa_role]) & set(user.roles)):
                         await user.remove_roles(franchise_role)
                         team_tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, "{0}FA".format(team_tier_role))
                         if not team_tier_fa_role in user.roles:
@@ -326,7 +327,7 @@ class Transactions(commands.Cog):
 
                 # Begin Substitution:
                 else:
-                    if free_agent_role in user.roles:
+                    if list(set([free_agent_role, perm_fa_role]) & set(user.roles)):
                         player_tier = await self.get_tier_role_for_fa(ctx, user)
                         await user.remove_roles(player_tier)
                     await user.add_roles(franchise_role, team_tier_role, leagueRole)
