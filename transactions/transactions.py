@@ -409,14 +409,14 @@ class Transactions(commands.Cog):
             player_name = player.display_name
             player_mention = f"\\<@{player.id}>"
 
-            if name_char_count + len(player_name) <= 1024 and mention_char_count + len(player_mention) <= 1024:
+            if (name_char_count + len(player_name) + 2 <= 1024) and (mention_char_count + len(player_mention) + 2 <= 1024):
                 active_embed_list.append(player)
                 name_char_count += len(player_name)
                 mention_char_count += len(player_mention)
             else:
                 complete_player_embed_lists.append(active_embed_list)
-                name_char_count = len("player") + len(player_name)
-                mention_char_count = len("mention") + len(player_mention)
+                name_char_count = len("player") + len(player_name) + 2
+                mention_char_count = len("mention") + len(player_mention) + 2
                 active_embed_list = [player]
 
         # Build Embeds
