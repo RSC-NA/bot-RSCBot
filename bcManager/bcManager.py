@@ -1,3 +1,4 @@
+from typing import List
 import discord
 import logging
 from redbot.core import Config
@@ -218,7 +219,7 @@ class BCManager(commands.Cog):
     # region normal use
     @commands.command(aliases=['reportAllMatches', 'ram'])
     @commands.guild_only()
-    async def reportMatches(self, ctx, match_day: int=None):
+    async def reportMatches(self, ctx: commands.Context, match_day: int=None):
         if not await self.has_perms(ctx.author):
             return
         log.debug("Reporting matches...")
@@ -253,7 +254,9 @@ class BCManager(commands.Cog):
         
         guild_emoji_url = ctx.guild.icon_url
         channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
-        status_messages = await self.send_ram_message(channels, self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+        # start_time = ctx.message.created_at
+        start_time = datetime.now()
+        status_messages = await self.send_ram_message(channels, self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url, start_time=start_time))
 
         # Process/Report All Replays
         for tier_role in tier_roles:
@@ -299,7 +302,7 @@ class BCManager(commands.Cog):
             bc_report_summary_json[tier_role]['active'] = False
         
         # update status message
-        await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True))     
+        await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True, start_time=start_time))     
     
     @commands.command(aliases=['rff', 'reportFF'])
     @commands.guild_only()
@@ -471,17 +474,7 @@ class BCManager(commands.Cog):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
         """        
         await self.process_bcreport(ctx, match_day=match_day)
-        
-        # if match.get("report", {}):
-        #     await self.send_match_summary(ctx, match, tier_report_channel)
-    
-    @commands.command(aliases=['fbcr', 'fbcpull'])
-    @commands.guild_only()
-    async def forcebcreport(self, ctx, match_day: int=None): # , team_name=None, match_day=None):
-        """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup
-        """        
-        await self.process_bcreport(ctx, True, match_day=match_day)
-    
+
     @commands.command(aliases=['bcGroup', 'ballchasingGroup', 'bcg', 'gsg'])
     @commands.guild_only()
     async def bcgroup(self, ctx):
@@ -549,7 +542,6 @@ class BCManager(commands.Cog):
         all_accounts_linked = " - " + "\n - ".join(linked_accounts)
         accounts_embed.description = all_accounts_linked if linked_accounts else "No accounts have been registered."
         await msg.edit(embed=accounts_embed)
-
 
 # endregion
 
@@ -1416,7 +1408,7 @@ class BCManager(commands.Cog):
             match['report']['score_report_msg_id'] = score_report_message.id
             await self.update_match_report(ctx, tier_role.name, match, match['report'])
     
-    def get_bc_match_day_status_report(self, match_day, report_summary_json: dict, emoji_url = None, complete=False):
+    def get_bc_match_day_status_report(self, match_day, report_summary_json: dict, emoji_url = None, complete=False, start_time: datetime=None):
         embed = discord.Embed(title=f"MD {match_day}: Replay Processing Report", color=discord.Color.blue())
         
         if emoji_url:
@@ -1453,6 +1445,12 @@ class BCManager(commands.Cog):
         
         description = '\n\n'.join(tier_summaries)
 
+        if start_time:
+            now = datetime.now()
+            run_time_min = ((now - start_time).seconds)//60
+            run_time_sec = ((now - start_time).seconds)%60
+            run_time = f"{run_time_min}m {run_time_sec}s"
+        
         if complete:
             description += "\n\n"
             success_count = sum(tier_data['success_count'] for tier_data in report_summary_json.values())
@@ -1464,8 +1462,13 @@ class BCManager(commands.Cog):
             else:
                 embed.color = discord.Color.red()
                 description += f":exclamation: **Some matches could not be found. (found {success_count}/{total_count})**"
+            if start_time:
+                embed.set_footer(text=f"Completed in {run_time}.")
+        elif start_time:
+            embed.set_footer(text=f"Run Time: {run_time}...")
             
         embed.description = description
+        
         return embed
 
     async def tmp_download_replays(self, ctx, replay_ids):
@@ -1729,10 +1732,9 @@ class BCManager(commands.Cog):
 # endregion
 
 # region json db
-
     async def _get_bc_auth_token(self, guild: discord.Guild):
         return await self.config.guild(guild).AuthToken()
-    
+        
     async def _save_bc_auth_token(self, guild: discord.Guild, token):
         await self.config.guild(guild).AuthToken.set(token)
     
@@ -1766,4 +1768,8 @@ class BCManager(commands.Cog):
     async def _save_rsc_app_token(self, guild: discord.Guild, token: str):
         await self.config.guild(guild).RscAppToken.set(token)
 
+
 # endregion
+
+    async def nofunction(self):
+        return None

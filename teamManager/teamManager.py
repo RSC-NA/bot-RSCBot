@@ -966,12 +966,19 @@ class TeamManager(commands.Cog):
                 color = role.color
 
         embed = discord.Embed(title="{0} Tier Teams".format(tier), color=color)
-        embed.add_field(name="Team", value="{}\n".format(
-            "\n".join(teams)), inline=True)
-        embed.add_field(name="Franchise", value="{}\n".format(
-            "\n".join(franchises)), inline=True)
+        
+        if teams and franchises:
+            embed.add_field(name="Team", value="{}\n".format("\n".join(teams)), inline=True)
+            embed.add_field(name="Franchise", value="{}\n".format("\n".join(franchises)), inline=True)
+        else:
+            embed.description = "No teams have been set up for this tier."
         embed.set_thumbnail(url=ctx.guild.icon_url)
         return embed
+
+    async def tier_roles(self, ctx):
+        tier_roles = [(self._find_role_by_name(ctx, tier_name)) for tier_name in (await self.tiers(ctx))]
+        tier_roles.sort(key=lambda role: role.position, reverse=True)
+        return tier_roles
 
     async def tiers(self, ctx):
         return await self.config.guild(ctx.guild).Tiers()
@@ -981,8 +988,7 @@ class TeamManager(commands.Cog):
             return False
         else:
             tier_role = self._get_tier_role(ctx, tier_name)
-            tier_fa_role = self._find_role_by_name(
-                ctx, "{0}FA".format(tier_name))
+            tier_fa_role = self._find_role_by_name(ctx, "{0}FA".format(tier_name))
             if tier_role:
                 await tier_role.delete()
             if tier_fa_role:
