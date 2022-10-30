@@ -391,10 +391,16 @@ class Transactions(commands.Cog):
             if not list(set(player.roles) & tier_roles_set):
                 no_tier_league_players.append(player)
         
-        
-        description: str = "\n".join([f"**{player.display_name}**: \<@{player.id}>" for player in no_tier_league_players]) if no_tier_league_players else "All League Players have tier assignmentss"
-        color: discord.Color = discord.Color.red() if no_tier_league_players else discord.Color.green()
-        embed = discord.Embed(title="League Players Without Tiers", description=description, color=color)
+
+        embed = discord.Embed(title="League Players Without Tiers")
+        if no_tier_league_players:
+            embed.add_field(name="Player", value="\n".join([f"{player.display_name}" for player in no_tier_league_players]))
+            embed.add_field(name="Mention", value="\n".join([f"\<@{player.id}>" for player in no_tier_league_players]))
+            embed.color = discord.Color.red()
+        else:
+            embed.description = "All League Players have tier assignmentss"
+            embed.color = discord.Color.green()
+
         await ctx.send(embed=embed)
 
     @commands.guild_only()
