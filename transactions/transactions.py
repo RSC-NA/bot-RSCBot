@@ -411,8 +411,8 @@ class Transactions(commands.Cog):
 
             if (name_char_count + len(player_name) + 2 <= 1024) and (mention_char_count + len(player_mention) + 2 <= 1024):
                 active_embed_list.append(player)
-                name_char_count += len(player_name)
-                mention_char_count += len(player_mention)
+                name_char_count += len(player_name) + 2
+                mention_char_count += len(player_mention) + 2
             else:
                 complete_player_embed_lists.append(active_embed_list)
                 name_char_count = len("player") + len(player_name) + 2
