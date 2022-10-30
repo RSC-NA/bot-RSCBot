@@ -392,7 +392,7 @@ class Transactions(commands.Cog):
                 no_tier_league_players.append(player)
         
         
-        description: str = "\n".join([player.mention for player in no_tier_league_players]) if no_tier_league_players else "All League Players have tier assignmentss"
+        description: str = "\n".join([f"**{player.display_name}**: \<@{player.id}>" for player in no_tier_league_players]) if no_tier_league_players else "All League Players have tier assignmentss"
         color: discord.Color = discord.Color.red() if no_tier_league_players else discord.Color.green()
         embed = discord.Embed(title="League Players Without Tiers", description=description, color=color)
         await ctx.send(embed=embed)
