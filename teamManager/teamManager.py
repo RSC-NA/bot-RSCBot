@@ -785,13 +785,6 @@ class TeamManager(commands.Cog):
         team_members = self.members_from_team(ctx, franchise_role, tier_role)
         captain = await self._get_team_captain(ctx, franchise_role, tier_role)
 
-        # Sort team_members by player rating if the player ratings cog is used in this server
-        try:
-            player_ratings = self.bot.get_cog("PlayerRatings")
-            team_members = await player_ratings.sort_members_by_rating(ctx, team_members)
-        except:
-            pass
-
         message = "```\n{0} - {1} - {2}:\n".format(
             team_name, franchise_role.name, tier_role.name)
         subbed_out_message = ""
@@ -922,15 +915,7 @@ class TeamManager(commands.Cog):
         roleString = ""
         if extraRoles:
             roleString = " ({0})".format("|".join(extraRoles))
-        recordString = ""
-        try:
-            player_ratings = self.bot.get_cog("PlayerRatings")
-            wins, losses, rating = await player_ratings.get_player_record_and_rating_by_id(ctx, member.id)
-            if wins is not None:
-                recordString = " ({0}-{1}, {2})".format(wins, losses, rating)
-        except:
-            pass
-        return "{0}{1}{2}".format(member.display_name, recordString, roleString)
+        return "{0}{1}{2}".format(member.display_name, roleString)
 
     async def _format_teams_for_franchise(self, ctx, franchise_role):
         teams = await self._find_teams_for_franchise(ctx, franchise_role)
