@@ -379,13 +379,7 @@ class Match(commands.Cog):
         embed = discord.Embed(
             title=title, description=description, color=tier_role.color)
 
-        player_ratings = self.bot.get_cog("PlayerRatings")
         game_team_size = await self._get_game_team_size(ctx.guild)
-
-        ones_league_matches = player_ratings and (await player_ratings.guild_has_players(ctx)) and game_team_size == 1
-
-        if ones_league_matches:
-            return await self._create_solo_match_embed(ctx, embed, match, player_ratings, user_team_name, home, away)
 
         # 2s, 3s
         return await self._create_normal_match_embed(ctx, embed, match, user_team_name, home, away, game_team_size)
@@ -406,11 +400,6 @@ class Match(commands.Cog):
         message = "__Match Day {0}: {1}__\n".format(
             match['matchDay'], match['matchDate'])
         message += "**{0}**\n    versus\n**{1}**\n\n".format(home, away)
-
-        player_ratings = self.bot.get_cog("PlayerRatings")
-        if player_ratings and await player_ratings.guild_has_players(ctx):
-            message += await self._create_solo_match_message(ctx, match, player_ratings, user_team_name, home, away)
-            return message
 
         message += await self._create_normal_match_message(ctx, match, user_team_name, home, away)
         return message
@@ -502,92 +491,6 @@ class Match(commands.Cog):
             message += await self._create_additional_info(ctx.guild, user_team_name, match, is_embed=False)
 
         return message
-
-    async def _create_solo_match_embed(self, ctx, embed, match, player_ratings_cog, user_team_name, home, away):
-        embed.add_field(name="**Home Team:**",
-                        value=await self.team_manager.format_roster_info(ctx, home), inline=False)
-        embed.add_field(name="**Away Team:**",
-                        value=await self.team_manager.format_roster_info(ctx, away), inline=False)
-        message = ""
-        seed = await player_ratings_cog.get_player_seed(ctx, user_team_name)
-        if seed:
-            message += await self._create_solo_user_matchups_message(ctx, match, player_ratings_cog, user_team_name, home, away, seed)
-        else:
-            message += await self._create_generic_solo_matchups_message(ctx, player_ratings_cog, home, away)
-        embed.add_field(name="Match Info:", value=message)
-        return embed
-
-    async def _create_solo_match_message(self, ctx, match, player_ratings_cog, user_team_name, home, away):
-        message = "**Home Team:**\n{0}\n".format(await self.team_manager.format_roster_info(ctx, home))
-        message += "**Away Team:**\n{0}\n".format(await self.team_manager.format_roster_info(ctx, away))
-        seed = await player_ratings_cog.get_player_seed(ctx, user_team_name)
-        if seed:
-            message += await self._create_solo_user_matchups_message(ctx, match, player_ratings_cog, user_team_name, home, away, seed)
-        else:
-            message += await self._create_generic_solo_matchups_message(ctx, player_ratings_cog, home, away)
-        return message
-
-    async def _create_solo_user_matchups_message(self, ctx, match, player_ratings_cog, user_team_name, home, away, seed):
-        message = ""
-        if user_team_name.casefold() == home.casefold():
-            ordered_opponent_names, ordered_opponent_seeds = await player_ratings_cog.get_ordered_opponent_names_and_seeds(ctx, seed, True, away)
-            message += config.solo_home_info.format(seed)
-            message += "\n\n**Lobby Info:**\nName: **{0}**\nPassword: **{1}**\n\n".format(
-                match['roomName'] + str(seed), match['roomPass'] + str(seed))
-            message += config.solo_home_match_info.format(
-                config.first_match_descr, ordered_opponent_names[0], config.first_match_time)
-            message += config.solo_home_match_info.format(
-                config.second_match_descr, ordered_opponent_names[1], config.second_match_time)
-            message += config.solo_home_match_info.format(
-                config.third_match_descr, ordered_opponent_names[2], config.third_match_time)
-        else:
-            ordered_opponent_names, ordered_opponent_seeds = await player_ratings_cog.get_ordered_opponent_names_and_seeds(ctx, seed, False, home)
-            message += config.solo_away_info.format(seed)
-            message += "\n\n{0}".format(config.solo_away_match_info.format(config.first_match_descr, ordered_opponent_names[0], config.first_match_time,
-                                                                           match['roomName'] + str(ordered_opponent_seeds[0]), match['roomPass'] + str(ordered_opponent_seeds[0])))
-            message += "\n\n{0}".format(config.solo_away_match_info.format(config.second_match_descr, ordered_opponent_names[1], config.second_match_time,
-                                                                           match['roomName'] + str(ordered_opponent_seeds[1]), match['roomPass'] + str(ordered_opponent_seeds[1])))
-            message += "\n\n{0}".format(config.solo_away_match_info.format(config.third_match_descr, ordered_opponent_names[2], config.third_match_time,
-                                                                           match['roomName'] + str(ordered_opponent_seeds[2]), match['roomPass'] + str(ordered_opponent_seeds[2])))
-        return message
-
-    async def _create_generic_solo_matchups_message(self, ctx, player_ratings_cog, home, away):
-        message = ""
-        try:
-            # First match
-            message += "\n\nThe first **one game** series will begin at {0} and will include the following matchups: ".format(
-                config.first_match_time)
-            message += "```"
-            message += await self._create_matchup_string(ctx, player_ratings_cog, home, away, 1, 3)
-            message += "\n" + await self._create_matchup_string(ctx, player_ratings_cog, home, away, 2, 1)
-            message += "\n" + await self._create_matchup_string(ctx, player_ratings_cog, home, away, 3, 2)
-            message += "```"
-            # Second match
-            message += "\n\nThe second **one game** series will begin at {0} and will include the following matchups: ".format(
-                config.second_match_time)
-            message += "```"
-            message += await self._create_matchup_string(ctx, player_ratings_cog, home, away, 1, 2)
-            message += "\n" + await self._create_matchup_string(ctx, player_ratings_cog, home, away, 2, 3)
-            message += "\n" + await self._create_matchup_string(ctx, player_ratings_cog, home, away, 3, 1)
-            message += "```"
-            # Third match
-            message += "\n\nThe final **three game** series will begin at {0} and will include the following matchups: ".format(
-                config.third_match_time)
-            message += "```"
-            message += await self._create_matchup_string(ctx, player_ratings_cog, home, away, 1, 1)
-            message += "\n" + await self._create_matchup_string(ctx, player_ratings_cog, home, away, 2, 2)
-            message += "\n" + await self._create_matchup_string(ctx, player_ratings_cog, home, away, 3, 3)
-            message += "```"
-        except:
-            message = "There was an error getting the matchups for this match."
-        return message
-
-    async def _create_matchup_string(self, ctx, player_ratings_cog, home, away, home_seed, away_seed):
-        # We convert to string to handle None cases
-        away_player_nick = str((await player_ratings_cog.get_member_by_team_and_seed(ctx, away, away_seed)).nick)
-        # We convert to string to handle None cases
-        home_player_nick = str((await player_ratings_cog.get_member_by_team_and_seed(ctx, home, home_seed)).nick)
-        return config.solo_matchup.format(away_player=away_player_nick, home_player=home_player_nick)
 
     def is_valid_match_format(self, match_format):
         match_format = match_format.lower()
