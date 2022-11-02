@@ -915,7 +915,7 @@ class TeamManager(commands.Cog):
         roleString = ""
         if extraRoles:
             roleString = " ({0})".format("|".join(extraRoles))
-        return "{0}{1}{2}".format(member.display_name, roleString)
+        return "{0}{1}".format(member.display_name, roleString)
 
     async def _format_teams_for_franchise(self, ctx, franchise_role):
         teams = await self._find_teams_for_franchise(ctx, franchise_role)
