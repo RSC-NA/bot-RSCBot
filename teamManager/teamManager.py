@@ -237,7 +237,7 @@ class TeamManager(commands.Cog):
     @commands.guild_only()
     @commands.admin_or_permissions(manage_guild=True)
     async def rebrandFranchise(self, ctx, franchise_identifier: str, prefix: str, franchise_name: str, *teams):
-        """Rebrands Franchise name, preifx and teams"""
+        """Rebrands Franchise name, prefix and teams"""
         franchise_data = await self._get_franchise_data(ctx, franchise_identifier)
         if not franchise_data:
             await ctx.send("No franchise could be found with the identifier: **{0}**".format(franchise_identifier))
