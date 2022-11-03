@@ -195,7 +195,6 @@ class BCManager(commands.Cog):
         await self._save_time_zone(ctx.guild, time_zone)
         await ctx.reply("Done")
 
-    
         # endregion
 
     @commands.command()
@@ -220,6 +219,7 @@ class BCManager(commands.Cog):
     @commands.command(aliases=['reportAllMatches', 'ram'])
     @commands.guild_only()
     async def reportMatches(self, ctx: commands.Context, match_day: int=None):
+
         if not await self.has_perms(ctx.author):
             return
         log.debug("Reporting matches...")
@@ -268,7 +268,7 @@ class BCManager(commands.Cog):
                 match_group_info = {}
                 bc_report_summary_json[tier_role]['active_match'] = f"{match['home']} vs {match['away']}"
                 # update RAM status message
-                await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url))
+                await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url, start_time=start_time))
                 
                 # update status embed
                 bc_report_summary_json[tier_role]['index'] += 1
@@ -303,7 +303,7 @@ class BCManager(commands.Cog):
         
         # update status message
         await self.update_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True, start_time=start_time))     
-    
+
     @commands.command(aliases=['rff', 'reportFF'])
     @commands.guild_only()
     async def reportForfeits(self, ctx, match_day, team_a, team_b):
@@ -653,25 +653,28 @@ class BCManager(commands.Cog):
         discovery_data = await self.find_match_replays(ctx, match)
 
         ## Not found:
-        if not discovery_data.get("is_valid_set", False):
+        valid_replay_set = discovery_data.get("is_valid_set", False)
+        if not valid_replay_set:
             if single_player_call:
                 replays_found = len(discovery_data.get('replay_hashes'))
                 embed.description = ":x: A valid set of replays could not be found for this match."
                 embed.description += f" (only {replays_found} found)" if replays_found else " (0 found)"
                 await bc_status_msg.edit(embed=embed)
-            return {}
+            # return {}
 
         ## Found:
-        winner = discovery_data.get('winner')
-        if winner:
+        winner = discovery_data.get('winner', None)
+        if winner and valid_replay_set:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, winner)
             emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
             if emoji:
                 embed.set_thumbnail(url=emoji.url)
         
+        update_player_msg_embed = single_player_call and valid_replay_set
+        
         # Step 4: Send updated embed (Status: found, uploading)
         embed.description = "Match Summary:\n{}\n{}".format(discovery_data.get('summary'), FOUND_AND_UPLOADING)
-        if single_player_call:
+        if update_player_msg_embed:
             await bc_status_msg.edit(embed=embed)
         
         # Find or create ballchasing subgroup
@@ -685,21 +688,29 @@ class BCManager(commands.Cog):
 
         # Step 5: Group created, Finalize embed
         embed.description = SUCCESS_EMBED.format(discovery_data.get('summary'), match_subgroup_json.get('link'))
-        if single_player_call:
+        if update_player_msg_embed:
             await bc_status_msg.edit(embed=embed)
-        match_report_message = await score_report_channel.send(embed=embed)
+        
+        if valid_replay_set:
+            match_report_message = await score_report_channel.send(embed=embed)
 
-        # Step 6: Update match cog info
-        report = {
-            "winner": discovery_data.get('winner'),
-            "home_wins": discovery_data.get('home_wins'),
-            "away_wins": discovery_data.get('away_wins'),
-            "summary": discovery_data.get('summary'),
-            "score_report_msg_id": match_report_message.id,
-            "ballchasing_id": match_subgroup_json.get('id'),
-            "ballchasing_link": match_subgroup_json.get('link', 
-                f"{BALLCHASING_URL}/group/{match_subgroup_json.get('id')}")
-        }
+            # Step 6: Update match cog info
+            report = {
+                "winner": discovery_data.get('winner'),
+                "home_wins": discovery_data.get('home_wins'),
+                "away_wins": discovery_data.get('away_wins'),
+                "summary": discovery_data.get('summary'),
+                "score_report_msg_id": match_report_message.id,
+                "ballchasing_id": match_subgroup_json.get('id'),
+                "ballchasing_link": match_subgroup_json.get('link', 
+                    f"{BALLCHASING_URL}/group/{match_subgroup_json.get('id')}")
+            }
+        else:
+            report = {
+                "ballchasing_id": match_subgroup_json.get('id'),
+                "ballchasing_link": match_subgroup_json.get('link', 
+                    f"{BALLCHASING_URL}/group/{match_subgroup_json.get('id')}")
+            }
         await self.update_match_report(ctx, tier_role.name, match, report) # returns match
 
         match_subgroup_json['is_valid_set'] = discovery_data['is_valid_set']
@@ -1563,12 +1574,23 @@ class BCManager(commands.Cog):
         # - blue, orange pts (X - unneccessary)
 
         data = short_replay_json
-        hash_input_str = f"{data.get('date')}-{data.get('duration')}-{data.get('map_code')}"
+        dt_from_replay = datetime.strptime(data.get('date'), '%Y-%m-%dT%H:%M:%S%z')
+        dt_5min_hash = str(self.round_time_to_5min(dt_from_replay))
+        hash_input_str = f"{dt_5min_hash}"
+        hash_input_str += f"-{round(data.get('duration'), -1)}"
+        hash_input_str += f"{data.get('map_code')}"
         hash_input_str += f"-{'-'.join(self.get_replay_player_names(data))}"
         hash_input_str += f"-{data.get('blue', {}).get('goals', 0)}"
         hash_input_str += f"-{data.get('orange', {}).get('goals', 0)}"
 
         return hash(hash_input_str)
+
+    def round_time_to_5min(self, dt):
+        if dt == None: 
+            dt = datetime.now()
+        seconds = (dt.replace(tzinfo=None) - dt.min).seconds
+        roundUp = (seconds + 300/2) // 300 * 300
+        return dt + timedelta(0,roundUp - seconds, -dt.microsecond)
 
     # TODO: validate resolution to 12-14 game bug from reportAllMatches
     async def get_all_match_players(self, ctx, match_info):
