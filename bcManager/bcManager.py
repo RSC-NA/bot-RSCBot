@@ -216,6 +216,7 @@ class BCManager(commands.Cog):
     # endregion
 
     # region normal use
+    @commands.max_concurrency(1, per=commands.BucketType.guild)
     @commands.command(aliases=['reportAllMatches', 'ram'])
     @commands.guild_only()
     async def reportMatches(self, ctx: commands.Context, match_day: int=None):
