@@ -273,7 +273,7 @@ class BCManager(commands.Cog):
                 # update status embed
                 bc_report_summary_json[tier_role]['index'] += 1
                 
-                if match.get("report", {}):
+                if match.get("report", {}).get('home_wins', 0) or match.get("report", {}).get('away_wins', 0):
                     await self.send_match_summary(ctx, match, tier_report_channel)
                     bc_report_summary_json[tier_role]['success_count'] += 1
                 else:
