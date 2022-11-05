@@ -421,7 +421,7 @@ class TeamManager(commands.Cog):
 
         await ctx.send("No tier, franchise, prefix, or GM with name: {0}".format(franchise_tier_identifier))
 
-    @commands.command()
+    @commands.command(aliases=['team'])
     @commands.guild_only()
     async def getTeam(self, ctx: commands.Context, player: discord.Member) -> None:
         """Fetches current team of discord user and returns the active roster"""
