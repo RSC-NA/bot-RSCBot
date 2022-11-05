@@ -1,4 +1,4 @@
-from typing import List
+
 import discord
 import logging
 from redbot.core import Config
@@ -14,8 +14,11 @@ from match import Match
 import struct
 import tempfile
 import asyncio
+
 from pytz import all_timezones_set, timezone, UTC
 from datetime import datetime, timedelta
+from urllib.parse import unquote
+
 import ballchasing
 import requests
 import re
@@ -494,7 +497,7 @@ class BCManager(commands.Cog):
 
     @commands.command(aliases=['accs', 'myAccounts', 'registeredAccounts', 'bcp'])
     @commands.guild_only()
-    async def accounts(self, ctx, player: discord.Member=None):
+    async def accounts(self, ctx, *, player: discord.Member=None):
         """View all accounts that have been registered to with your discord account in this guild."""
         if not player:
             player = ctx.author
@@ -511,8 +514,7 @@ class BCManager(commands.Cog):
             accounts_embed.color = tier_role.color
         
         if franchise_role:
-            franchise_emoji = await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role)
-            accounts_embed.set_thumbnail(url=franchise_emoji.url)
+            accounts_embed.set_thumbnail(url=(await self.team_manager_cog.get_franchise_emoji_url(ctx, franchise_role)))
         else:
             accounts_embed.set_thumbnail(url=ctx.guild.icon_url)
         
@@ -536,9 +538,9 @@ class BCManager(commands.Cog):
             
            
             if plat_id and plat_name:
-                linked_accounts.append(f"[{platform} | {plat_name}]({BALLCHASING_URL}/player/{platform}/{plat_id})")
+                linked_accounts.append(f"[{platform} | {unquote(plat_name)}]({BALLCHASING_URL}/player/{platform}/{plat_id})")
             elif plat_name:
-                linked_accounts.append(f"{platform} | {plat_name}")
+                linked_accounts.append(f"{platform} | {unquote(plat_name)}")
 
         all_accounts_linked = " - " + "\n - ".join(linked_accounts)
         accounts_embed.description = all_accounts_linked if linked_accounts else "No accounts have been registered."
@@ -1683,11 +1685,7 @@ class BCManager(commands.Cog):
     async def get_match_tier_role_and_emoji_url(self, ctx, match):
         if match['report'].get('winner'):
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['report']['winner'])
-            franchise_emoji = (await self.team_manager_cog._get_franchise_emoji(ctx, franchise_role))
-            if franchise_emoji:
-                emoji_url = franchise_emoji.url
-            else:
-                emoji_url = ctx.guild.icon_url
+            emoji_url = await self.team_manager_cog.get_franchise_emoji_url(franchise_role)
         else:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
             emoji_url = ctx.guild.icon_url
