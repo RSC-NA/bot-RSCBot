@@ -1682,7 +1682,7 @@ class BCManager(commands.Cog):
         if complete:
             total_count = sum(tier_data['total_matches'] for tier_data in bc_scan_summary.values())
             
-            scan_summary = "**Scan Complete**\nNew Reports Scanned: {}\nMatch Reports Missing: {}\nTotal Reports: {}/{}".format(
+            scan_summary = "**Scan Complete**\nNew Reports Scanned: {}\nMatch Reports Missing: {}\nTotal Matches Reported: {}/{}".format(
                 count_new, count_missing, total_count-count_missing, total_count
             )
             description_components.append(scan_summary)
