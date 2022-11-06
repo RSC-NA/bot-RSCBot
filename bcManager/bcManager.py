@@ -810,7 +810,7 @@ class BCManager(commands.Cog):
     async def update_match_report_from_bc(self, ctx, match):
         report = match.get('report', {})
         if not report.get('id'):
-            return await self.get_replay_destination(ctx, match)
+            report = await self.get_replay_destination(ctx, match)
         
         bapi: ballchasing.Api = self.ballchasing_api[ctx.guild]
         data = await asyncio.to_thread(
@@ -827,6 +827,9 @@ class BCManager(commands.Cog):
             elif home_goals < away_goals:
                 away_wins += 1
         
+        if not home_wins + away_wins:
+            return report
+
         report['summary'] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
         report['home_wins'] = home_wins
         report['away_wins'] = away_wins
