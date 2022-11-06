@@ -1253,7 +1253,8 @@ class TeamManager(commands.Cog):
         gm_name = self._get_gm_name(franchise_role)
         if prefix:
             for emoji in ctx.guild.emojis:
-                if emoji.name.lower() == prefix.lower() or emoji.name.lower() == gm_name.lower():
+                lower_emoji = emoji.name.lower()
+                if lower_emoji == prefix.lower() or lower_emoji == gm_name.lower():
                     return emoji
         return None
     
