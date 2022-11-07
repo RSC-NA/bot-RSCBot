@@ -834,6 +834,11 @@ class BCManager(commands.Cog):
         report['home_wins'] = home_wins
         report['away_wins'] = away_wins
 
+        if home_wins > away_wins:
+            report['winner'] = match['home']
+        elif home_wins < away_wins:
+            report['winner'] = match['away']
+
         return report
 
     async def get_init_score_deep_summary_and_embed(self, ctx, match):
