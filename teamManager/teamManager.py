@@ -421,7 +421,7 @@ class TeamManager(commands.Cog):
 
         await ctx.send("No tier, franchise, prefix, or GM with name: {0}".format(franchise_tier_identifier))
 
-    @commands.command()
+    @commands.command(aliases=['team'])
     @commands.guild_only()
     async def getTeam(self, ctx: commands.Context, player: discord.Member) -> None:
         """Fetches current team of discord user and returns the active roster"""
@@ -1252,10 +1252,21 @@ class TeamManager(commands.Cog):
         prefix = await self.prefix_cog._get_franchise_prefix(ctx, franchise_role)
         gm_name = self._get_gm_name(franchise_role)
         if prefix:
-            emojis = ctx.guild.emojis
-            for emoji in emojis:
-                if emoji.name.lower() == prefix.lower() or emoji.name.lower() == gm_name.lower():
+            for emoji in ctx.guild.emojis:
+                lower_emoji = emoji.name.lower()
+                if lower_emoji == prefix.lower() or lower_emoji == gm_name.lower():
                     return emoji
+        return None
+    
+    async def get_franchise_emoji_url(self, ctx, franchise_role):
+        emoji = await self._get_franchise_emoji(ctx, franchise_role)
+        if emoji:
+            return emoji.url
+
+        guild_icon_url = franchise_role.guild.icon_url
+        if guild_icon_url:
+            return guild_icon_url
+        
         return None
 
     # TODO: remove unused ctx - must remove from other references
