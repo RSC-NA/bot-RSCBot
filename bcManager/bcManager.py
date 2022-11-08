@@ -1562,9 +1562,10 @@ class BCManager(commands.Cog):
             return 
 
         tier_role, emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
+        ballchasing_link = match['report'].get('ballchasing_link', match['report'].get('link')) # TODO: Standardize
         
         description = "Match Summary:\n{}\n\n".format(match['report']['summary'])
-        description += f"[View on ballchasing!]({match['report']['ballchasing_link']})"
+        description += f"[View on ballchasing!]({ballchasing_link})"
 
         embed = discord.Embed(title=title, description=description, color=tier_role.color)
         if emoji_url:
