@@ -13,34 +13,6 @@ class config:
                  "contacts you. Do not begin joining a team until "
                  "your entire team is ready to begin playing.")
 
-    solo_home_info = ("You are on the **home** team. You are the {0} seed. "
-                      "You are responsible for hosting the lobby for all of "
-                      "your matches with the following lobby information: ")
-
-    solo_away_info = ("You are on the **away** team. You are the {0} seed. "
-                      "You will participate in the following matchups: ")
-
-    solo_home_match_info = ("Your {0} will be against `{1}` at {2}.\n\n")
-
-    solo_away_match_info = ("Your {0} will be against `{1}` at "
-                            "{2} with the following lobby info: "
-                            "\nName: **{3}**"
-                            "\nPassword: **{4}**")
-
-    first_match_descr = ("first **one game** match")
-
-    second_match_descr = ("second **one game** match")
-
-    third_match_descr = ("**three game** series")
-
-    first_match_time = ("9:30 pm ET (6:30 pm PT)")
-
-    second_match_time = ("approximately 9:45 pm ET (6:45 pm PT)")
-
-    third_match_time = ("approximately 10:00 pm ET (7:00 pm PT)")
-
-    solo_matchup = ("{away_player:25s} vs.\t{home_player}")
-
     stream_info = ("**This match is scheduled to play on stream ** "
                    "(Time slot {time_slot}: {time})"
                    "\nYou are the **{home_or_away}** team. "
