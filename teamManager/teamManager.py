@@ -382,7 +382,12 @@ class TeamManager(commands.Cog):
 
         for role in franchise_roles:
             franchise_role, gm_name, franchise_prefix, franchise_name = await self._get_franchise_data(ctx, role)
-            prefixes.append(franchise_prefix)
+            if franchise_prefix:
+                prefixes.append(franchise_prefix)
+            else:
+                prefixes.append('-')
+                log.debug(f"Could not find prefix for {franchise_name} ({gm_name}). Found {franchise_prefix}.")
+                
             franchises.append(franchise_name)
             gms.append(gm_name)
 
