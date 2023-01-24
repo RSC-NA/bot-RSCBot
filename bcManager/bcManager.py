@@ -1374,7 +1374,7 @@ class BCManager(commands.Cog):
         return False
 
     def is_full_replay(self, replay_data):
-        if replay_data['duration'] < 300:
+        if replay_data.get('duration', 0) < 300:
             return False
         
         blue_goals = replay_data['blue']['goals'] if 'goals' in replay_data['blue'] else 0
