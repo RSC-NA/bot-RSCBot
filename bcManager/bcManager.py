@@ -1764,7 +1764,7 @@ class BCManager(commands.Cog):
         return code_or_link  # returns code
 
     async def get_player_accounts(self, player: discord.Member, platforms=[]):
-        url =  f"{RSC_WEB_APP}/api/member/{player.id}/accounts"
+        url =  f"{RSC_WEB_APP}/api/member/{player.id}/accounts/"
         rsc_app_token: str = await self._get_rsc_app_token(player.guild)
         headers = {"X-Api-Key": rsc_app_token}
         data = (await asyncio.to_thread(requests.get, url, headers=headers)).json()
