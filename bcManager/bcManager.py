@@ -371,26 +371,31 @@ class BCManager(commands.Cog):
                     # update SMM status message
                     await self.update_embed_in_messages(status_messages, embed=self.get_bc_missing_match_scan_report_embed(match_day, bc_scan_summary, emoji_url=guild_emoji_url, start_time=start_time))
                     
-                    report = await self.update_match_report_from_bc(ctx, match)
-                    
-                    tier_group_from_report = report.get('tier_md_group_id')
-                    if not tier_md_group_id and tier_group_from_report:
-                        tier_md_group_id = tier_group_from_report
-                    
-                    if tier_group_from_report:
-                        del report['tier_md_group_id']
+                    # TODO: improve error handling. remove try/except after secondary team matching is added
+                    try:
+                        report = await self.update_match_report_from_bc(ctx, match)
+                        
+                        tier_group_from_report = report.get('tier_md_group_id')
+                        if not tier_md_group_id and tier_group_from_report:
+                            tier_md_group_id = tier_group_from_report
+                        
+                        if tier_group_from_report:
+                            del report['tier_md_group_id']
 
-                    match['report'] = report
-                    if self.match_has_valid_replay_set(match):
-                        score_report_embed: discord.Embed = await self.get_match_report_embed(ctx, match)
-                        match_report_message: discord.Message = await tier_report_channel.send(embed=score_report_embed)
-                        match['report']['score_report_msg_id'] = match_report_message.id
-                        bc_scan_summary[tier_role]['new_reports'].append(f"[{active_match}]({match['report']['link']})")
-                    else:
-                        bc_scan_summary[tier_role]['missing_reports'].append(active_match)
+                        match['report'] = report
+                        if self.match_has_valid_replay_set(match):
+                            score_report_embed: discord.Embed = await self.get_match_report_embed(ctx, match)
+                            match_report_message: discord.Message = await tier_report_channel.send(embed=score_report_embed)
+                            match['report']['score_report_msg_id'] = match_report_message.id
+                            bc_scan_summary[tier_role]['new_reports'].append(f"[{active_match}]({match['report']['link']})")
+                        else:
+                            bc_scan_summary[tier_role]['missing_reports'].append(active_match)
 
-                    await self.update_match_report(ctx, tier_role.name, match, match['report'])
-                    bc_scan_summary[tier_role]['active_match'] = f"{match['home']} vs {match['away']}"
+                        await self.update_match_report(ctx, tier_role.name, match, match['report'])
+                        bc_scan_summary[tier_role]['active_match'] = f"{match['home']} vs {match['away']}"
+                    except:
+                        pass
+
             bc_scan_summary[tier_role]['status'] = "complete"
 
         await self.update_embed_in_messages(status_messages, embed=self.get_bc_missing_match_scan_report_embed(match_day, bc_scan_summary, emoji_url=guild_emoji_url, start_time=start_time, complete=True))
