@@ -1191,10 +1191,13 @@ class BCManager(commands.Cog):
 
                         home_goals, away_goals = self.get_home_away_goals(match, replay)
 
-                        if home_goals > away_goals:
-                            discovery_data['home_wins'] += 1
+                        if home_goals or away_goals:
+                            if home_goals > away_goals:
+                                discovery_data['home_wins'] += 1
+                            else:
+                                discovery_data['away_wins'] += 1
                         else:
-                            discovery_data['away_wins'] += 1
+                            continue 
                         
                         # see if replay set is valid
                         if len(discovery_data['replay_hashes']) >= min_games_required:
