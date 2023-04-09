@@ -123,7 +123,7 @@ class Transactions(commands.Cog):
                 transaction_msg = f"Contract with {member.mention} and {team} has expired ({gm.mention} - {tier_role.name})"
 
                 await trans_channel.send(transaction_msg)
-                await self.send_player_expire_contract_message(ctx, member, franchise_role, team, gm)
+                #await self.send_player_expire_contract_message(ctx, member, franchise_role, team, gm)
 
                 empty = False
         if empty:
