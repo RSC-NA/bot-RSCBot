@@ -119,7 +119,9 @@ class DMHelper(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def dmRole(self, ctx: commands.Context, role: discord.Role, *, message: str):
         """Sends a DM to all members with the specified role by adding them to the message queue"""
-        asyncio.create_task(self.add_message_players_to_dm_queue(members=role.members, content=message, ctx=ctx))
+        log.debug(f"Sending mass DM to {role.name}: {message}")
+        log.debug(f"{role.name} members: {[ x.name for x in role.members]}")
+        await self.add_message_players_to_dm_queue(members=role.members, content=message, ctx=ctx)
         await ctx.reply("All DMs have been queued.")
     
 # endregion
@@ -220,6 +222,7 @@ class DMHelper(commands.Cog):
             if content or embed:
                 try:
                     await recipient.send(content=content, embed=embed)
+                    log.debug(f"DM sent to {recipient.name}#{recipient.discriminator}")
                     # TODO: add code to remove needs DM role if member has it
                     try:
                         guild: discord.Guild = message_data.get("request_ctx").guild
@@ -242,10 +245,7 @@ class DMHelper(commands.Cog):
                         
                         if needs_dm_role:
                             recipient_as_member: discord.Member = guild.get_member(recipient.id)
-                            recipient_as_member.add_roles(needs_dm_role)
-                        
-                            # 2. Notify user in channel that they need to DM bot
-                            await self._ghost_ping_in_needs_dm_channel(recipient)
+                            await recipient_as_member.add_roles(needs_dm_role)
 
                         # 3. Move DM to a "long queue" waiting for DM
                         # self.errored_message_queue.append(message_data) # INSTEAD:
