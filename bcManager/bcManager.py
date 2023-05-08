@@ -45,8 +45,7 @@ RSC_WEB_APP = "http://24.176.157.36:4443"
 DONE = "Done"
 WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
 WHITE_CHECK_REACT = "\U00002705"            # :white_check_mark:
-# RSC_STEAM_ID = 76561199096013422
-RSC_STEAM_ID = 76561197960409023 # REMOVEME - my steam id for development
+RSC_STEAM_ID = 76561199096013422
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
@@ -140,7 +139,7 @@ class BCManager(commands.Cog):
             data = await bapi.get_group(top_level_group)
         except ValueError as exc:
             # python-ballchasing raises a ValueError() that contains a `ClientResponse`. Print error and return.
-            log.info(f"Error getting Ballchasing group: {top_level_group} -- {exc}")
+            log.error(f"Error getting Ballchasing group: {top_level_group} -- {exc}")
             return await ctx.send(f"`Error fetching top level group. Status: {exc.args[0].status} {exc.args[0].reason}`")
 
         # Validate that we actually own the Ballchasing group
@@ -601,9 +600,9 @@ class BCManager(commands.Cog):
         else:
             await ctx.send(":x: A ballchasing group has not been set for this season.")
 
-    @commands.command()
+    @commands.command(aliases=['clrcon, clrc'])
     @checks.is_owner()
-    async def console(self, ctx):
+    async def clear_console(self, ctx):
         """Clear console and makes it white. Developer only command. """
         [print('') for x in range(50)]
         print('\033[0;37;40m\nDone!')
@@ -749,9 +748,7 @@ class BCManager(commands.Cog):
             return None
         
         for match in matches:
-            if not match.get("report", {}) or force:
-                await self.process_match_bcreport(ctx, match)
-            elif not match['report'].get("summary"):
+            if not match.get("report", {}) or force or match['report'].get("summary"):
                 await self.process_match_bcreport(ctx, match)
             else:
                 await self.send_match_summary(ctx, match)
