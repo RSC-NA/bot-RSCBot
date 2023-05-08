@@ -1,4 +1,4 @@
 from .prefixManager import PrefixManager
 
-def setup(bot):
-    bot.add_cog(PrefixManager())
+async def setup(bot):
+    await bot.add_cog(PrefixManager())

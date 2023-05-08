@@ -1,4 +1,4 @@
 from .dynamicRooms import DynamicRooms
 
-def setup(bot):
-    bot.add_cog(DynamicRooms(bot))
+async def setup(bot):
+    await bot.add_cog(DynamicRooms(bot))

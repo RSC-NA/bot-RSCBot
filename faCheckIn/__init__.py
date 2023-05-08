@@ -1,4 +1,4 @@
 from .faCheckIn import FaCheckIn
 
-def setup(bot):
-    bot.add_cog(FaCheckIn(bot))
+async def setup(bot):
+    await bot.add_cog(FaCheckIn(bot))
