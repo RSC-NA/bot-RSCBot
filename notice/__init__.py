@@ -1,4 +1,4 @@
 from .notice import Notice
 
-def setup(bot):
-    bot.add_cog(Notice())
+async def setup(bot):
+    await bot.add_cog(Notice())
