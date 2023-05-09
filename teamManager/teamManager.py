@@ -392,11 +392,11 @@ class TeamManager(commands.Cog):
             gms.append(gm_name)
 
         embed = discord.Embed(
-            title="Franchises", color=discord.Colour.blue(), thumbnail=ctx.guild.icon_url)
+            title="Franchises", color=discord.Colour.blue())
         embed.add_field(name="Pfx.", value="{}\n".format("\n".join(prefixes)), inline=True)
         embed.add_field(name="Franchise", value="{}\n".format("\n".join(franchises)), inline=True)
         embed.add_field(name="General Manager", value="{}\n".format("\n".join(gms)), inline=True)
-        embed.set_thumbnail(url=ctx.guild.icon_url)
+        embed.set_thumbnail(url=ctx.guild.icon.url)
         await ctx.send(embed=embed)
 
     @commands.command()
@@ -604,7 +604,8 @@ class TeamManager(commands.Cog):
             if role.name.lower() == tier_name.lower():
                 color = role.color
         embed = discord.Embed(title="{0} Free Agents".format(tier_name), color=color,
-                              description=message, thumbnail=ctx.guild.icon_url)
+                              description=message)
+        embed.set_thumbnail(url=ctx.guild.icon)
 
         await ctx.send(embed=embed)
 
@@ -782,7 +783,7 @@ class TeamManager(commands.Cog):
         if emoji:
             embed.set_thumbnail(url=emoji.url)
         else:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         return embed
 
     async def format_roster_info(self, ctx, team_name: str):
@@ -849,7 +850,7 @@ class TeamManager(commands.Cog):
         if emoji:
             embed.set_thumbnail(url=emoji.url)
         else:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         return embed
 
     async def _format_tier_captains(self, ctx, tier: str):
@@ -937,7 +938,7 @@ class TeamManager(commands.Cog):
         if emoji:
             embed.set_thumbnail(url=emoji.url)
         else:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         return embed
 
     async def _format_teams_for_tier(self, ctx, tier):
@@ -962,7 +963,7 @@ class TeamManager(commands.Cog):
             embed.add_field(name="Franchise", value="{}\n".format("\n".join(franchises)), inline=True)
         else:
             embed.description = "No teams have been set up for this tier."
-        embed.set_thumbnail(url=ctx.guild.icon_url)
+        embed.set_thumbnail(url=ctx.guild.icon.url)
         return embed
 
     async def tier_roles(self, ctx):
@@ -1253,7 +1254,7 @@ class TeamManager(commands.Cog):
         if emoji:
             return emoji.url
 
-        guild_icon_url = franchise_role.guild.icon_url
+        guild_icon_url = franchise_role.guild.icon.url
         if guild_icon_url:
             return guild_icon_url
         

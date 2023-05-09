@@ -257,7 +257,7 @@ class BCManager(commands.Cog):
         
         # endregion
 
-        guild_emoji_url = ctx.guild.icon_url
+        guild_emoji_url = ctx.guild.icon.url
         channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
         # start_time = ctx.message.created_at
         start_time = datetime.now()
@@ -349,7 +349,7 @@ class BCManager(commands.Cog):
             }
         # endregion
 
-        guild_emoji_url = ctx.guild.icon_url
+        guild_emoji_url = ctx.guild.icon.url
         channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
         # start_time = ctx.message.created_at
         start_time = datetime.now()
@@ -580,8 +580,8 @@ class BCManager(commands.Cog):
         if group_code:
             embed = discord.Embed(title="RSC Ballchasing Group", description=f"[Click to view]({url})", color=discord.Color.blue())
             
-            if ctx.guild.icon_url:
-                embed.set_thumbnail(url=ctx.guild.icon_url)
+            if ctx.guild.icons.url:
+                embed.set_thumbnail(url=ctx.guild.icon.url)
 
             await ctx.send(embed=embed)
         else:
@@ -608,9 +608,9 @@ class BCManager(commands.Cog):
         if franchise_role:
             accounts_embed.set_thumbnail(url=(await self.team_manager_cog.get_franchise_emoji_url(ctx, franchise_role)))
         else:
-            accounts_embed.set_thumbnail(url=ctx.guild.icon_url)
+            accounts_embed.set_thumbnail(url=ctx.guild.icon.url)
         
-        accounts_embed.set_footer(icon_url=ctx.guild.icon_url, text="RSC Tracker Links: https://tinyurl.com/TrackerLinks")
+        accounts_embed.set_footer(icon_url=ctx.guild.icon.url, text="RSC Tracker Links: https://tinyurl.com/TrackerLinks")
 
         msg : discord.Message = await ctx.send(embed=accounts_embed)
         linked_accounts = []
@@ -728,7 +728,7 @@ class BCManager(commands.Cog):
         # Step 2: Send initial embed (Searching...)
         match_day: int = match['matchDay']
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
-        emoji_url = ctx.guild.icon_url
+        emoji_url = ctx.guild.icon.url
 
         score_report_embed = discord.Embed(
             title=f"MD {match_day}: {match['home']} vs {match['away']}",
@@ -1033,17 +1033,17 @@ class BCManager(commands.Cog):
             if home_emoji:
                 embed.set_thumbnail(url=home_emoji.url)
             else:
-                embed.set_thumbnail(url=guild.icon_url)
+                embed.set_thumbnail(url=guild.icon.url)
         elif home_wins < away_wins:
             winner = match['away']
             away_emoji = self.ffp[guild][message]['deep_match_report']['away_emoji']
             if away_emoji:
                 embed.set_thumbnail(url=away_emoji.url)
             else:
-                embed.set_thumbnail(url=guild.icon_url)
+                embed.set_thumbnail(url=guild.icon.url)
         else:
             winner = None
-            embed.set_thumbnail(url=guild.icon_url)
+            embed.set_thumbnail(url=guild.icon.url)
         
         # update match info
         match['report']['summary'] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
@@ -1544,7 +1544,7 @@ class BCManager(commands.Cog):
             emoji_url = await self.team_manager_cog.get_franchise_emoji_url(ctx, franchise_role)
         else:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
-            emoji_url = ctx.guild.icon_url
+            emoji_url = ctx.guild.icon.url
 
         summary = f"**{match['home']}** {report.get('home_wins', 0)} - {report.get('away_wins', 0)} **{match['away']}**"
         SUCCESS_EMBED = "Match Summary:\n{}\n\n[View group on ballchasing!]({})"
@@ -1911,7 +1911,7 @@ class BCManager(commands.Cog):
             emoji_url = await self.team_manager_cog.get_franchise_emoji_url(ctx, franchise_role)
         else:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
-            emoji_url = ctx.guild.icon_url
+            emoji_url = ctx.guild.icon.url
         
         return tier_role, emoji_url
 

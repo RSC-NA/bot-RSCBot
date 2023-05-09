@@ -542,7 +542,7 @@ class ModeratorLink(commands.Cog):
             color=discord.Color.red(),
             description=message,
         )
-        embed.set_thumbnail(url=guild.icon_url)
+        embed.set_thumbnail(url=guild.icon.url)
 
         # Send message to kicked/banned member
         try:

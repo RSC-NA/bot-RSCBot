@@ -86,7 +86,8 @@ class FaCheckIn(commands.Cog):
             if role.name.lower() == tier_name.lower():
                 color = role.color
         embed = discord.Embed(title="Availability for {0} tier on match day {1}:".format(tier, match_day), color=color, 
-            description=message, thumbnail=ctx.guild.icon_url)
+            description=message)
+        embed.set_thumbnail(url=ctx.guild.icon.url)
                     
         await ctx.send(embed=embed)
 
