@@ -1,9 +1,12 @@
 import asyncio 
 import discord
+import logging
 from datetime import date, datetime
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
+
+log = logging.getLogger("red.RSCBot.modLink")
 
 # Bot Detection
 SPAM_JOIN_BT = "spam join"
@@ -375,7 +378,7 @@ class ModeratorLink(commands.Cog):
                 await linked_guild_log.send("**{}** (id: {}) has been unbanned. [initiated from **{}**]".format(user.mention, user.id, guild.name))
 
     @commands.Cog.listener("on_member_join")
-    async def on_member_join(self, member):
+    async def on_member_join(self, member: discord.Member):
         """Processes events for when a member joins the guild such as welcome messages and 
         nickname standardization, and bot purging."""
 
@@ -425,6 +428,18 @@ class ModeratorLink(commands.Cog):
                             ))
                 
                     return
+
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def getSharedRoles(self, ctx):
+        """Fetches list of Shared Roles between RSC servers"""
+        shared_roles = await self._get_shared_role_names(ctx.guild)
+        log.debug(f"Shared Roles List: {shared_roles}")
+        if shared_roles:
+            await ctx.send(f"Shared Roles: {shared_roles}")
+        else:
+            await ctx.send("No shared roles are configured.")
 
     async def maybe_send_welcome_message(self, member):
         guild = member.guild
@@ -599,6 +614,7 @@ class ModeratorLink(commands.Cog):
 
         if not event_log_channel:
             return False
+        
 
         # Filter role updates by shared roles
         for r in removed_roles:
@@ -607,6 +623,11 @@ class ModeratorLink(commands.Cog):
         for r in added_roles:
             if r.name not in shared_role_names:
                 added_roles.remove(r)
+        
+        log.debug("Processing shared role update.")
+        log.debug(f"Shared Roles: {shared_role_names}")
+        log.debug(f"Removed Roles: {removed_roles}")
+        log.debug(f"Added Roles: {added_roles}")
 
         mutual_guilds = self._member_mutual_guilds(before) # before.mutual_guilds not working
         mutual_guilds.remove(before.guild)
