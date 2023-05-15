@@ -45,8 +45,8 @@ RSC_WEB_APP = "http://24.176.157.36:4443"
 DONE = "Done"
 WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
 WHITE_CHECK_REACT = "\U00002705"            # :white_check_mark:
-#RSC_STEAM_ID = 76561199096013422
-RSC_STEAM_ID = 76561197960409023 # REMOVEME - my steam id for development
+RSC_STEAM_ID = 76561199096013422
+#RSC_STEAM_ID = 76561197960409023 # REMOVEME - my steam id for development
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
