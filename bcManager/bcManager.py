@@ -45,7 +45,8 @@ RSC_WEB_APP = "http://24.176.157.36:4443"
 DONE = "Done"
 WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
 WHITE_CHECK_REACT = "\U00002705"            # :white_check_mark:
-RSC_STEAM_ID = 76561199096013422
+#RSC_STEAM_ID = 76561199096013422
+RSC_STEAM_ID = 76561197960409023 # REMOVEME - my steam id for development
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
@@ -593,7 +594,7 @@ class BCManager(commands.Cog):
         if group_code:
             embed = discord.Embed(title="RSC Ballchasing Group", description=f"[Click to view]({url})", color=discord.Color.blue())
             
-            if ctx.guild.icons.url:
+            if ctx.guild.icon.url:
                 embed.set_thumbnail(url=ctx.guild.icon.url)
 
             await ctx.send(embed=embed)
@@ -2054,3 +2055,4 @@ class BCManager(commands.Cog):
     
     async def _save_stats_manager_role(self, guild: discord.Guild, role: discord.Role):
         await self.config.guild(guild).StatsManagerRole.set(role.id)
+# endregion
