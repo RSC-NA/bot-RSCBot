@@ -637,10 +637,10 @@ class BCManager(commands.Cog):
         if franchise_emoji_url:
             accounts_embed.set_thumbnail(url=(await self.team_manager_cog.get_franchise_emoji_url(ctx, franchise_role)))
         elif ctx.guild.icon_url:
-            accounts_embed.set_thumbnail(url=ctx.guild.icon_url)
+            accounts_embed.set_thumbnail(url=ctx.guild.icon.url)
         
         # Footer with tracker link. Footer expects string and will not handle `NoneType`
-        accounts_embed.set_footer(icon_url=ctx.guild.icon_url or "", text="RSC Tracker Links: https://tinyurl.com/TrackerLinks")
+        accounts_embed.set_footer(icon_url=ctx.guild.icon.url or "", text="RSC Tracker Links: https://tinyurl.com/TrackerLinks")
 
         msg : discord.Message = await ctx.send(embed=accounts_embed)
 
