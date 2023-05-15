@@ -346,7 +346,7 @@ class ModeratorLink(commands.Cog):
         except:
             after_name = after.name
         
-        seconds_in_server = (datetime.utcnow() - before.joined_at).seconds
+        seconds_in_server = (discord.utils.utcnow() - before.joined_at).seconds
         if before_name != after_name and seconds_in_server > 120:
             await self._process_nickname_update(before, after)
             
@@ -475,7 +475,7 @@ class ModeratorLink(commands.Cog):
 
         # SUSPICIOUS NEW ACCOUNTS
         for blacklist_name in await self._get_blacklisted_names(member.guild):  # await self._get_name_blacklist():
-            account_age = (datetime.utcnow() - member.created_at).seconds
+            account_age = (discord.utils.utcnow() - member.created_at).seconds
             if blacklist_name in member.name.lower() and account_age <= ACC_AGE_THRESHOLD + 10:
                 await self.process_bot_member_kick(member, reason=SUS_NEW_ACC_BT)
                 return True
@@ -542,7 +542,7 @@ class ModeratorLink(commands.Cog):
             color=discord.Color.red(),
             description=message,
         )
-        embed.set_thumbnail(url=guild.icon_url)
+        embed.set_thumbnail(url=guild.icon.url)
 
         # Send message to kicked/banned member
         try:

@@ -6,3 +6,4 @@ Lib/
 Scripts/
 pyvenv.cfg
 Tracker*.json
+*.swp

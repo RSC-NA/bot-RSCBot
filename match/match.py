@@ -535,7 +535,7 @@ class Match(commands.Cog):
                 if activity.name == game:
                     playing = True
                     try:
-                        playing = not activity.end or activity.end > datetime.utcnow()
+                        playing = not activity.end or activity.end > discord.utils.utcnow()
                     except:
                         playing = not activity.end
                     return playing

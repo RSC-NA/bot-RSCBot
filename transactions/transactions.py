@@ -505,7 +505,7 @@ class Transactions(commands.Cog):
         )
         
         try:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         except:
             pass
         
@@ -598,8 +598,8 @@ class Transactions(commands.Cog):
         )
         
         embed = discord.Embed(title=f"Notice from {ctx.guild.name}", description=msg, color=discord.Color.blue())
-        if ctx.guild.icon_url:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+        if ctx.guild.icon.url:
+            embed.set_thumbnail(url=ctx.guild.icon.url)
 
         await self.dm_helper_cog.add_to_dm_queue(member=player, embed=embed, ctx=ctx)
 

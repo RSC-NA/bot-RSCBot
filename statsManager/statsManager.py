@@ -210,7 +210,7 @@ class StatsManager(commands.Cog):
         if emoji:
             embed.set_thumbnail(url=emoji.url)
         else:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         
         team_info = ""
         team_info += f"**Tier:** {tier_role.mention}"
@@ -244,7 +244,7 @@ class StatsManager(commands.Cog):
         if emoji:
             embed.set_thumbnail(url=emoji.url)
         else:
-            embed.set_thumbnail(url=ctx.guild.icon_url)
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         
         # Team Info
         team_info = f"**Tier:** {tier_role.mention}"
