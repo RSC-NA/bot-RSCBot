@@ -11,9 +11,13 @@ from .BCConfig import BCConfig
 from teamManager import TeamManager
 from match import Match
 
+import random
+import string
 import struct
 import tempfile
 import asyncio
+import aiohttp
+from typing import List
 
 from pytz import all_timezones_set, timezone, UTC
 from datetime import datetime, timedelta
@@ -29,7 +33,6 @@ defaults = {
     "ReplayDumpChannel": None,
     "AuthToken": None,
     "TopLevelGroup": None,
-    "RscAppToken": None,
     "TimeZone": 'America/New_York',
     "LogChannel": None,
     "StatsManagerRole": None
@@ -43,6 +46,7 @@ DONE = "Done"
 WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
 WHITE_CHECK_REACT = "\U00002705"            # :white_check_mark:
 RSC_STEAM_ID = 76561199096013422
+#RSC_STEAM_ID = 76561197960409023 # REMOVEME - my steam id for development
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
@@ -75,7 +79,7 @@ class BCManager(commands.Cog):
         tlg = await self._get_top_level_group(ctx.guild)
         if tlg:
             bapi: ballchasing.Api = self.ballchasing_api[ctx.guild]
-            ping_data = await asyncio.to_thread(bapi.ping)
+            ping_data = await bapi.ping()
 
         try:
             api: ballchasing.Api = ballchasing.Api(auth_token)
@@ -90,7 +94,7 @@ class BCManager(commands.Cog):
             await self._save_bc_auth_token(ctx.guild, auth_token)
 
             if tlg:
-                group_data = await asyncio.to_thread(bapi.get_group, tlg)
+                group_data = await bapi.get_group(tlg)
                 if group_data['creator']['steam_id'] != ping_data['steam_id']:
                     await self._save_top_level_group(ctx.guild, None)
                     return await ctx.send(f"{success_msg}. Top Level Group has been cleared.")
@@ -98,20 +102,6 @@ class BCManager(commands.Cog):
             return await ctx.send(success_msg)
 
         await ctx.send(":x: The Auth Token you've provided is invalid.")
-
-    @commands.command(aliases=['setRSCAuthKey'])
-    @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setRSCAuthToken(self, ctx, auth_token):
-        """Sets the Auth Key for the RSC web app API requests.
-        """
-        await ctx.message.delete()
-        # TODO: add RSC web app validation
-
-        self.rsc_api[ctx.guild] = auth_token
-        await self._save_rsc_app_token(ctx.guild, auth_token)
-
-        await ctx.send(":WHITE_CHECK_MARK: The RSC API token has been saved.")
 
     @commands.command(aliases=['tokencheck'])
     @commands.guild_only()
@@ -122,61 +112,59 @@ class BCManager(commands.Cog):
         # BC token check
         bc_token = await self._get_bc_auth_token(guild)
         valid_bc_token = True if bc_token else False
-        
-        # RSC token check
-        rsc_token = await self._get_rsc_app_token(guild)
-        valid_rsc_token = True if rsc_token else False
 
         wcm = ":white_check_mark:"
         x = ":x:"
 
         output_parts = ["**RSC Guild Tokens Registered**"]
         output_parts += [f"{wcm} Ballchasing"] if valid_bc_token else [f"{x} Ballchasing"]
-        output_parts += [f"{wcm} RSC Web Api"] if valid_rsc_token else [f"{x} RSC Web Api"]
-
         output_str = "\n".join(output_parts)
         await ctx.send(output_str)
-
-    @commands.command()
-    @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setTopLevelGroup(self, ctx, rsc_app_token):
-        await self._save_rsc_app_token(self, ctx.guild, rsc_app_token)
-        await ctx.reply(DONE)
 
     @commands.command(aliases=['setLeagueSeasonGroup', 'stlg'])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def setTopLevelGroup(self, ctx, top_level_group):
         """Sets the Top Level Ballchasing Replay group for saving match replays.
+
+        Parameters:
+            top_level_group -- Top Level Ballchasing Group (Ex: RSC3v3)
+
         Note: Auth Token must be generated from the Ballchasing group owner
         """
         
         top_level_group = self.parse_group_code(top_level_group)
 
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
-        data = bapi.get_group(top_level_group)
+        try:
+            data = await bapi.get_group(top_level_group)
+        except ValueError as exc:
+            # python-ballchasing raises a ValueError() that contains a `ClientResponse`. Print error and return.
+            log.error(f"Error getting Ballchasing group: {top_level_group} -- {exc}")
+            return await ctx.send(f"`Error fetching top level group. Status: {exc.args[0].status} {exc.args[0].reason}`")
 
-        if bapi.ping().get("steam_id") != data.get("creator", {}).get("steam_id", {}):
+        # Validate that we actually own the Ballchasing group
+        ping = await bapi.ping()
+        if ping.get("steam_id") != data.get("creator", {}).get("steam_id", {}):
             return await ctx.send(":x: Ballchasing group creator must be consistent with the registered auth token.")
 
         await self._save_top_level_group(ctx.guild, top_level_group)
 
-        bapi.patch_group(top_level_group, shared=True)
+        await bapi.patch_group(top_level_group, shared=True)
 
         await ctx.send(DONE)
 
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setBCLogChannel(self, ctx, channel: discord.TextChannel=None):
+    async def setBCLogChannel(self, ctx, channel: discord.TextChannel):
         await self._save_log_channel(ctx.guild, channel)
         await ctx.send(DONE)
     
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setStatsManagerRole(self, ctx, role: discord.Role=None):
+    async def setStatsManagerRole(self, ctx, role: discord.Role):
         await self._save_stats_manager_role(ctx.guild, role)
         await ctx.send(DONE)
 
@@ -184,8 +172,13 @@ class BCManager(commands.Cog):
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setTimeZone(self, ctx, time_zone):
-        """Sets timezone for the guild. (Default: America/New_York) Valid time zone codes are listed in the "TZ database name" column of
-         the following wikipedia page: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones"""
+        """Sets timezone for the guild.
+
+        Parameters:
+            time_zone -- Time Zone (Default: America/New_York)
+         
+        Reference the following wikipedia page: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+        """
 
         if time_zone not in all_timezones_set:
             wiki = 'https://en.wikipedia.org/wiki/List_of_tz_database_time_zones'
@@ -198,23 +191,39 @@ class BCManager(commands.Cog):
         await self._save_time_zone(ctx.guild, time_zone)
         await ctx.reply("Done")
 
-        # endregion
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def getTimeZone(self, ctx):
+        """ Gets the configured Time Zone code """
+
+        tz = await self._get_time_zone(ctx.guild)
+        await ctx.reply(f"Current Time Zone code: `{tz}`")
+
 
     @commands.command()
     @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
     async def getBCLogChannel(self, ctx):
         if not await self.has_perms(ctx.author):
             return
         channel: discord.Channel = await self._get_log_channel(ctx.guild)
-        await ctx.reply(channel.mention)
+        if channel:
+            await ctx.reply(channel.mention)
+        else:
+            await ctx.reply("Ballchasing log channel is not configured...")
 
     @commands.command()
     @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
     async def getStatsManagerRole(self, ctx):
         if not await self.has_perms(ctx.author):
             return
         role: discord.Role = await self._get_stats_manager_role(ctx.guild)
-        await ctx.reply(role.mention)
+        if role:
+            await ctx.reply(role.mention)
+        else:
+            await ctx.reply("Stats manager role is not configured...")
 
     # endregion
 
@@ -270,6 +279,7 @@ class BCManager(commands.Cog):
             tier_md_group_id = None
             tier_report_channel = await self.get_score_reporting_channel(tier_role)
             for match in schedule.get(tier_role.name, {}).get(match_day, []):
+                log.debug(f"Looking for match: {match}")
                 match_group_info = {}
                 bc_report_summary_json[tier_role]['active_match'] = f"{match['home']} vs {match['away']}"
                 # update RAM status message
@@ -280,6 +290,7 @@ class BCManager(commands.Cog):
                 
                 # if match report valid
                 if match.get("report", {}).get('home_wins', 0) or match.get("report", {}).get('away_wins', 0):
+                    log.debug("Found valid match summary")
                     await self.send_match_summary(ctx, match, tier_report_channel)
                     bc_report_summary_json[tier_role]['success_count'] += 1
                 else:
@@ -411,6 +422,8 @@ class BCManager(commands.Cog):
         
         if not match.get('report'):
             return await ctx.reply(":x: This match has not been reported.")
+        elif not match['report'].get('ballchasing_id'):
+            return await ctx.reply(":x: This match has no ballchasing ID.")
 
         deep_match_report, embed = await self.get_init_score_deep_summary_and_embed(ctx, match)
         message = await ctx.reply(embed=embed)
@@ -447,12 +460,13 @@ class BCManager(commands.Cog):
         if not await self.has_perms(ctx.author):
             return
         match = await self.get_matchup(ctx, match_day, team_a, team_b)
+        log.debug(f"Match: {match}")
 
         if not match:
             return await ctx.reply(":x: Match could not be found.")
         
-        if match.get('report'):
-            return await ctx.reply("This match has already been reported:\n{}".format(match['report']['summary']))
+        if match.get('report').get('winner'):
+            return await ctx.reply(f"This match has already been reported:\n{match['report']['summary']}")
 
         if match['home'].lower() == team_a.lower():
             home_wins = a_wins 
@@ -492,7 +506,7 @@ class BCManager(commands.Cog):
         
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
 
-        data = bapi.get_group(match_code)
+        data = await bapi.get_group(match_code)
         name = data.get("name")
         teams = name.split(" vs ")
 
@@ -529,7 +543,7 @@ class BCManager(commands.Cog):
 
         replays = bapi.get_replays(group_id=match_code)
 
-        for replay in replays:
+        async for replay in replays:
 
             home_goals, away_goals = self.get_home_away_goals(match, replay)
 
@@ -580,12 +594,20 @@ class BCManager(commands.Cog):
         if group_code:
             embed = discord.Embed(title="RSC Ballchasing Group", description=f"[Click to view]({url})", color=discord.Color.blue())
             
-            if ctx.guild.icons.url:
+            if ctx.guild.icon.url:
                 embed.set_thumbnail(url=ctx.guild.icon.url)
 
             await ctx.send(embed=embed)
         else:
             await ctx.send(":x: A ballchasing group has not been set for this season.")
+
+    @commands.command(aliases=['clrcon, clrc'])
+    @checks.is_owner()
+    async def clear_console(self, ctx):
+        """Clear console and makes it white. Developer only command. """
+        [print('') for x in range(50)]
+        print('\033[0;37;40m\nDone!')
+        await ctx.send('Done.')
 
     @commands.command(aliases=['accs', 'myAccounts', 'registeredAccounts', 'bcp'])
     @commands.guild_only()
@@ -594,9 +616,11 @@ class BCManager(commands.Cog):
         if not player:
             player = ctx.author
 
+        log.debug(f"Fetching player accounts for {player.name}")
         # Searching Embed Msg
         tier_role = await self.team_manager_cog.get_current_tier_role(ctx, player)
         franchise_role = self.team_manager_cog.get_current_franchise_role(player)
+        log.debug(f"Tier Role: {tier_role} -- Franchise Role: {franchise_role}")
         accounts_embed = discord.Embed(
             title = f"{player.nick if player.nick else player.name}'s Accounts",
             color = discord.Color.blue(),
@@ -605,27 +629,42 @@ class BCManager(commands.Cog):
         if tier_role:
             accounts_embed.color = tier_role.color
         
-        if franchise_role:
+        # Thumnail 
+        if franchise_role :
+            franchise_emoji_url = await self.team_manager_cog.get_franchise_emoji_url(ctx, franchise_role)
+        
+        log.debug(f"Franchise Emoji URL: {franchise_emoji_url}")
+        log.debug(f"Guild Icon URL: {franchise_emoji_url}")
+        if franchise_emoji_url:
             accounts_embed.set_thumbnail(url=(await self.team_manager_cog.get_franchise_emoji_url(ctx, franchise_role)))
-        else:
+
+        elif ctx.guild.icon_url:
             accounts_embed.set_thumbnail(url=ctx.guild.icon.url)
         
-        accounts_embed.set_footer(icon_url=ctx.guild.icon.url, text="RSC Tracker Links: https://tinyurl.com/TrackerLinks")
+        # Footer with tracker link. Footer expects string and will not handle `NoneType`
+        accounts_embed.set_footer(icon_url=ctx.guild.icon.url or "", text="RSC Tracker Links: https://tinyurl.com/TrackerLinks")
 
         msg : discord.Message = await ctx.send(embed=accounts_embed)
+
+        # Fetch player accounts
         linked_accounts = []
         for acc in await self.get_player_accounts(player):
+            log.debug(f"Account found: {acc}")
             platform = acc.get("platform").lower()
             plat_id = acc.get("platform_id")
             plat_name = acc.get("name")
 
+            # Find by plat_id (STEAM) or plat_name (OTHER)
             if plat_id:
-                latest_replay = await asyncio.to_thread(self.get_latest_account_replay_by_plat_id, ctx.guild, platform, plat_id)
+                latest_replay = await self.get_latest_account_replay_by_plat_id(ctx.guild, platform, plat_id)
+                log.debug(f"Latest Replay: {latest_replay}")
                 if latest_replay:
-                    player_data = await asyncio.to_thread(self.get_player_data_from_replay_by_plat_id, latest_replay, platform, plat_id)
+                    player_data = await self.get_player_data_from_replay_by_plat_id(latest_replay, platform, plat_id)
+                    log.debug(f"Player Data (plat_id): {player_data}")
                     plat_name = player_data.get('name', plat_id)
             elif plat_name:
-                player_data = await asyncio.to_thread(self.get_latest_player_data_by_platform_name, ctx.guild, platform, plat_name)
+                player_data = await self.get_latest_player_data_by_platform_name(ctx.guild, platform, plat_name)
+                log.debug(f"Player Data (plat_name): {player_data}")
                 plat_id = player_data.get('id', {}).get('id')
             
            
@@ -701,9 +740,6 @@ class BCManager(commands.Cog):
             bc_token = await self._get_bc_auth_token(guild)
             if bc_token:
                 self.ballchasing_api[guild] = ballchasing.Api(bc_token)
-            rsc_token = await self._get_rsc_app_token(guild)
-            if rsc_token:
-                self.rsc_api[guild] = rsc_token
 
     async def process_bcreport(self, ctx, force=False, match_day: int=None):
         # Step 1: Find Match
@@ -714,7 +750,7 @@ class BCManager(commands.Cog):
             return None
         
         for match in matches:
-            if not match.get("report", {}) or force:
+            if not match.get("report", {}) or force or match['report'].get("summary"):
                 await self.process_match_bcreport(ctx, match)
             else:
                 await self.send_match_summary(ctx, match)
@@ -818,14 +854,13 @@ class BCManager(commands.Cog):
             report = await self.get_replay_destination(ctx, match)
         
         bapi: ballchasing.Api = self.ballchasing_api[ctx.guild]
-        data = await asyncio.to_thread(
-            bapi.get_replays,
+        data = bapi.get_replays(
             group_id=report.get('id')
         )
 
         home_wins = 0
         away_wins = 0
-        for replay in data:
+        async for replay in data:
             home_goals, away_goals = self.get_home_away_goals(match, replay)
             if home_goals > away_goals:
                 home_wins += 1
@@ -854,6 +889,7 @@ class BCManager(commands.Cog):
         away_franchise_role = (await self.team_manager_cog._roles_for_team(ctx, match['away']))[0]
         home_emoji = await self.team_manager_cog._get_franchise_emoji(ctx, home_franchise_role)
         away_emoji = await self.team_manager_cog._get_franchise_emoji(ctx, away_franchise_role)
+        log.debug(f"Match Report: {match['report']}")
         ballchasing_link = match['report']['ballchasing_link']
 
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
@@ -874,7 +910,7 @@ class BCManager(commands.Cog):
         gi = 1
         i = 0
         react_hex_code = 0x1F1E6 # A
-        for replay in replays:
+        async for replay in replays:
             while gi in ff_indexes:
                 gi += 1
                 i += 1
@@ -1073,8 +1109,7 @@ class BCManager(commands.Cog):
                 for ff in ff_replay_ids:
                     replay_id = ff['replay_id']
                     bapi : ballchasing.Api = self.ballchasing_api[guild]
-                    await asyncio.to_thread(
-                        bapi.patch_replay,
+                    await bapi.patch_replay(
                         replay_id=replay_id,
                         group=""
                     )
@@ -1099,6 +1134,13 @@ class BCManager(commands.Cog):
         del self.ffp[guild][message]
         
     async def get_matchup(self, ctx, match_day, team_a, team_b):
+        """Get match data by day and team names
+
+        Parameters:
+        match_day -- Match Day (Ex: 1)
+        team_a -- Team Name A
+        team_b -- Team Name B
+        """
         matches = await self.get_matches(ctx, team=team_a, match_day=match_day)
         search_teams = [team_a.lower(), team_b.lower()]
         for match in matches:
@@ -1170,8 +1212,7 @@ class BCManager(commands.Cog):
         for player in all_players:
             for steam_id in (await self.get_steam_ids(player)):
 
-                data = await asyncio.to_thread(
-                    bapi.get_replays,
+                data = bapi.get_replays(
                     playlist=BCConfig.PLAYLIST,
                     sort_by=BCConfig.SORT_BY,
                     sort_dir=BCConfig.SORT_DIR,
@@ -1183,7 +1224,7 @@ class BCManager(commands.Cog):
                 min_games_required = self.get_min_replay_count(discovery_data.get('match_format', '4-gs'))
 
                 # checks for MATCHing ;) replays
-                for replay in data:
+                async for replay in data:
                     replay_hash = self.should_add_replay_to_set(match, replay, discovery_data)
                     if replay_hash:
                         discovery_data['replay_hashes'].append(replay_hash)
@@ -1267,7 +1308,7 @@ class BCManager(commands.Cog):
             next_subgroup_id = None 
 
             # Check if next subgroup exists
-            for data_subgroup in data:
+            async for data_subgroup in data:
                 if data_subgroup['name'] == next_group_name:
                     next_subgroup_id = data_subgroup['id']
                     break
@@ -1279,7 +1320,7 @@ class BCManager(commands.Cog):
 
             # ## Creating next sub-group
             else:
-                data = bapi.create_group(name=next_group_name, parent=current_subgroup_id,
+                data = await bapi.create_group(name=next_group_name, parent=current_subgroup_id,
                                     player_identification=BCConfig.player_identification,
                                     team_identification=BCConfig.team_identification)
                 
@@ -1296,23 +1337,21 @@ class BCManager(commands.Cog):
         }
 
     async def upload_replays(self, ctx, subgroup_id, files_to_upload):
+        """ Upload replay bytes to ballchasing using random name. """
         replay_ids_in_group = []
+        bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
         for replay_file in files_to_upload:
-            replay_file.seek(0)
-            files = {'file': replay_file}
-
-            bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
-
-            # bapi.upload_replay(replay_file, visibility=bcConfig.visibility, group=)
             try:
-                data = bapi._request(f"/v2/upload", bapi._session.post, files=files,
-                                    params={"group": subgroup_id, "visibility": BCConfig.visibility}).json()
+                rname = f"{''.join(random.choices(string.ascii_letters + string.digits, k=64))}.replay"
+                data = await bapi.upload_replay_from_bytes(rname ,replay_file, visibility=BCConfig.visibility, group=subgroup_id)
                 replay_ids_in_group.append(data.get('id', "FAILED"))
             except ValueError as e:
-                if e.args[0].status_code == 409:
+                if e.args[0].status == 409:
                     # duplicate replay
-                    replay_id = e.args[1].get('id', "FAILED")
-                    bapi.patch_replay(replay_id, group=subgroup_id)
+                    err_info = await e.args[0].json()
+                    log.debug(f"Error uploading replay. {e.args[0].status} -- {err_info}")
+                    replay_id = err_info.get('id', "FAILED")
+                    await bapi.patch_replay(replay_id, group=subgroup_id)
                     replay_ids_in_group.append(replay_id)
             
         return replay_ids_in_group
@@ -1487,6 +1526,7 @@ class BCManager(commands.Cog):
         return False
     
     def get_match_fmt_components(self, match_format: str):
+        log.debug(f"Match Format: {match_format}")
         format_components = match_format.split('-')
 
         for component in format_components:
@@ -1569,6 +1609,7 @@ class BCManager(commands.Cog):
             log.debug(f"Cannot post for unreported game, {title}")
             return 
 
+        log.debug(f"Match Data: {match}")
         tier_role, emoji_url = await self.get_match_tier_role_and_emoji_url(ctx, match)
         ballchasing_link = match['report'].get('ballchasing_link', match['report'].get('link')) # TODO: Standardize
         
@@ -1712,21 +1753,17 @@ class BCManager(commands.Cog):
 
         return embed
 
-    async def tmp_download_replays(self, ctx, replay_ids):
+    async def tmp_download_replays(self, ctx, replay_ids) -> List[bytes]:
+        """ Download replay files and return list of byte objects """
         bapi : ballchasing.Api = self.ballchasing_api[ctx.guild]
         tmp_replay_files = []
-        this_game = 1
         for replay_id in replay_ids[::-1]:
-            endpoint = f"/replays/{replay_id}/file"
+            log.debug(f"Downloading replay: {replay_id}")
 
-            r = bapi._request(endpoint, bapi._session.get)
-            # replay_filename = f"{replay_id}.replay"
-            
-            tf = tempfile.NamedTemporaryFile()
-            tf.name += ".replay"
-            tf.write(r.content)
-            tmp_replay_files.append(tf)
-            this_game += 1
+            replayData = await bapi.download_replay_content(replay_id)
+            log.debug(f"Replay Data: {replayData.hex()[:50]}")
+
+            tmp_replay_files.append(replayData)
 
         return tmp_replay_files
 
@@ -1772,10 +1809,14 @@ class BCManager(commands.Cog):
         return code_or_link  # returns code
 
     async def get_player_accounts(self, player: discord.Member, platforms=[]):
+        log.debug(f"Fetching player accounts for ID: {player.id}")
         url =  f"{RSC_WEB_APP}/api/member/{player.id}/accounts/"
-        rsc_app_token: str = await self._get_rsc_app_token(player.guild)
-        headers = {"X-Api-Key": rsc_app_token}
-        data = (await asyncio.to_thread(requests.get, url, headers=headers)).json()
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as resp:
+                data = await resp.json()
+        log.debug(f"Player Account API Data: {data}")
+
         accounts = data.get('accounts', [])
         
         if not platforms:
@@ -1934,12 +1975,15 @@ class BCManager(commands.Cog):
                 return True
         return False
     
-    def get_latest_account_replay_by_plat_id(self, guild, platform, plat_id):        
+    async def get_latest_account_replay_by_plat_id(self, guild, platform, plat_id):        
+        """ Get most recent replay by Platnium ID """
         bapi : ballchasing.Api = self.ballchasing_api[guild]
         data = bapi.get_replays(player_id=f"{platform}:{plat_id}", sort_by="replay-date", sort_dir="desc", count=1)
-        return next(data, {})
+        async for r in data:
+            return r # Workaround `StopAsyncIteration` exception with `__anext__()` for one replay
+        return None
 
-    def get_player_data_from_replay_by_plat_id(self, replay_json, platform, platform_id):
+    async def get_player_data_from_replay_by_plat_id(self, replay_json, platform, platform_id):
         for team in ['blue', 'orange']:
             for player in replay_json[team].get('players', []):
                 account_match = (
@@ -1951,13 +1995,13 @@ class BCManager(commands.Cog):
                     return player
         return {}
     
-    # TODO: can we make this async AND have it be referenced with a to_thread call?
-    def get_latest_player_data_by_platform_name(self, guild, platform, plat_name):        
+    async def get_latest_player_data_by_platform_name(self, guild, platform, plat_name):        
+        """ Get latest player data by platform name """
         bapi : ballchasing.Api = self.ballchasing_api[guild]
         
         data = bapi.get_replays(sort_by="replay-date", sort_dir="desc", player_name=plat_name, uploader=RSC_STEAM_ID, count=10)
 
-        for replay in data:
+        async for replay in data:
             for team in ['blue', 'orange']:
                 for player in replay[team].get('players', []):
                     account_match = (
@@ -1968,6 +2012,12 @@ class BCManager(commands.Cog):
                     if account_match:
                         return player
         return {}
+
+    async def iter_gather(result):
+        """ Gather async iterator into list and return """
+        final = []
+        async for r in result: final.append(r)
+        return final
 
     def admin_or_permissions():
         pass
@@ -2005,15 +2055,4 @@ class BCManager(commands.Cog):
     
     async def _save_stats_manager_role(self, guild: discord.Guild, role: discord.Role):
         await self.config.guild(guild).StatsManagerRole.set(role.id)
-    
-    async def _get_rsc_app_token(self, guild: discord.Guild):
-        return await self.config.guild(guild).RscAppToken()
-
-    async def _save_rsc_app_token(self, guild: discord.Guild, token: str):
-        await self.config.guild(guild).RscAppToken.set(token)
-
-
 # endregion
-
-    async def nofunction(self):
-        return None
