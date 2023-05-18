@@ -1280,7 +1280,7 @@ class BCManager(commands.Cog):
             tier_group = await self.get_tier_subgroup_name(ctx.guild, tier)
             top_level_group = await self._get_top_level_group(ctx.guild)
             ordered_subgroup_names = [
-                match.get("match_type", "Regular Season"),
+                match.get("matchType", "Regular Season"),
                 tier_group,
                 f"Match Day {str(match['matchDay']).zfill(2)}",
                 # f"{match['home']} vs {match['away']}"
