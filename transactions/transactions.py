@@ -490,6 +490,9 @@ class Transactions(commands.Cog):
 # region helper functions
     async def get_cut_embed(self, ctx: commands.Context, player: discord.Member, gm_name, franchise_name, team_name, tier):
         cut_message = await self._get_cut_message(ctx.guild)
+        if not cut_message:
+            return None
+
         cut_message = cut_message.format(
             player=player,
             franchise=franchise_name,
