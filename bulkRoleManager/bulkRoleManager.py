@@ -3,7 +3,6 @@ import csv
 import os
 import asyncio
 import logging
-from typing import List
 
 from redbot.core import commands, Config, checks
 from discord import File
