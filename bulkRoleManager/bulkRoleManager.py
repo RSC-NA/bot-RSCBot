@@ -2,6 +2,8 @@ import discord
 import csv
 import os
 import asyncio
+import logging
+from typing import List
 
 from redbot.core import commands, Config, checks
 from discord import File
@@ -10,6 +12,8 @@ from redbot.core.utils.menus import start_adding_reactions
 
 from dmHelper import DMHelper
 from teamManager import TeamManager
+
+log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
 defaults = {"DraftEligibleMessage": None, "PermFAMessage": None}
 
@@ -34,7 +38,7 @@ class BulkRoleManager(commands.Cog):
 # region general
     @commands.command()
     @commands.guild_only()
-    async def getAllWithRole(self, ctx, role: discord.Role, getNickname=False):
+    async def getAllWithRole(self, ctx, role: discord.Role, getNickname: bool=False) -> None:
         """Prints out a list of members with the specific role"""
         count = 0
         messages = []
@@ -57,6 +61,29 @@ class BulkRoleManager(commands.Cog):
             for msg in messages:
                 await ctx.send("{0}{1}{0}".format("```", msg))
             await ctx.send(":white_check_mark: {0} player(s) have the {1} role".format(count, role.name))
+
+
+    @commands.command()
+    @commands.guild_only()
+    async def getAllWithRoles(self, ctx, *roles: discord.Role) -> None:
+        """Displays a list of members with all of the roles provided"""
+        log.debug(f"Getting all members with: {roles}")
+        matches = list(set.intersection(*map(set, [r.members for r in roles])))
+        log.debug(f"Matches: {matches}")
+
+        if not matches:
+            ctx.send("No users intersect those roles.")
+            return None
+
+        embed = discord.Embed(
+            color=discord.Color.blue(),
+            title="Members with intersecting roles",
+        )
+        embed.add_field(name="Name", value="\n".join([p.mention for p in matches]), inline=True)
+        embed.add_field(name="Discord", value="\n".join([f"{p.name}#{p.discriminator}" for p in matches]), inline=True)
+        embed.add_field(name="ID", value="\n".join(str(p.id) for p in matches), inline=True)
+
+        await ctx.send(embed=embed)
 
     @commands.command()
     @commands.guild_only()
