@@ -94,6 +94,7 @@ class BulkRoleManager(commands.Cog):
         embed.add_field(
             name="ID", value="\n".join(str(p.id) for p in matches), inline=True
         )
+        embed.set_footer(text=f"Found {len(matches)} user(s) in total.")
 
         await ctx.send(embed=embed)
 
