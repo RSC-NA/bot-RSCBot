@@ -87,9 +87,6 @@ class BulkRoleManager(commands.Cog):
             title="Members with intersecting roles",
         )
         embed.add_field(
-            name="Name", value="\n".join([p.mention for p in matches]), inline=True
-        )
-        embed.add_field(
             name="Discord",
             value="\n".join([f"{p.name}#{p.discriminator}" for p in matches]),
             inline=True,
