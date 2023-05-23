@@ -17,11 +17,12 @@ log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
 defaults = {"DraftEligibleMessage": None, "PermFAMessage": None}
 
-TROPHY_EMOJI = "\U0001F3C6" # :trophy:
-GOLD_MEDAL_EMOJI = "\U0001F3C5" # gold medal
-FIRST_PLACE_EMOJI = "\U0001F947" # first place medal
-STAR_EMOJI = "\U00002B50" # :star:
+TROPHY_EMOJI = "\U0001F3C6"  # :trophy:
+GOLD_MEDAL_EMOJI = "\U0001F3C5"  # gold medal
+FIRST_PLACE_EMOJI = "\U0001F947"  # first place medal
+STAR_EMOJI = "\U00002B50"  # :star:
 LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
+
 
 class BulkRoleManager(commands.Cog):
     """Used to manage roles role for large numbers of members"""
@@ -29,16 +30,20 @@ class BulkRoleManager(commands.Cog):
     PERM_FA_ROLE = "PermFA"
 
     def __init__(self, bot):
-        self.config = Config.get_conf(self, identifier=1234567897, force_registration=True)
+        self.config = Config.get_conf(
+            self, identifier=1234567897, force_registration=True
+        )
         self.config.register_guild(**defaults)
         self.team_manager_cog: TeamManager = bot.get_cog("TeamManager")
-        self.dm_helper_cog : DMHelper = bot.get_cog("DMHelper")
+        self.dm_helper_cog: DMHelper = bot.get_cog("DMHelper")
         self.discord_bot = bot
 
-# region general
+    # region general
     @commands.command()
     @commands.guild_only()
-    async def getAllWithRole(self, ctx, role: discord.Role, getNickname: bool=False) -> None:
+    async def getAllWithRole(
+        self, ctx, role: discord.Role, getNickname: bool = False
+    ) -> None:
         """Prints out a list of members with the specific role"""
         count = 0
         messages = []
@@ -60,8 +65,11 @@ class BulkRoleManager(commands.Cog):
                 messages.append(message)
             for msg in messages:
                 await ctx.send("{0}{1}{0}".format("```", msg))
-            await ctx.send(":white_check_mark: {0} player(s) have the {1} role".format(count, role.name))
-
+            await ctx.send(
+                ":white_check_mark: {0} player(s) have the {1} role".format(
+                    count, role.name
+                )
+            )
 
     @commands.command()
     @commands.guild_only()
@@ -79,9 +87,17 @@ class BulkRoleManager(commands.Cog):
             color=discord.Color.blue(),
             title="Members with intersecting roles",
         )
-        embed.add_field(name="Name", value="\n".join([p.mention for p in matches]), inline=True)
-        embed.add_field(name="Discord", value="\n".join([f"{p.name}#{p.discriminator}" for p in matches]), inline=True)
-        embed.add_field(name="ID", value="\n".join(str(p.id) for p in matches), inline=True)
+        embed.add_field(
+            name="Name", value="\n".join([p.mention for p in matches]), inline=True
+        )
+        embed.add_field(
+            name="Discord",
+            value="\n".join([f"{p.name}#{p.discriminator}" for p in matches]),
+            inline=True,
+        )
+        embed.add_field(
+            name="ID", value="\n".join(str(p.id) for p in matches), inline=True
+        )
 
         await ctx.send(embed=embed)
 
@@ -97,7 +113,11 @@ class BulkRoleManager(commands.Cog):
         if empty:
             await ctx.send(":x: Nobody had the {0} role".format(role.mention))
         else:
-            await ctx.send(":white_check_mark: {0} role removed from everyone in the server".format(role.name))
+            await ctx.send(
+                ":white_check_mark: {0} role removed from everyone in the server".format(
+                    role.name
+                )
+            )
 
     @commands.command()
     @commands.guild_only()
@@ -115,7 +135,9 @@ class BulkRoleManager(commands.Cog):
                     added += 1
             except:
                 failed += 1
-        await ctx.reply(f"Added role {role.name} to {added} members in this server. ({had} already had it, and {failed} failed.")
+        await ctx.reply(
+            f"Added role {role.name} to {added} members in this server. ({had} already had it, and {failed} failed."
+        )
 
     @commands.command()
     @commands.guild_only()
@@ -146,7 +168,8 @@ class BulkRoleManager(commands.Cog):
             message += ":x: Nobody was given the role {0}".format(role.name)
         else:
             message += ":white_check_mark: {0} role given to everyone that was found from list".format(
-                role.name)
+                role.name
+            )
         if notFound > 0:
             message += ". {0} user(s) were not found".format(notFound)
         if had > 0:
@@ -184,7 +207,8 @@ class BulkRoleManager(commands.Cog):
             message += ":x: Nobody had the {0} role removed".format(role.name)
         else:
             message += ":white_check_mark: {0} role removed from everyone that was found from list".format(
-                role.name)
+                role.name
+            )
         if notFound > 0:
             message += ". {0} user(s) were not found".format(notFound)
         if notHave > 0:
@@ -205,7 +229,10 @@ class BulkRoleManager(commands.Cog):
                 if member in ctx.guild.members:
                     nickname = self.get_player_nickname(member)
                     found.append(
-                        "{1}:{0.name}#{0.discriminator}:{0.id}\n".format(member, nickname))
+                        "{1}:{0.name}#{0.discriminator}:{0.id}\n".format(
+                            member, nickname
+                        )
+                    )
             except:
                 notFound.append(user)
                 found.append(None)
@@ -216,11 +243,11 @@ class BulkRoleManager(commands.Cog):
             if player_nick in notFound:
                 while player_nick in notFound:
                     notFound.remove(player_nick)
-                match_indicies = [i for i, x in enumerate(
-                    userList) if x == player_nick]
+                match_indicies = [i for i, x in enumerate(userList) if x == player_nick]
                 for match in match_indicies:
                     found[match] = "{1}:{0.name}#{0.discriminator}:{0.id}\n".format(
-                        player, player_nick)
+                        player, player_nick
+                    )
 
         if notFound:
             notFoundMessage = ":x: Couldn't find:\n"
@@ -245,7 +272,9 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def giveRoleToAllWithRole(self, ctx, currentRole: discord.Role, roleToGive: discord.Role):
+    async def giveRoleToAllWithRole(
+        self, ctx, currentRole: discord.Role, roleToGive: discord.Role
+    ):
         """Gives the roleToGive to every member who already has the currentRole"""
         count = 0
         hadRoleCount = 0
@@ -262,25 +291,27 @@ class BulkRoleManager(commands.Cog):
             message = ":x: Nobody has the {0} role".format(currentRole.name)
         else:
             message = ":white_check_mark: {0} user(s) had the {1} role".format(
-                count, currentRole.name)
+                count, currentRole.name
+            )
             if hadRoleCount > 0:
                 message += ". {0} user(s) already had the {1} role".format(
-                    hadRoleCount, roleToGive.name)
+                    hadRoleCount, roleToGive.name
+                )
             if countGiven > 0:
                 message += ". {0} user(s) had the {1} role added to them".format(
-                    countGiven, roleToGive.name)
+                    countGiven, roleToGive.name
+                )
         await ctx.send(message)
 
-# endregion
+    # endregion
 
-# region general admin use
+    # region general admin use
     @commands.command(aliases=["addMissingServerRoles"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
     async def addRequiredServerRoles(self, ctx):
         """Adds any missing roles required for the bulkRoleManager cog to function properly."""
-        required_roles = ["Draft Eligible",
-                          "League", "Spectator", "Former Player"]
+        required_roles = ["Draft Eligible", "League", "Spectator", "Former Player"]
         found = []
         for role in ctx.guild.roles:
             if role.name in required_roles:
@@ -290,7 +321,11 @@ class BulkRoleManager(commands.Cog):
         if required_roles:
             for role_name in required_roles:
                 await ctx.guild.create_role(name=role_name)
-            await ctx.send("The following roles have been added: {0}".format(", ".join(required_roles)))
+            await ctx.send(
+                "The following roles have been added: {0}".format(
+                    ", ".join(required_roles)
+                )
+            )
             return
         await ctx.send("All required roles already exist in the server.")
 
@@ -303,13 +338,16 @@ class BulkRoleManager(commands.Cog):
         if spreadsheet:
             Outputcsv = "./tmp/Ids.csv"
             header = ["Nickname", "Name", "Id"]
-            csvwrite = open(Outputcsv, 'w', newline='', encoding='utf-8')
-            w = csv.writer(csvwrite, delimiter=',')
+            csvwrite = open(Outputcsv, "w", newline="", encoding="utf-8")
+            w = csv.writer(csvwrite, delimiter=",")
             w.writerow(header)
             for member in role.members:
                 nickname = self.get_player_nickname(member)
-                newrow = ["{0}".format(nickname), "{0.name}#{0.discriminator}".format(
-                    member), "{0.id}".format(member)]
+                newrow = [
+                    "{0}".format(nickname),
+                    "{0.name}#{0.discriminator}".format(member),
+                    "{0.id}".format(member),
+                ]
                 w.writerow(newrow)
             csvwrite.close()
             await ctx.send("Done", file=File(Outputcsv))
@@ -318,7 +356,8 @@ class BulkRoleManager(commands.Cog):
             for member in role.members:
                 nickname = self.get_player_nickname(member)
                 message += "{1}:{0.name}#{0.discriminator}:{0.id}\n".format(
-                    member, nickname)
+                    member, nickname
+                )
                 if len(message) > 1900:
                     messages.append(message)
                     message = ""
@@ -327,9 +366,9 @@ class BulkRoleManager(commands.Cog):
             for msg in messages:
                 await ctx.send("{0}{1}{0}".format("```", msg))
 
-# endregion
+    # endregion
 
-# region Message Configuration
+    # region Message Configuration
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
@@ -344,7 +383,11 @@ class BulkRoleManager(commands.Cog):
     async def getDEMessage(self, ctx):
         """Gets the draft eligible message"""
         try:
-            await ctx.send("Draft eligible message set to: {0}".format((await self._draft_eligible_message(ctx))))
+            await ctx.send(
+                "Draft eligible message set to: {0}".format(
+                    (await self._draft_eligible_message(ctx))
+                )
+            )
         except:
             await ctx.send(":x: Draft eligible message not set")
 
@@ -362,13 +405,15 @@ class BulkRoleManager(commands.Cog):
     async def getPermFAMessage(self, ctx):
         """Gets the permFA message"""
         try:
-            await ctx.send("PermFA message set to: {0}".format((await self._perm_fa_message(ctx))))
+            await ctx.send(
+                "PermFA message set to: {0}".format((await self._perm_fa_message(ctx)))
+            )
         except:
             await ctx.send(":x: PermFA message not set")
 
-# endregion
+    # endregion
 
-# region league related
+    # region league related
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -395,8 +440,17 @@ class BulkRoleManager(commands.Cog):
             if leagueRole and deRole and spectatorRole and formerPlayerRole:
                 break
 
-        if deRole is None or leagueRole is None or spectatorRole is None or formerPlayerRole is None:
-            await ctx.send(":x: Couldn't find either the Draft Eligible, League, Spectator, or Former Player role in the server. Use `{0}addRequiredServerRoles` to add these roles.".format(ctx.prefix))
+        if (
+            deRole is None
+            or leagueRole is None
+            or spectatorRole is None
+            or formerPlayerRole is None
+        ):
+            await ctx.send(
+                ":x: Couldn't find either the Draft Eligible, League, Spectator, or Former Player role in the server. Use `{0}addRequiredServerRoles` to add these roles.".format(
+                    ctx.prefix
+                )
+            )
             return
 
         for user in userList:
@@ -408,9 +462,12 @@ class BulkRoleManager(commands.Cog):
                 continue
             if member in ctx.guild.members:
                 if leagueRole in member.roles:
-                    msg = await ctx.send("{0} already has the league role, are you sure you want to make him a DE?".format(member.mention))
-                    start_adding_reactions(
-                        msg, ReactionPredicate.YES_OR_NO_EMOJIS)
+                    msg = await ctx.send(
+                        "{0} already has the league role, are you sure you want to make him a DE?".format(
+                            member.mention
+                        )
+                    )
+                    start_adding_reactions(msg, ReactionPredicate.YES_OR_NO_EMOJIS)
 
                     pred = ReactionPredicate.yes_or_no(msg, ctx.author)
                     await ctx.bot.wait_for("reaction_add", check=pred)
@@ -419,11 +476,17 @@ class BulkRoleManager(commands.Cog):
                         had += 1
                         continue
                     else:
-                        await ctx.send("You will need to manually remove any team or free agent roles if {0} has any.".format(member.mention))
+                        await ctx.send(
+                            "You will need to manually remove any team or free agent roles if {0} has any.".format(
+                                member.mention
+                            )
+                        )
 
                 await member.add_roles(deRole, leagueRole)
                 added += 1
-                await member.edit(nick="{0} | {1}".format("DE", self.get_player_nickname(member)))
+                await member.edit(
+                    nick="{0} | {1}".format("DE", self.get_player_nickname(member))
+                )
                 await member.remove_roles(spectatorRole, formerPlayerRole)
                 deMessage = await self._draft_eligible_message(ctx)
                 if deMessage:
@@ -438,7 +501,9 @@ class BulkRoleManager(commands.Cog):
         if notFound > 0:
             message += ". {0} user(s) were not found".format(notFound)
         if had > 0:
-            message += ". {0} user(s) already had the role or were already in the league".format(had)
+            message += ". {0} user(s) already had the role or were already in the league".format(
+                had
+            )
         if added > 0:
             message += ". {0} user(s) had the role added to them".format(added)
         await ctx.send(message)
@@ -448,8 +513,7 @@ class BulkRoleManager(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def makePermFA(self, ctx, tier: str, *userList):
         """Makes each member that can be found from the userList a permanent Free Agent for the given tier"""
-        role_names_to_add = [self.PERM_FA_ROLE,
-                             "League", tier, "{0}FA".format(tier)]
+        role_names_to_add = [self.PERM_FA_ROLE, "League", tier, "{0}FA".format(tier)]
         roles_to_add = []
         tiers = await self.team_manager_cog.tiers(ctx)
         for role in ctx.guild.roles:
@@ -460,7 +524,11 @@ class BulkRoleManager(commands.Cog):
                     leagueRole = role
 
         if role_names_to_add:
-            await ctx.send(":x: The following roles could not be found: {0}".format(", ".join(role_names_to_add)))
+            await ctx.send(
+                ":x: The following roles could not be found: {0}".format(
+                    ", ".join(role_names_to_add)
+                )
+            )
             return False
 
         empty = True
@@ -480,7 +548,9 @@ class BulkRoleManager(commands.Cog):
                 tier_changed = True
                 old_tier_role = None
                 if leagueRole in member.roles:
-                    old_tier_role = await self.team_manager_cog.get_current_tier_role(ctx, member)
+                    old_tier_role = await self.team_manager_cog.get_current_tier_role(
+                        ctx, member
+                    )
                     if old_tier_role in member.roles and old_tier_role in roles_to_add:
                         tier_changed = False
                         had += 1
@@ -490,22 +560,31 @@ class BulkRoleManager(commands.Cog):
                     action = "assigned"
                     if old_tier_role and old_tier_role not in roles_to_add:
                         old_tier_fa_role = self.team_manager_cog._find_role_by_name(
-                            ctx, "{0}FA".format(old_tier_role.name))
+                            ctx, "{0}FA".format(old_tier_role.name)
+                        )
                         rm_roles = [old_tier_role, old_tier_fa_role]
                         await member.remove_roles(*rm_roles)
                         action = "promoted"
-                    tier_change_msg = ("Congrats! Due to your recent ranks you've been {0} to our {1} tier! "
-                                       "You'll only be allowed to play in that tier or any tier above it for the remainder of this "
-                                       "season. If you have any questions please let an admin know."
-                                       "\n\nIf you checked in already for the next match day, please use the commands `[p]co` to check "
-                                       "out and then `[p]ci` to check in again for your new tier.").format(action, tier)
+                    tier_change_msg = (
+                        "Congrats! Due to your recent ranks you've been {0} to our {1} tier! "
+                        "You'll only be allowed to play in that tier or any tier above it for the remainder of this "
+                        "season. If you have any questions please let an admin know."
+                        "\n\nIf you checked in already for the next match day, please use the commands `[p]co` to check "
+                        "out and then `[p]ci` to check in again for your new tier."
+                    ).format(action, tier)
                     await self._send_member_message(ctx, member, tier_change_msg)
 
                 if self.get_player_nickname(member)[:5] != "FA | ":
                     try:
-                        await member.edit(nick="{0} | {1}".format("FA", self.get_player_nickname(member)))
+                        await member.edit(
+                            nick="{0} | {1}".format(
+                                "FA", self.get_player_nickname(member)
+                            )
+                        )
                     except (discord.errors.Forbidden, discord.errors.HTTPException):
-                        await ctx.send("Cannot set nickname for {0}".format(member.name))
+                        await ctx.send(
+                            "Cannot set nickname for {0}".format(member.name)
+                        )
 
                 await member.add_roles(*roles_to_add)
                 # permFAMessage = await self._perm_fa_message(ctx)
@@ -514,13 +593,13 @@ class BulkRoleManager(commands.Cog):
                 added += 1
 
         if len([userList]) and not empty:
-            message = "{0} members processed...\n".format(
-                len([userList])) + message
+            message = "{0} members processed...\n".format(len([userList])) + message
         if empty:
             message += ":x: Nobody was set as a {0} permanent FA".format(tier)
         else:
             message += ":white_check_mark: All members found are now {0} permanent FAs.".format(
-                tier)
+                tier
+            )
         if notFound:
             message += ". {0} user(s) were not found".format(notFound)
         if had:
@@ -540,23 +619,27 @@ class BulkRoleManager(commands.Cog):
         message = ""
         former_player_str = "Former Player"
         former_player_role = self.team_manager_cog._find_role_by_name(
-            ctx, former_player_str)
+            ctx, former_player_str
+        )
 
         if not former_player_role:
-            former_player_role = await self.team_manager_cog.create_role(ctx, former_player_str)
+            former_player_role = await self.team_manager_cog.create_role(
+                ctx, former_player_str
+            )
 
         roles_to_remove = [
             self.team_manager_cog._find_role_by_name(ctx, "Draft Eligible"),
             self.team_manager_cog._find_role_by_name(ctx, "League"),
             self.team_manager_cog._find_role_by_name(ctx, "Free Agent"),
-            self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE)
+            self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE),
         ]
         tiers = await self.team_manager_cog.tiers(ctx)
         for tier in tiers:
             tier_role = self.team_manager_cog._get_tier_role(ctx, tier)
             if tier_role:
                 tier_fa_role = self.team_manager_cog._find_role_by_name(
-                    ctx, "{0}FA".format(tier))
+                    ctx, "{0}FA".format(tier)
+                )
             roles_to_remove.append(tier_role)
             roles_to_remove.append(tier_fa_role)
 
@@ -565,14 +648,17 @@ class BulkRoleManager(commands.Cog):
                 member = await commands.MemberConverter().convert(ctx, user)
                 if member in ctx.guild.members:
                     roles_to_remove.append(
-                        self.team_manager_cog.get_current_franchise_role(member))
+                        self.team_manager_cog.get_current_franchise_role(member)
+                    )
                     removable_roles = []
                     for role in roles_to_remove:
                         if role in member.roles:
                             removable_roles.append(role)
                     await member.remove_roles(*removable_roles)
                     await member.add_roles(former_player_role)
-                    await member.edit(nick=(self.team_manager_cog.get_player_nickname(member)))
+                    await member.edit(
+                        nick=(self.team_manager_cog.get_player_nickname(member))
+                    )
                     empty = False
             except:
                 if notFound == 0:
@@ -589,17 +675,19 @@ class BulkRoleManager(commands.Cog):
             message += ". {0} user(s) have been set as former players.".format(retired)
         await ctx.send(message)
 
-    @commands.command(aliases=['updateTierForPlayers'])
+    @commands.command(aliases=["updateTierForPlayers"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def updateTier(self, ctx, tier: discord.Role, *userList):
         """Re-assigns every guild member to the provided tier"""
-        await ctx.send(f"Processing tier update for {len(userList)} users. This may take some time.")
+        await ctx.send(
+            f"Processing tier update for {len(userList)} users. This may take some time."
+        )
         asyncio.create_task(self.update_tiers(ctx, tier, userList))
 
-# endregion
+    # endregion
 
-# region Helper Functions
+    # region Helper Functions
     async def update_tiers(self, ctx, tier_assignment, userList):
         empty = True
         updated = 0
@@ -612,20 +700,23 @@ class BulkRoleManager(commands.Cog):
         roles_to_remove = []
         tiers = await self.team_manager_cog.tiers(ctx)
         tier_roles = [self.team_manager_cog._get_tier_role(ctx, tier) for tier in tiers]
-        tiers_fa_roles = [self.team_manager_cog._find_role_by_name(ctx, "{0}FA".format(tier)) for tier in tiers]
-        
+        tiers_fa_roles = [
+            self.team_manager_cog._find_role_by_name(ctx, "{0}FA".format(tier))
+            for tier in tiers
+        ]
+
         # validate tier
         if tier_assignment not in tier_roles:
             return await ctx.send(f":x: {tier_assignment} is not a valid tier.")
 
-        tier_assign_fa_role = self.team_manager_cog._find_role_by_name(ctx, tier_assignment.name + "FA")
+        tier_assign_fa_role = self.team_manager_cog._find_role_by_name(
+            ctx, tier_assignment.name + "FA"
+        )
 
         # Prep roles to remove
         roles_to_remove = tier_roles + tiers_fa_roles
         roles_to_remove.remove(tier_assignment)
         roles_to_remove.remove(tier_assign_fa_role)
-
-        
 
         for user in userList:
             try:
@@ -633,13 +724,12 @@ class BulkRoleManager(commands.Cog):
 
                 # For each user in guild
                 if member in ctx.guild.members:
-
                     # prep roles to remove
                     removable_roles = []
                     for role in roles_to_remove:
                         if role in member.roles:
                             removable_roles.append(role)
-                    
+
                     # prep roles to add
                     add_roles = [tier_assignment]
                     if fa_role in member.roles:
@@ -657,18 +747,24 @@ class BulkRoleManager(commands.Cog):
                 message += "{0}\n".format(user)
                 notFound += 1
         if empty:
-            message += ":x: Nobody was assigned to the **{}** tier.".format(tier_assignment.name)
+            message += ":x: Nobody was assigned to the **{}** tier.".format(
+                tier_assignment.name
+            )
         else:
-            message += ":white_check_mark: everyone that was found from list is now registered to the **{}** tier.".format(tier_assignment.name)
+            message += ":white_check_mark: everyone that was found from list is now registered to the **{}** tier.".format(
+                tier_assignment.name
+            )
         if notFound > 0:
             message += ". {0} user(s) were not found".format(notFound)
         if updated > 0:
-            message += ". {0} user(s) have been assigned to the **{1}** tier.".format(updated, tier_assignment.name)
+            message += ". {0} user(s) have been assigned to the **{1}** tier.".format(
+                updated, tier_assignment.name
+            )
         await ctx.send(message)
 
     def get_player_nickname(self, user: discord.Member):
         if user.nick:
-            array = user.nick.split(' | ', 1)
+            array = user.nick.split(" | ", 1)
             if len(array) == 2:
                 currentNickname = array[1].strip()
             else:
@@ -691,8 +787,8 @@ class BulkRoleManager(commands.Cog):
     async def _send_member_message(self, ctx, member, message):
         message_title = "**Message from {0}:**\n\n".format(ctx.guild.name)
         command_prefix = ctx.prefix
-        message = message.replace('[p]', command_prefix)
-        message = message.replace('{p}', command_prefix)
+        message = message.replace("[p]", command_prefix)
+        message = message.replace("{p}", command_prefix)
         message = message_title + message
         await self.dm_helper_cog.add_to_dm_queue(member, content=message)
 
@@ -701,9 +797,9 @@ class BulkRoleManager(commands.Cog):
             name = member.nick
         else:
             return "", member.name, ""
-        prefix = name[0:name.index(' | ')] if ' | ' in name else ''
+        prefix = name[0 : name.index(" | ")] if " | " in name else ""
         if prefix:
-            name = name[name.index(' | ')+3:]
+            name = name[name.index(" | ") + 3 :]
         player_name = ""
         awards = ""
         for char in name[::-1]:
@@ -714,12 +810,13 @@ class BulkRoleManager(commands.Cog):
         player_name = name.replace(" " + awards, "") if awards else name
 
         return prefix.strip(), player_name.strip(), awards.strip()
-    
+
     def _generate_new_name(self, prefix, name, awards):
         new_name = "{} | {}".format(prefix, name) if prefix else name
         if awards:
-            awards = ''.join(sorted(awards))
+            awards = "".join(sorted(awards))
             new_name += " {}".format(awards)
         return new_name
+
 
 # endregion
