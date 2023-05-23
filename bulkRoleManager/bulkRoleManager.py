@@ -79,7 +79,7 @@ class BulkRoleManager(commands.Cog):
         log.debug(f"Matches: {matches}")
 
         if not matches:
-            ctx.send("No users intersect those roles.")
+            await ctx.send("No users intersect those roles.")
             return None
 
         embed = discord.Embed(
