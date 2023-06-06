@@ -227,6 +227,104 @@ class BCManager(commands.Cog):
 
     # endregion
 
+        # region normal use
+    @commands.max_concurrency(1, per=commands.BucketType.guild)
+    @commands.command(aliases=['rtier'])
+    @commands.guild_only()
+    async def reportTier(self, ctx: commands.Context, tier: discord.Role, match_day: int=None):
+        if not await self.has_perms(ctx.author):
+            return
+
+        # region setup
+        log.debug(f"Reporting matches for {tier}")
+        log.debug(f"{type(tier)}")
+        if not match_day:
+            match_day = await self.match_cog._match_day(ctx)
+        
+        match_day = str(match_day)
+        
+        tier_roles = await self.team_manager_cog.tier_roles(ctx)
+        schedule = await self.match_cog._schedule(ctx)
+        all_missing_replays = {}
+
+        # endregion
+
+        # region Prep Report Status Message
+        log.debug(f"Tier Roles: {tier_roles}")
+        if tier not in tier_roles:
+            await ctx.send("Invalid tier name provided.")
+            return None
+
+        bc_report_summary_json = {}
+        tier_md_bc_code = schedule.get(tier.name, {}).get('ballchasing_group_code', '')
+        bc_report_summary_json[tier] = {
+            "role": tier,
+            "index": 0,
+            "success_count": 0,
+            "bc_group_link": None,
+            "total_matches": len(schedule.get(tier.name, {}).get(match_day, [])),
+            "bc_hyperlink": f"[View Group]({BALLCHASING_URL}/group/{tier_md_bc_code})" if tier_md_bc_code else '',
+            "active": False,
+            "active_match": None
+        }
+        
+        # endregion
+
+        guild_emoji_url = ctx.guild.icon.url
+        channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
+        # start_time = ctx.message.created_at
+        start_time = datetime.now()
+        status_messages = await self.send_embed_to_channels(channels, self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url, start_time=start_time))
+
+        # Process/Report All Replays
+        bc_report_summary_json[tier]['active'] = True
+        missing_tier_replays = []
+        tier_md_group_id = None
+        tier_report_channel = await self.get_score_reporting_channel(tier)
+        for match in schedule.get(tier.name, {}).get(match_day, []):
+            log.debug(f"Looking for match: {match}")
+            match_group_info = {}
+            bc_report_summary_json[tier]['active_match'] = f"{match['home']} vs {match['away']}"
+            # update RAM status message
+            await self.update_embed_in_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, guild_emoji_url, start_time=start_time))
+            
+            # update status embed
+            bc_report_summary_json[tier]['index'] += 1
+            
+            # if match report valid
+            if match.get("report", {}).get('home_wins', 0) or match.get("report", {}).get('away_wins', 0):
+                log.debug("Found valid match summary")
+                await self.send_match_summary(ctx, match, tier_report_channel)
+                bc_report_summary_json[tier]['success_count'] += 1
+            else:
+                log.debug("No match summary found.")
+                match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, score_report_channel=tier_report_channel)
+
+                if not tier_md_group_id and match_group_info.get('is_valid_set', False):
+                    tier_md_group_id = match_group_info.get("tier_md_group_id")
+                    # TODO: save tier_md_group_id to tier/md in schedule if not there (hyperlink not defined (transitive))
+                    tier_md_group_link = f"{BALLCHASING_URL}/group/{tier_md_group_id}"
+                    log.debug(f"MD Group ID: {tier_md_group_id}")
+                    log.debug(f"BC Report Tier Role: {tier}")
+                    log.debug(f"BC Report Summary JSON: {bc_report_summary_json[tier]}")
+                    log.debug(f"BC Group Link: {bc_report_summary_json[tier]['bc_group_link']}")
+                    bc_report_summary_json[tier]['bc_group_link'] = tier_md_group_link
+                
+                if not match_group_info.get('is_valid_set', False):
+                    missing_tier_replays.append(match)
+                else:
+                    bc_report_summary_json[tier]['success_count'] += 1
+            
+            bc_report_summary_json[tier]['active_match'] = None
+
+            if missing_tier_replays:
+                all_missing_replays[tier.name] = missing_tier_replays
+            
+            bc_report_summary_json[tier]['active'] = False
+        
+        # update status message
+        await self.update_embed_in_messages(status_messages, embed=self.get_bc_match_day_status_report(match_day, bc_report_summary_json, emoji_url=guild_emoji_url, complete=True, start_time=start_time))    
+
     # region normal use
     @commands.max_concurrency(1, per=commands.BucketType.guild)
     @commands.command(aliases=['reportAllMatches', 'ram'])
@@ -294,6 +392,7 @@ class BCManager(commands.Cog):
                     await self.send_match_summary(ctx, match, tier_report_channel)
                     bc_report_summary_json[tier_role]['success_count'] += 1
                 else:
+                    log.debug("No match summary found.")
                     match_group_info = await self.process_match_bcreport(ctx, match, tier_md_group_code=tier_md_group_id, score_report_channel=tier_report_channel)
 
                     if not tier_md_group_id and match_group_info.get('is_valid_set', False):
@@ -465,7 +564,7 @@ class BCManager(commands.Cog):
         if not match:
             return await ctx.reply(":x: Match could not be found.")
         
-        if match.get('report').get('winner'):
+        if match.get('report') and match['report'].get('winner'):
             return await ctx.reply(f"This match has already been reported:\n{match['report']['summary']}")
 
         if match['home'].lower() == team_a.lower():
@@ -756,6 +855,7 @@ class BCManager(commands.Cog):
                 await self.send_match_summary(ctx, match)
         
     async def process_match_bcreport(self, ctx, match, tier_md_group_code: str=None, score_report_channel: discord.TextChannel=None):
+        log.debug(f"Processing BC report. Group: {tier_md_group_code} - Channel: {score_report_channel} - Match {match}")
         # Step 0: Constants
         SEARCHING = f"Searching {BALLCHASING_URL} for publicly uploaded replays of this match..."
         FOUND_AND_UPLOADING = "\n:signal_strength: Results confirmed. Creating a ballchasing replay group. This may take a few seconds..."
@@ -764,6 +864,8 @@ class BCManager(commands.Cog):
         # Step 2: Send initial embed (Searching...)
         match_day: int = match['matchDay']
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, match['home'])
+        log.debug(f"Franchise Role: {franchise_role}")
+        log.debug(f"Tier Role: {tier_role}")
         emoji_url = ctx.guild.icon.url
 
         score_report_embed = discord.Embed(
@@ -776,12 +878,14 @@ class BCManager(commands.Cog):
         
         single_player_call = (not score_report_channel)
         score_report_channel = score_report_channel if score_report_channel else await self.get_score_reporting_channel(tier_role)
+        log.debug(f"Single Player Call: {single_player_call} - Report Channel: {score_report_channel}")
         
         if single_player_call:
             bc_status_msg: discord.Message = await ctx.reply(embed=score_report_embed)
 
         # Step 3: Search for replays on ballchasing
         discovery_data = await self.find_match_replays(ctx, match)
+        log.debug(f"Discovery Data: {discovery_data}")
 
         ## Not found:
         valid_replay_set = discovery_data.get("is_valid_set", False)
@@ -1166,7 +1270,9 @@ class BCManager(commands.Cog):
         return matches
 
     async def find_match_replays(self, ctx, match):
+        log.debug("Searching for match replays...")
         all_players = await self.get_all_match_players(ctx, match)
+        log.debug(f"Players: {all_players}")
 
         # All of this data should be tracked to optimize the search and validation
         discovery_data = {
@@ -1201,6 +1307,7 @@ class BCManager(commands.Cog):
         # Localized Datetime
         dt_match_start = datetime.strptime(f"{match['matchDate']} 9:00PM", '%B %d, %Y %I:%M%p').astimezone(timezone(guild_timezone))
         dt_match_end = datetime.strptime(f"{match['matchDate']} 11:59PM", '%B %d, %Y %I:%M%p').astimezone(timezone(guild_timezone))
+        log.debug(f"Search Start: {dt_match_start} - Match End: {dt_match_end}")
 
         # RFC3339 Formatted UTC time
         utc_dt_open_search_range_str = dt_match_start.astimezone(UTC).strftime(BCConfig.utc_strftime_fmt)
@@ -1429,6 +1536,8 @@ class BCManager(commands.Cog):
         if blue_goals == orange_goals:
             return False
         for team in ['blue', 'orange']:
+            if not replay_data.get(team) or not replay_data[team].get('players'):
+                return False
             for player in replay_data[team]['players']:
                 if player['start_time'] == 0:
                     return True
@@ -1825,7 +1934,7 @@ class BCManager(commands.Cog):
         platforms = [platform.upper() for platform in platforms]
         filtered_accounts = []
         for account in accounts:
-            if account.get('platform') == 'STEAM':
+            if account.get('platform') in platforms: 
                 filtered_accounts.append(account)
         
         return filtered_accounts
@@ -1833,6 +1942,17 @@ class BCManager(commands.Cog):
     async def get_steam_ids(self, player: discord.Member):    
         steam_accounts = await self.get_player_accounts(player, ['steam'])
         return [account['platform_id'] for account in steam_accounts]
+
+    async def get_epic_ids(self, player: discord.Member):    
+        epic_accounts = await self.get_player_accounts(player, ["epic"])
+        # Find BC epic account hash
+        epic_hashes = []
+        for account in epic_accounts: 
+            player_data = await self.get_latest_player_data_by_platform_name(ctx.guild, "epic", account["name"])
+            log.debug(f"Player Data (plat_name): {player_data}")
+            plat_id = player_data.get('id', {}).get('id')
+            epic_hashes.append(plat_id)
+        return epic_hashes
 
     def generate_replay_hash(self, short_replay_json):
         # hash of replay file based on:
