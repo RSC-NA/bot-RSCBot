@@ -45,8 +45,8 @@ RSC_WEB_APP = "http://24.176.157.36:4443"
 DONE = "Done"
 WHITE_X_REACT = "\U0000274E"                # :negative_squared_cross_mark:
 WHITE_CHECK_REACT = "\U00002705"            # :white_check_mark:
-RSC_STEAM_ID = 76561199096013422
-#RSC_STEAM_ID = 76561197960409023 # REMOVEME - my steam id for development
+#RSC_STEAM_ID = 76561199096013422
+RSC_STEAM_ID = 76561197960409023 # REMOVEME - my steam id for development
 
 class BCManager(commands.Cog):
     """Manages aspects of Ballchasing Integrations with RSC"""
@@ -564,7 +564,7 @@ class BCManager(commands.Cog):
         if not match:
             return await ctx.reply(":x: Match could not be found.")
         
-        if match.get('report').get('winner'):
+        if match.get('report') and match['report'].get('winner'):
             return await ctx.reply(f"This match has already been reported:\n{match['report']['summary']}")
 
         if match['home'].lower() == team_a.lower():
@@ -1536,6 +1536,8 @@ class BCManager(commands.Cog):
         if blue_goals == orange_goals:
             return False
         for team in ['blue', 'orange']:
+            if not replay_data.get(team) or not replay_data[team].get('players'):
+                return False
             for player in replay_data[team]['players']:
                 if player['start_time'] == 0:
                     return True
@@ -1932,7 +1934,7 @@ class BCManager(commands.Cog):
         platforms = [platform.upper() for platform in platforms]
         filtered_accounts = []
         for account in accounts:
-            if account.get('platform') == 'STEAM':
+            if account.get('platform') in platforms: 
                 filtered_accounts.append(account)
         
         return filtered_accounts
@@ -1940,6 +1942,17 @@ class BCManager(commands.Cog):
     async def get_steam_ids(self, player: discord.Member):    
         steam_accounts = await self.get_player_accounts(player, ['steam'])
         return [account['platform_id'] for account in steam_accounts]
+
+    async def get_epic_ids(self, player: discord.Member):    
+        epic_accounts = await self.get_player_accounts(player, ["epic"])
+        # Find BC epic account hash
+        epic_hashes = []
+        for account in epic_accounts: 
+            player_data = await self.get_latest_player_data_by_platform_name(ctx.guild, "epic", account["name"])
+            log.debug(f"Player Data (plat_name): {player_data}")
+            plat_id = player_data.get('id', {}).get('id')
+            epic_hashes.append(plat_id)
+        return epic_hashes
 
     def generate_replay_hash(self, short_replay_json):
         # hash of replay file based on:
