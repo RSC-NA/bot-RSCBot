@@ -29,11 +29,12 @@ class ModThread(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def assign(self, ctx, role: str):
         """Assigns the current channel to role and moves channel"""
-        currentCategory = ctx.channel.category.id
+        currentCategory = ctx.channel.category
         primaryCategory = await self._primary_category(ctx)
-        rulesCategory = await self._rules_category(ctx)
+        rulesCategory   = await self._rules_category(ctx)
         numbersCategory = await self._numbers_category(ctx)
-        modsCategory = await self._mods_category(ctx)
+        modsCategory    = await self._mods_category(ctx)
+
         isThread = False
         if currentCategory.id == primaryCategory.id:
             isThread = True
