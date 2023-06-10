@@ -206,34 +206,6 @@ class ModThread(commands.Cog):
 
 # endregion
 
-# region helper functions
-    # async def get_assign_embed(self, ctx: commands.Context, player: discord.Member, gm_name, franchise_name, team_name, tier):
-    #     assign_message = await self._get_assign_message(ctx.guild)
-    #     if not assign_message:
-    #         return None
-
-    #     assign_message = assign_message.format(
-    #         player=player,
-    #         franchise=franchise_name,
-    #         gm=gm_name,
-    #         team=team_name,
-    #         tier=tier,
-    #         guild=ctx.guild.name
-    #     )
-    #     embed = discord.Embed(
-    #         title=f"Message from {ctx.guild.name}",
-    #         description=cut_message,
-    #         color=discord.Color.red()
-    #     )
-        
-    #     try:
-    #         embed.set_thumbnail(url=ctx.guild.icon.url)
-    #     except:
-    #         pass
-        
-    #     return embed
-# endregion
-
 # region json db
     async def _primary_category(self, ctx):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).PrimaryCategory())
