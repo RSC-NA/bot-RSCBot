@@ -56,7 +56,7 @@ class ModThread(commands.Cog):
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setRulesRole(self, ctx, rules_role: discord.Role):
-        await self.__save_rules_role(ctx, rules_role.id)
+        await self._save_rules_role(ctx, rules_role.id)
         await ctx.send('Done')
 
     @commands.guild_only()
@@ -91,7 +91,7 @@ class ModThread(commands.Cog):
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setNumbersRole(self, ctx, numbers_role: discord.Role):
-        await self.__save_numbers_role(ctx, numbers_role.id)
+        await self._save_numbers_role(ctx, numbers_role.id)
         await ctx.send('Done')
 
     @commands.guild_only()
@@ -126,7 +126,7 @@ class ModThread(commands.Cog):
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setModsRole(self, ctx, mods_role: discord.Role):
-        await self.__save_numbers_role(ctx, mods_role.id)
+        await self._save_mods_role(ctx, mods_role.id)
         await ctx.send('Done')
 
     @commands.guild_only()
