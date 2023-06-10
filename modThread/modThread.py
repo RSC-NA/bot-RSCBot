@@ -29,9 +29,23 @@ class ModThread(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def assign(self, ctx, role: str):
         """Assigns the current channel to role and moves channel"""
+        currentCategory = ctx.channel.category.id
         primaryCategory = await self._primary_category(ctx)
-        if ctx.channel.id != primaryCategory.id:
-            await ctx.send("This is not a modmail thread and can't be assigned.")
+        rulesCategory = await self._rules_category(ctx)
+        numbersCategory = await self._numbers_category(ctx)
+        modsCategory = await self._mods_category(ctx)
+        isThread = False
+        if currentCategory.id == primaryCategory.id:
+            isThread = True
+        elif currentCategory.id == rulesCategory.id:
+            isThread = True
+        elif currentCategory.id == numbersCategory.id:
+            isThread = True
+        elif currentCategory.id == modsCategory.id:
+            isThread = True
+
+        if isThread == False:
+            await ctx.send("This channel is not in any of the ModMail Thread Categories.")
             return False
 
         mentionRole = None 
