@@ -28,23 +28,37 @@ class ModThread(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def assign(self, ctx, role: str):
         """Assigns the current channel to role and moves channel"""
+        mentionRole = None 
         if role == 'rules':
             category = await self._rules_category(ctx)
+            mentionRole = await self._rules_role(ctx)
             await ctx.channel.move(end=True, category=category, sync_permissions=True)
         elif role == 'numbers':
             category = await self._numbers_category(ctx)
+            mentionRole = await self._numbers_role(ctx)
             await ctx.channel.move(end=True, category=category, sync_permissions=True)
         elif role == 'mods':
             category = await self._mods_category(ctx)
+            mentionRole = await self._mods_role(ctx)
             await ctx.channel.move(end=True, category=category, sync_permissions=True)
         else:
             await ctx.send("Whoops, the role must be 'rules', 'numbers', or 'mods'")
             return False
-            
-        await ctx.send("This ticket has been assigned to {0}".format(role))
+
+        if mentionRole:
+            await ctx.send("This ticket has been assigned to {0}".format(mentionRole.mention))
+        else: 
+            await ctx.send("This ticket has been assigned to {0}".format(role))
         return True
 
     ### Rules Category
+    @commands.guild_only()
+    @commands.commany()
+    @checks.admin_or_permission(manage_guild=True)
+    async def setRulesRole(self, ctx, rules_role: discord.Role):
+        await self.__save_rules_role(ctx, rules_role.id)
+        await ctx.send('Done')
+
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
@@ -74,6 +88,13 @@ class ModThread(commands.Cog):
 
     ### Numbers Category
     @commands.guild_only()
+    @commands.commany()
+    @checks.admin_or_permission(manage_guild=True)
+    async def setNumbersRole(self, ctx, numbers_role: discord.Role):
+        await self.__save_numbers_role(ctx, numbers_role.id)
+        await ctx.send('Done')
+
+    @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setNumbersCategory(self, ctx, numbers_category: discord.CategoryChannel):
@@ -101,6 +122,13 @@ class ModThread(commands.Cog):
     ### End Numbers Category
 
     ### Mod Category
+    @commands.guild_only()
+    @commands.commany()
+    @checks.admin_or_permission(manage_guild=True)
+    async def setModsRole(self, ctx, mods_role: discord.Role):
+        await self.__save_mods_role(ctx, mods_role.id)
+        await ctx.send('Done')
+
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
@@ -176,4 +204,23 @@ class ModThread(commands.Cog):
 
     async def _save_mods_category(self, ctx, mods_category):
         await self.config.guild(ctx.guild).ModsCategory.set(mods_category)
+
+    async def _save_rules_role(self, ctx, rules_role):
+        await self.config.guild(ctx.guild).RulesRole.set(rules_role)
+    
+    async def _rules_role(self, ctx):
+        return ctx.guild.get_role(await self.config.guild(ctx.guild).RulesRole())
+
+    async def _save_numbers_role(self, ctx, numbers_role):
+        await self.config.guild(ctx.guild).NumbersRole.set(numbers_role)
+    
+    async def _numbers_role(self, ctx):
+        return ctx.guild.get_role(await self.config.guild(ctx.guild).NumbersRole())
+
+    async def _save_mods_role(self, ctx, mods_role):
+        await self.config.guild(ctx.guild).ModsRole.set(mods_role)
+
+    async def _mods_role(self, ctx):
+        return ctx.guild.get_role(await self.config.guild(ctx.guild).ModsRole())
+
 # endregion
