@@ -5,11 +5,11 @@ from redbot.core import commands
 from redbot.core import checks
 
 defaults = {
-    "RulesCategory": None,
+    "RulesCategory": 1116910594323382372,
     "RulesRole": None,
-    "ModsCategory": None,
+    "ModsCategory": 1116910419458662490,
     "ModsRole": None,
-    "NumbersCategory": None,
+    "NumbersCategory": 1116910198406266890,
     "NumbersRole": None,
 }
 
