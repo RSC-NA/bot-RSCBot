@@ -90,8 +90,43 @@ class ModThread(commands.Cog):
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
+    async def setNumbersRole(self, ctx, numbers_role: discord.Role):
+        await self.__save_numbers_role(ctx, numbers_role.id)
+        await ctx.send('Done')
+
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setNumbersCategory(self, ctx, numbers_category: discord.CategoryChannel):
+        """Sets the category where all numbers threads will be moved"""
+        await self._save_numbers_category(ctx, numbers_category.id)
+        await ctx.send("Done")
+
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def getNumbersCategory(self, ctx):
+        """Gets the category currently assigned as the numbers category"""
+        try:
+            await ctx.send("Numbers Thread category set to: {0}".format((await self._numbers_category(ctx)).mention))
+        except:
+            await ctx.send(":x: Numbers Thread category not set")
+
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def unsetNumbersCategory(self, ctx):
+        """Unsets the numbers category. Thread will not be moved if no numbers category is set"""
+        await self._save_numbers_category(ctx, None)
+        await ctx.send("Done")
+    ### End Numbers Category
+
+    ### Mods Category
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
     async def setModsRole(self, ctx, mods_role: discord.Role):
-        await self.__save_mods_role(ctx, mods_role.id)
+        await self.__save_numbers_role(ctx, mods_role.id)
         await ctx.send('Done')
 
     @commands.guild_only()
