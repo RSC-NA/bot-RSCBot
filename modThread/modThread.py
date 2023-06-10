@@ -19,7 +19,7 @@ class ModThread(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(self, identifier=1234567895, force_registration=True)
+        self.config = Config.get_conf(self, identifier=12345678921337, force_registration=True)
         self.config.register_guild(**defaults)
 
 # region commands
