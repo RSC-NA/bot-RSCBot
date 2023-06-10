@@ -29,13 +29,13 @@ class ModThread(commands.Cog):
     async def assign(self, ctx, role: str):
         """Assigns the current channel to role and moves channel"""
         if role == 'rules':
-            category = await self.getRulesCategory()
+            category = await self._rules_category(ctx)
             await ctx.channel.move(end=True, category=category, sync_permission=True)
         elif role == 'numbers':
-            category = await self.getNumbersCategory()
+            category = await self._numbers_category(ctx)
             await ctx.channel.move(end=True, category=category, sync_permission=True)
         elif role == 'mods':
-            category = await self.getModsCategory()
+            category = await self._mods_category(ctx)
             await ctx.channel.move(end=True, category=category, sync_permission=True)
         else:
             await ctx.send("Whoops, the role must be 'rules', 'numbers', or 'mods'")
