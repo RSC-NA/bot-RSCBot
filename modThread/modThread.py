@@ -5,6 +5,7 @@ from redbot.core import commands
 from redbot.core import checks
 
 defaults = {
+    "PrimaryCategory": 1116871959406452796,
     "RulesCategory": 1116910594323382372,
     "RulesRole": None,
     "ModsCategory": 1116910419458662490,
@@ -28,6 +29,11 @@ class ModThread(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def assign(self, ctx, role: str):
         """Assigns the current channel to role and moves channel"""
+        primaryCategory = await self._primary_category(ctx)
+        if ctx.channel.id != primaryCategory.id:
+            await ctx.send("This is not a modmail thread and can't be assigned.")
+            return False
+
         mentionRole = None 
         if role == 'rules':
             category = await self._rules_category(ctx)
@@ -46,10 +52,37 @@ class ModThread(commands.Cog):
             return False
 
         if mentionRole:
-            await ctx.send("This ticket has been assigned to {0}".format(mentionRole.mention))
+            allowed_mentions = discord.AllowedMentions(roles = True)
+            await ctx.send("This ticket has been assigned to {0}".format(mentionRole.mention), allowed_mentions=allowed_mentions)
         else: 
             await ctx.send("This ticket has been assigned to {0}".format(role))
         return True
+    
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def setPrimaryCategory(self, ctx, primary_category: discord.CategoryChannel):
+        """Sets the category where all rules threads will originate from"""
+        await self._save_primary_category(ctx, primary_category.id)
+        await ctx.send("Done")
+
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def getPrimaryCategory(self, ctx):
+        """Gets the category currently assigned as the rules category"""
+        try:
+            await ctx.send("Primary category set to: {0}".format((await self._primary_category(ctx)).mention))
+        except:
+            await ctx.send(":x: Primary Thread category not set")
+
+    @commands.guild_only()
+    @commands.command()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def unsetPrimaryCategory(self, ctx):
+        """Unsets the rules category. Thread will not be moved if no rules category is set"""
+        await self._save_primary_category(ctx, None)
+        await ctx.send("Done")
 
     ### Rules Category
     @commands.guild_only()
@@ -187,6 +220,12 @@ class ModThread(commands.Cog):
 # endregion
 
 # region json db
+    async def _primary_category(self, ctx):
+        return ctx.guild.get_channel(await self.config.guild(ctx.guild).PrimaryCategory())
+
+    async def _save_primary_category(self, ctx, primary_category):
+        await self.config.guild(ctx.guild).PrimaryCategory.set(primary_category)
+    
     async def _rules_category(self, ctx):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).RulesCategory())
 
