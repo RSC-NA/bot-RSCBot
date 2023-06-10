@@ -28,13 +28,13 @@ class ModThread(commands.Cog):
     async def assign(self, ctx, role: str):
         """Assigns the current channel to role and moves channel"""
         if role == 'rules':
-            category = await self.getRulesChannel()
+            category = await self.getRulesCategory()
             await ctx.channel.move(end=True, category=category, sync_permission=True)
         elif role == 'numbers':
-            category = await self.getNumbersChannel()
+            category = await self.getNumbersCategory()
             await ctx.channel.move(end=True, category=category, sync_permission=True)
         elif role == 'mods':
-            category = await self.getModsChannel()
+            category = await self.getModsCategory()
             await ctx.channel.move(end=True, category=category, sync_permission=True)
         else:
             await ctx.send("Whoops, the role must be 'rules', 'numbers', or 'mods'")
@@ -43,80 +43,80 @@ class ModThread(commands.Cog):
         await ctx.send("This ticket has been assigned to {0}".format(role))
         return True
 
-    ### Rules Channel
+    ### Rules Category
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setRulesChannel(self, ctx, rules_channel: discord.CategoryChannel):
-        """Sets the channel where all transaction messages will be posted"""
-        await self._save_rules_channel(ctx, rules_channel.id)
+    async def setRulesCategory(self, ctx, rules_category: discord.CategoryChannel):
+        """Sets the category where all rules threads will be moved"""
+        await self._save_rules_category(ctx, rules_category.id)
         await ctx.send("Done")
 
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def getRulesChannel(self, ctx):
-        """Gets the channel currently assigned as the transaction channel"""
+    async def getRulesCategory(self, ctx):
+        """Gets the category currently assigned as the rules category"""
         try:
-            await ctx.send("Rules Thread channel set to: {0}".format((await self._rules_channel(ctx)).mention))
+            await ctx.send("Rules Thread category set to: {0}".format((await self._rules_category(ctx)).mention))
         except:
-            await ctx.send(":x: Rules Thread channel not set")
+            await ctx.send(":x: Rules Thread category not set")
 
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def unsetRulesChannel(self, ctx):
-        """Unsets the rules channel. Thread will not be moved if no rules channel is set"""
-        await self._save_rules_channel(ctx, None)
+    async def unsetRulesCategory(self, ctx):
+        """Unsets the rules category. Thread will not be moved if no rules category is set"""
+        await self._save_rules_category(ctx, None)
         await ctx.send("Done")
-    ### End Rules Channel
+    ### End Rules Category
 
-    ### Numbers Channel
+    ### Numbers Category
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setNumbersChannel(self, ctx, numbers_channel: discord.CategoryChannel):
-        """Sets the channel where all transaction messages will be posted"""
-        await self._save_numbers_channel(ctx, numbers_channel.id)
+    async def setNumbersCategory(self, ctx, numbers_category: discord.CategoryChannel):
+        """Sets the category where all transaction messages will be posted"""
+        await self._save_numbers_category(ctx, numbers_category.id)
         await ctx.send("Done")
 
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def getNumbersChannel(self, ctx):
-        """Gets the channel currently assigned as the transaction channel"""
+    async def getNumbersCategory(self, ctx):
+        """Gets the category currently assigned as the transaction category"""
         try:
-            await ctx.send("Numbers Thread channel set to: {0}".format((await self._numbers_channel(ctx)).mention))
+            await ctx.send("Numbers Thread category set to: {0}".format((await self._numbers_category(ctx)).mention))
         except:
-            await ctx.send(":x: Numbers Thread channel not set")
+            await ctx.send(":x: Numbers Thread category not set")
 
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def unsetNumbersChannel(self, ctx):
-        """Unsets the numbers channel. Thread will not be moved if no numbers channel is set"""
-        await self._save_numbers_channel(ctx, None)
+    async def unsetNumbersCategory(self, ctx):
+        """Unsets the numbers category. Thread will not be moved if no numbers category is set"""
+        await self._save_numbers_category(ctx, None)
         await ctx.send("Done")
-    ### End Numbers Channel
+    ### End Numbers Category
 
-    ### Mod Channel
+    ### Mod Category
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setModsChannel(self, ctx, mods_channel: discord.CategoryChannel):
-        """Sets the channel where all transaction messages will be posted"""
-        await self._save_mods_channel(ctx, mods_channel.id)
+    async def setModsCategory(self, ctx, mods_category: discord.CategoryChannel):
+        """Sets the category where all transaction messages will be posted"""
+        await self._save_mods_category(ctx, mods_category.id)
         await ctx.send("Done")
 
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def getModsChannel(self, ctx):
-        """Gets the channel currently assigned as the transaction channel"""
+    async def getModsCategory(self, ctx):
+        """Gets the category currently assigned as the transaction category"""
         try:
-            await ctx.send("Mod Thread channel set to: {0}".format((await self._mods_channel(ctx)).mention))
+            await ctx.send("Mod Thread category set to: {0}".format((await self._mods_category(ctx)).mention))
         except:
-            await ctx.send(":x: Mod Thread channel not set")
+            await ctx.send(":x: Mod Thread category not set")
 
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def unsetModsChannel(self, ctx):
-        """Unsets the mod channel. Thread will not be moved if no mod channel is set"""
-        await self._save_mods_channel(ctx, None)
+    async def unsetModsCategory(self, ctx):
+        """Unsets the mod category. Thread will not be moved if no mod category is set"""
+        await self._save_mods_category(ctx, None)
         await ctx.send("Done")
-    ### End Mod Channel
+    ### End Mod Category
 
 # endregion
 
@@ -149,21 +149,21 @@ class ModThread(commands.Cog):
 # endregion
 
 # region json db
-    async def _rules_channel(self, ctx):
-        return ctx.guild.get_channel(await self.config.guild(ctx.guild).RulesChannel())
+    async def _rules_category(self, ctx):
+        return ctx.guild.get_channel(await self.config.guild(ctx.guild).RulesCategory())
 
-    async def _save_rules_channel(self, ctx, rules_channel):
-        await self.config.guild(ctx.guild).RulesChannel.set(rules_channel)
+    async def _save_rules_category(self, ctx, rules_category):
+        await self.config.guild(ctx.guild).RulesChannel.set(rules_category)
     
-    async def _numbers_channel(self, ctx):
-        return ctx.guild.get_channel(await self.config.guild(ctx.guild).NumbersChannel())
+    async def _numbers_category(self, ctx):
+        return ctx.guild.get_channel(await self.config.guild(ctx.guild).NumbersCategory())
 
-    async def _save_numbers_channel(self, ctx, numbers_channel):
-        await self.config.guild(ctx.guild).NumbersChannel.set(numbers_channel)
+    async def _save_numbers_category(self, ctx, numbers_category):
+        await self.config.guild(ctx.guild).NumbersChannel.set(numbers_category)
 
-    async def _mods_channel(self, ctx):
-        return ctx.guild.get_channel(await self.config.guild(ctx.guild).ModsChannel())
+    async def _mods_category(self, ctx):
+        return ctx.guild.get_channel(await self.config.guild(ctx.guild).ModsCategory())
 
-    async def _save_mods_channel(self, ctx, mods_channel):
-        await self.config.guild(ctx.guild).ModsChannel.set(mods_channel)
+    async def _save_mods_category(self, ctx, mods_category):
+        await self.config.guild(ctx.guild).ModsCategory.set(mods_category)
 # endregion
