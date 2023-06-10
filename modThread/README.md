@@ -20,13 +20,17 @@ Before using, you most likely need to set the RulesCategory, NumbersCategory, an
   
 - `<p>setPrimaryCategory <primary_category>`
   - Sets the category that all modmails start in. This is needed to make sure we're not randomly moving other channels around as if they were a modmail.
+- `<p>getPrimaryCategory`
+  - Returns the primary category if one has been set.
+- `<p>unsetPrimaryCategory`
+  - Unsets primary category
 
 - `<p>setNumbersCategory <numbers_category>`
   - Sets the category to move ModMail messages into for Numbers Committee
 - `<p>getNumbersCategory`
   - Returns the numbers category if one has been set.
 - `<p>unsetNumbersCategory`
-  - Unsets transaction channel and disables transactions until one has been set again.
+  - Unsets transaction channel
 - `<p>setNumbersRole <Role>`
   - Sets the role to ping when a ticket is assigned to that committee.
 
@@ -35,7 +39,7 @@ Before using, you most likely need to set the RulesCategory, NumbersCategory, an
 - `<p>getRulesCategory`
   - Returns the rules category if one has been set.
 - `<p>unsetRulesCategory`
-  - Unsets transaction channel and disables transactions until one has been set again.
+  - Unsets transaction channel
 - `<p>setRulesRole <Role>`
   - Sets the role to ping when a ticket is assigned to that committee.
 
@@ -44,6 +48,6 @@ Before using, you most likely need to set the RulesCategory, NumbersCategory, an
 - `<p>getModsCategory`
   - Returns the mods category if one has been set.
 - `<p>unsetModsCategory`
-  - Unsets transaction channel and disables transactions until one has been set again.
+  - Unsets transaction channel
 - `<p>setModsRole <Role>`
   - Sets the role to ping when a ticket is assigned to that committee.
