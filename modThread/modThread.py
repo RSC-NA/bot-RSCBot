@@ -163,13 +163,13 @@ class ModThread(commands.Cog):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).RulesCategory())
 
     async def _save_rules_category(self, ctx, rules_category):
-        await self.config.guild(ctx.guild).RulesChannel.set(rules_category)
+        await self.config.guild(ctx.guild).RulesCategory.set(rules_category)
     
     async def _numbers_category(self, ctx):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).NumbersCategory())
 
     async def _save_numbers_category(self, ctx, numbers_category):
-        await self.config.guild(ctx.guild).NumbersChannel.set(numbers_category)
+        await self.config.guild(ctx.guild).RulesCategory.set(numbers_category)
 
     async def _mods_category(self, ctx):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).ModsCategory())
