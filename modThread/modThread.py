@@ -30,13 +30,13 @@ class ModThread(commands.Cog):
         """Assigns the current channel to role and moves channel"""
         if role == 'rules':
             category = await self._rules_category(ctx)
-            await ctx.channel.move(end=True, category=category, sync_permission=True)
+            await ctx.channel.move(end=True, category=category, sync_permissions=True)
         elif role == 'numbers':
             category = await self._numbers_category(ctx)
-            await ctx.channel.move(end=True, category=category, sync_permission=True)
+            await ctx.channel.move(end=True, category=category, sync_permissions=True)
         elif role == 'mods':
             category = await self._mods_category(ctx)
-            await ctx.channel.move(end=True, category=category, sync_permission=True)
+            await ctx.channel.move(end=True, category=category, sync_permissions=True)
         else:
             await ctx.send("Whoops, the role must be 'rules', 'numbers', or 'mods'")
             return False
