@@ -24,6 +24,7 @@ class ModThread(commands.Cog):
 
 # region commands
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def assign(self, ctx, role: str):
         """Assigns the current channel to role and moves channel"""
@@ -45,6 +46,7 @@ class ModThread(commands.Cog):
 
     ### Rules Category
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setRulesCategory(self, ctx, rules_category: discord.CategoryChannel):
         """Sets the category where all rules threads will be moved"""
@@ -52,6 +54,7 @@ class ModThread(commands.Cog):
         await ctx.send("Done")
 
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def getRulesCategory(self, ctx):
         """Gets the category currently assigned as the rules category"""
@@ -61,6 +64,7 @@ class ModThread(commands.Cog):
             await ctx.send(":x: Rules Thread category not set")
 
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def unsetRulesCategory(self, ctx):
         """Unsets the rules category. Thread will not be moved if no rules category is set"""
@@ -70,6 +74,7 @@ class ModThread(commands.Cog):
 
     ### Numbers Category
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setNumbersCategory(self, ctx, numbers_category: discord.CategoryChannel):
         """Sets the category where all transaction messages will be posted"""
@@ -77,6 +82,7 @@ class ModThread(commands.Cog):
         await ctx.send("Done")
 
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def getNumbersCategory(self, ctx):
         """Gets the category currently assigned as the transaction category"""
@@ -86,6 +92,7 @@ class ModThread(commands.Cog):
             await ctx.send(":x: Numbers Thread category not set")
 
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def unsetNumbersCategory(self, ctx):
         """Unsets the numbers category. Thread will not be moved if no numbers category is set"""
@@ -95,6 +102,7 @@ class ModThread(commands.Cog):
 
     ### Mod Category
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def setModsCategory(self, ctx, mods_category: discord.CategoryChannel):
         """Sets the category where all transaction messages will be posted"""
@@ -102,6 +110,7 @@ class ModThread(commands.Cog):
         await ctx.send("Done")
 
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def getModsCategory(self, ctx):
         """Gets the category currently assigned as the transaction category"""
@@ -111,6 +120,7 @@ class ModThread(commands.Cog):
             await ctx.send(":x: Mod Thread category not set")
 
     @commands.guild_only()
+    @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
     async def unsetModsCategory(self, ctx):
         """Unsets the mod category. Thread will not be moved if no mod category is set"""
