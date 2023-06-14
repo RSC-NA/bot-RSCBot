@@ -4,7 +4,7 @@ The `faCheckIn` cog is primarily responsible for helping manage Free Agent subst
 
 ## Installation
 
-The `faCheckIn` cog depends on the `match` and `teamManager` cogs. Install `match` and `teamManager` as well as other dependencies before installing `faCheckIn`.
+The `faCheckIn` cog has no other cog dependancies.
 
 ```
 <p>cog install RSCBot faCheckIn
