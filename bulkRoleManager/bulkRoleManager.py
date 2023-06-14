@@ -630,8 +630,12 @@ class BulkRoleManager(commands.Cog):
             self.team_manager_cog._find_role_by_name(ctx, "League"),
             self.team_manager_cog._find_role_by_name(ctx, "Free Agent"),
             self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE),
-            self.team_manager_cog._find_role_by_name(ctx, self.DEV_LEAGUE_ROLE),
         ]
+        # remove dev league interest role if it exists in the server
+        dev_league_role = self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE)
+        if dev_league_role:
+            roles_to_remove.append(dev_league_role)
+
         tiers = await self.team_manager_cog.tiers(ctx)
         for tier in tiers:
             tier_role = self.team_manager_cog._get_tier_role(ctx, tier)
