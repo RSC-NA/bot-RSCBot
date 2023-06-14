@@ -4,7 +4,7 @@ The `transactions` cog is primarily responsible for managing team rosters. This 
 
 ## Installation
 
-The `transactions` cog depends on the `prefixManager` and `teamManager` cogs. Install `prefixManager` and `teamManager` before installing `transactions`.
+The `transactions` cog depends on the `dmHelper`, `prefixManager`, and `teamManager` cogs. Install `dmHelper`, `prefixManager`, and `teamManager` before installing `transactions`.
 
 ```
 <p>cog install RSCBot transactions
