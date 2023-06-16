@@ -1810,7 +1810,7 @@ class BCManager(commands.Cog):
 
     async def get_player_accounts(self, player: discord.Member, platforms=[]):
         log.debug(f"Fetching player accounts for ID: {player.id}")
-        url =  f"{RSC_WEB_APP}/api/member/{player.id}/accounts/"
+        url =  f"{RSC_WEB_APP}/api/v1/members/{player.id}/accounts/"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(url) as resp:
