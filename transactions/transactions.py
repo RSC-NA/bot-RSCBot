@@ -22,6 +22,7 @@ class Transactions(commands.Cog):
     LEAGUE_ROLE = "League"
     PERM_FA_ROLE = "PermFA"
     SUBBED_OUT_ROLE = "Subbed Out"
+    DEV_LEAGUE_ROLE = "Dev League Interest"
     TROPHY_EMOJI = "\U0001F3C6" # :trophy:
     GOLD_MEDAL_EMOJI = "\U0001F3C5" # gold medal
     FIRST_PLACE_EMOJI = "\U0001F947" # first place medal
@@ -241,6 +242,12 @@ class Transactions(commands.Cog):
                         role_name = "{0}FA".format((await self.team_manager_cog.get_current_tier_role(ctx, user)).name)
                         tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, role_name)
                     fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
+
+                    # add the dev league role to this new FA so that they get pings!
+                    dev_league_role = self.team_manager_cog._find_role_by_name(ctx, self.DEV_LEAGUE_ROLE)
+                    if dev_league_role is not None:
+                        await user.add_roles(dev_league_role)
+
                     await self.team_manager_cog._set_user_nickname_prefix(ctx, "FA", user)
                     await user.add_roles(tier_fa_role, fa_role)
                 gm_name = self._get_gm_name(ctx, franchise_role)

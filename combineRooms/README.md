@@ -4,7 +4,7 @@ The `combineRooms` cog is primarily responsible for managing combines for RSC. T
 
 ## Installation
 
-The `combineRooms` cog depends on the `teamManager` cog. Install `teamManager` as well as its dependencies before installing `combineRooms`.
+The `combineRooms` cog has no other cog dependancies.
 
 ```
 <p>cog install RSCBot combineRooms

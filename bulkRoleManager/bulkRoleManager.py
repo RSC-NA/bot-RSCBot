@@ -27,6 +27,7 @@ class BulkRoleManager(commands.Cog):
     """Used to manage roles role for large numbers of members"""
 
     PERM_FA_ROLE = "PermFA"
+    DEV_LEAGUE_ROLE = "Dev League Interest"
 
     def __init__(self, bot):
         self.config = Config.get_conf(
@@ -510,7 +511,7 @@ class BulkRoleManager(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def makePermFA(self, ctx, tier: str, *userList):
         """Makes each member that can be found from the userList a permanent Free Agent for the given tier"""
-        role_names_to_add = [self.PERM_FA_ROLE, "League", tier, "{0}FA".format(tier)]
+        role_names_to_add = [self.PERM_FA_ROLE, self.DEV_LEAGUE_ROLE, "League", tier, "{0}FA".format(tier)]
         roles_to_add = []
         tiers = await self.team_manager_cog.tiers(ctx)
         for role in ctx.guild.roles:
@@ -630,6 +631,11 @@ class BulkRoleManager(commands.Cog):
             self.team_manager_cog._find_role_by_name(ctx, "Free Agent"),
             self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE),
         ]
+        # remove dev league interest role if it exists in the server
+        dev_league_role = self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE)
+        if dev_league_role:
+            roles_to_remove.append(dev_league_role)
+
         tiers = await self.team_manager_cog.tiers(ctx)
         for tier in tiers:
             tier_role = self.team_manager_cog._get_tier_role(ctx, tier)

@@ -1,0 +1,9 @@
+{
+    "author" : ["RSC Development Committee"],
+    "description" : "A COG to allow admins to assign ModMail threads to the appropriate committee.",
+    "short" : "RSC ModMail Manager.",
+    "requirements" : [],
+    "permissions" : [],
+    "tags" : ["RSC"],
+    "min_python_version": [3, 9, 0]
+}

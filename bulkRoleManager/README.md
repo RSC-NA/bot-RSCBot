@@ -4,7 +4,7 @@ The `bulkRoleManager` cog is primarily responsible for monitoring and managing m
 
 ## Installation
 
-The `bulkRoleManager` cog depends on the `teamManager` cog. Install `teamManager` as well as its dependencies before installing `bulkRoleManager`.
+The `bulkRoleManager` cog depends on the `dmHelper` and `teamManager` cogs. Install `dmHelper` and `teamManager` before installing `bulkRoleManager`.
 
 ```
 <p>cog install RSCBot bulkRoleManager

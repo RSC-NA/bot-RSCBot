@@ -13,7 +13,15 @@ Follow the Red Discord Bot installation guide for [Windows](https://docs.discord
 <p>load <cog_name>
 ```
 
-Certain cogs depend on another cog being loaded first in order to work correctly. You can see a visualization of the cog dependencies [here](https://docs.google.com/drawings/d/1Ys3Ne_66uTECXY47WTLPr3LlWi_XL8rUGf2S90jY7Nk/edit?usp=sharing). Any cog that isn't shown in that chart is a stand-alone cog that can be loaded whenever and will work on its own.
+Certain cogs depend on another cog being loaded first in order to work correctly. You can see a visualization of the cog dependencies [here](https://docs.google.com/drawings/d/1Ivi3vwgZ8KbZJ1d_BVMI0b2TTO98nMtoj62Iw-oTVQs/edit?usp=sharing). Any cog that isn't shown in that chart is a stand-alone cog that can be loaded whenever and will work on its own.
+
+## Dev Installation
+If installing locally for development, a requirements file is provided. In a virtual environment, run the following:
+```
+pip install -r requirements.txt
+```
+
+Then follow the guide in DevSetup-VSCode.
 
 ## Usage
 
@@ -25,7 +33,7 @@ For any command, you can see documentation explaining how to use the command wit
 
 #### Franchises/Prefixes
 
-As can be seen in the [cog dependencies doc](https://docs.google.com/drawings/d/1Ys3Ne_66uTECXY47WTLPr3LlWi_XL8rUGf2S90jY7Nk/edit?usp=sharing), the prefixManager cog should be the first cog loaded from the league specific cogs. For RSC, a prefix should be added for each franchise within the league. To add a prefix you first need to set up a franchise role with the following name format: [<franchise_name> (<GM_name>)](https://media.discordapp.net/attachments/679698891129880580/707975741505273938/Capture.PNG). After that the `<p>addPrefix` command can be used to add prefixes one at a time, or the `<p>addPrefixes` command can be used to add them in bulk. Alternatively, the command `<p>addFranchise` to complete all necessary steps for adding a single franchise simultaneously.
+As can be seen in the [cog dependencies doc](https://docs.google.com/drawings/d/1Ivi3vwgZ8KbZJ1d_BVMI0b2TTO98nMtoj62Iw-oTVQs/edit?usp=sharing), the prefixManager cog should be the first cog loaded from the league specific cogs. For RSC, a prefix should be added for each franchise within the league. To add a prefix you first need to set up a franchise role with the following name format: [<franchise_name> (<GM_name>)](https://media.discordapp.net/attachments/679698891129880580/707975741505273938/Capture.PNG). After that the `<p>addPrefix` command can be used to add prefixes one at a time, or the `<p>addPrefixes` command can be used to add them in bulk. Alternatively, the command `<p>addFranchise` to complete all necessary steps for adding a single franchise simultaneously.
 
 #### Tiers
 

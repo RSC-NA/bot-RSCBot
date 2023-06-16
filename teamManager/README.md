@@ -4,7 +4,7 @@ The `teamManager` cog is primarily responsible for managing franchises, thier te
 
 ## Installation
 
-The `teamManager` cog depends on the `prefixManager` cog. Install `prefixManager` before installing `teamManager`.
+The `teamManager` cog has no other cog dependancies.
 
 ```
 <p>cog install RSCBot teamManager
