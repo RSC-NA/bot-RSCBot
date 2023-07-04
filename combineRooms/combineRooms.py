@@ -195,7 +195,7 @@ class CombineRooms(commands.Cog):
         new_room_number = previous_number + 1 
         new_room_name = "{0} // {1}{2}".format(tier, acronym.lower(), new_room_number)
 
-        await category.create_voice_channel(new_room_name, permissions_synced=True, user_limit=capacity, position=new_position)
+        await category.create_voice_channel(new_room_name, user_limit=capacity, position=new_position)
 
     async def _update_combine_rooms(self, ctx, acronym:str=None, capacity:int=None):
         categories = await self._combine_categories(ctx.guild)
