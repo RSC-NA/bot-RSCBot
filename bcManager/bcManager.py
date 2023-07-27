@@ -1586,7 +1586,7 @@ class BCManager(commands.Cog):
         # All of this data should be tracked to optimize the search and validation
         discovery_data = {
             "is_valid_set": False,
-            "match_format": match.get("format_type", "4-GS"),
+            "match_format": match.get("matchFormat", "4-GS"),
             "summary": None,
             "match_replay_ids": [],
             "replay_hashes": [],
@@ -1969,7 +1969,9 @@ class BCManager(commands.Cog):
         )
 
     def is_valid_replay_set(self, match_format, home_wins, away_wins):
+        log.debug(f"is_valid_replay_set: {match_format}")
         format_type, fmt_games = self.get_match_fmt_components(match_format)
+        log.debug(f"format_type: {format_type} - fmt_games: {fmt_games}")
         gp = home_wins + away_wins
 
         if format_type.lower() == "gs":
