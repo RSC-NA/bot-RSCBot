@@ -148,7 +148,8 @@ class DMHelper(commands.Cog):
             return
 
         dm_bot_role: discord.Role = await self._get_needs_to_dm_role(member.guild)
-        await member.add_roles(dm_bot_role)
+        if dm_bot_role:
+            await member.add_roles(dm_bot_role)
 
     @commands.Cog.listener('on_message_without_command')
     async def _message_listener(self, message: discord.Message):
