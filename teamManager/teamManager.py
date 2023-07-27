@@ -1188,7 +1188,8 @@ class TeamManager(commands.Cog):
             else:
                 currentNickname = array[0]
             return currentNickname
-        return user.name
+
+        return user.global_name
 
     async def _set_user_nickname_prefix(self, ctx, prefix: str, user: discord.member):
         try:
