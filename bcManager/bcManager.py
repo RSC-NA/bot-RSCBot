@@ -130,7 +130,7 @@ class BCManager(commands.Cog):
     @commands.command(aliases=["setLeagueSeasonGroup", "stlg"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setTopLevelGroup(self, ctx, top_level_group):
+    async def setTopLevelGroup(self, ctx, top_level_group: str):
         """Sets the Top Level Ballchasing Replay group for saving match replays.
 
         Parameters:
@@ -2452,7 +2452,7 @@ class BCManager(commands.Cog):
             if tier_channel.name == tier_channel_name:
                 return tier_channel
 
-        return await match_cat.create_text_channel(tier_channel_name, sync=True)
+        return await match_cat.create_text_channel(tier_channel_name)
 
     async def get_stats_updates_channel(self, guild: discord.Guild):
         CAT_NAME = "IMPORTANT INFORMATION"
@@ -2468,7 +2468,7 @@ class BCManager(commands.Cog):
             if channel.name == STATS_UPDATES_CHANNLE:
                 return channel
 
-        return await ii_cat.create_text_channel(STATS_UPDATES_CHANNLE, sync=True)
+        return await ii_cat.create_text_channel(STATS_UPDATES_CHANNLE)
 
     async def get_match_tier_role_and_emoji_url(self, ctx, match):
         if match["report"].get("winner"):
