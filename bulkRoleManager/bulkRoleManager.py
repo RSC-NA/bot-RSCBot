@@ -773,8 +773,11 @@ class BulkRoleManager(commands.Cog):
             else:
                 currentNickname = array[0]
             return currentNickname
+        
+        if user.global_name: 
+            return user.global_name
 
-        return user.global_name
+        return user.name
 
     async def _draft_eligible_message(self, ctx):
         return await self.config.guild(ctx.guild).DraftEligibleMessage()
