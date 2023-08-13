@@ -145,10 +145,10 @@ class Transactions(commands.Cog):
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
         gm_name = self._get_gm_name(ctx, franchise_role)
         if franchise_role in user.roles:
-            message = "Round {0} Pick {1}: {2} was kept by the {3} ({4} - {5})".format(
+            message = "Round {0} Pick {1}: {2} was kept by {3} ({4} - {5})".format(
                 round, pick, user.mention, team_name, gm_name, tier_role.name)
         else:
-            message = "Round {0} Pick {1}: {2} was drafted by the {3} ({4} - {5})".format(
+            message = "Round {0} Pick {1}: {2} was drafted by {3} ({4} - {5})".format(
                 round, pick, user.mention, team_name, gm_name, tier_role.name)
 
         trans_channel = await self._trans_channel(ctx)
@@ -193,7 +193,7 @@ class Transactions(commands.Cog):
                     for role in free_agent_roles:
                         await user.remove_roles(role)
                 gm_name = self._get_gm_name(ctx, franchise_role)
-                message = "{0} was signed by the {1} ({2} - {3})".format(
+                message = "{0} was signed by {1} ({2} - {3})".format(
                     user.mention, team_name, gm_name, tier_role.name)
                 await trans_channel.send(message)
                 await ctx.send("Done")
@@ -208,7 +208,7 @@ class Transactions(commands.Cog):
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
         trans_channel = await self._trans_channel(ctx)
         gm_name = self._get_gm_name(ctx, franchise_role)
-        message = "{0} was re-signed by the {1} ({2} - {3})".format(
+        message = "{0} was re-signed by {1} ({2} - {3})".format(
             user.mention, team_name, gm_name, tier_role.name)
 
         if franchise_role not in user.roles or tier_role not in user.roles:
@@ -251,7 +251,7 @@ class Transactions(commands.Cog):
                     await self.team_manager_cog._set_user_nickname_prefix(ctx, "FA", user)
                     await user.add_roles(tier_fa_role, fa_role)
                 gm_name = self._get_gm_name(ctx, franchise_role)
-                message = f"{user.mention} was cut by the {team_name} ({gm_name} - {tier_role.name})"
+                message = f"{user.mention} was cut by {team_name} ({gm_name} - {tier_role.name})"
                 await trans_channel.send(message)
 
                 franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
@@ -287,7 +287,7 @@ class Transactions(commands.Cog):
             await self.remove_player_from_team(ctx, user_2, new_team_name)
             await self.add_player_to_team(ctx, user, new_team_name)
             await self.add_player_to_team(ctx, user_2, new_team_name_2)
-            message = "{0} was traded by the {1} ({4} - {5}) to the {2} ({6} - {7}) for {3}".format(user.mention, new_team_name_2, new_team_name,
+            message = "{0} was traded by {1} ({4} - {5}) to {2} ({6} - {7}) for {3}".format(user.mention, new_team_name_2, new_team_name,
                                                                                                     user_2.mention, gm_name_2, tier_role_2.name, gm_name_1, tier_role_1.name)
             await trans_channel.send(message)
             await ctx.send("Done")
@@ -340,9 +340,9 @@ class Transactions(commands.Cog):
                     await user.add_roles(franchise_role, team_tier_role, leagueRole)
                     gm = self._get_gm_name(ctx, franchise_role)
                     if subbed_out_user:
-                        message = f"{user.mention} was signed to a temporary contract by the {team_name}, subbing for {subbed_out_user.name} ({gm} - {team_tier_role.name})"
+                        message = f"{user.mention} was signed to a temporary contract by {team_name}, subbing for {subbed_out_user.name} ({gm} - {team_tier_role.name})"
                     else:
-                        message = f"{user.mention} was signed to a temporary contract by the {team_name} ({gm} - {team_tier_role.name})"
+                        message = f"{user.mention} was signed to a temporary contract by {team_name} ({gm} - {team_tier_role.name})"
                     # Give subbed out user the subbed out role if there is one
                     subbed_out_role = self.team_manager_cog._find_role_by_name(ctx, self.SUBBED_OUT_ROLE)
                     if subbed_out_user and subbed_out_role:
