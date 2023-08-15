@@ -441,7 +441,7 @@ class ModeratorLink(commands.Cog):
         else:
             await ctx.send("No shared roles are configured.")
 
-    async def maybe_send_welcome_message(self, member):
+    async def maybe_send_welcome_message(self, member: discord.Member):
         guild = member.guild
         welcome_msg = await self._get_welcome_message(guild)
         channel = guild.system_channel
