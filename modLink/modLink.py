@@ -360,13 +360,20 @@ class ModeratorLink(commands.Cog):
         """Upon a member ban, members in the guild network will be banned automatically."""
         if not await self._event_log_channel(guild):
             return
+
+        # Iterate RSC related servers and take the same action.
         for linked_guild in self.bot.guilds:
+            # Check guild is available and if we have ban permissions. 
+            if linked_guild.unavailable or not linked_guild.me.guild_permissions.ban_members:
+                continue
+
             linked_guild_log = await self._event_log_channel(linked_guild)
             is_banned = False 
             async for ban in linked_guild.bans():
                 if ban.user == user:
                     is_banned = True
                     break
+
             if linked_guild_log and not is_banned:
                 await linked_guild.ban(user, reason="Banned from {}.".format(guild.name), delete_message_days=0)
                 await linked_guild_log.send("**{}** (id: {}) has been banned. [initiated from **{}**]".format(user.name, user.id, guild.name))
@@ -376,13 +383,20 @@ class ModeratorLink(commands.Cog):
         """Upon a member unban, members in the guild network will be unbanned automatically."""
         if not await self._event_log_channel(guild):
             return
+
+        # Iterate RSC related servers and take the same action.
         for linked_guild in self.bot.guilds:
+            # Check guild is available and if we have ban permissions. 
+            if linked_guild.unavailable or not linked_guild.me.guild_permissions.ban_members:
+                continue
+
             linked_guild_log = await self._event_log_channel(linked_guild)
             is_banned = False 
             async for ban in linked_guild.bans():
                 if ban.user == user:
                     is_banned = True
                     break
+
             if linked_guild_log and is_banned:
                 await linked_guild.unban(user, reason="Unbanned from {}.".format(guild.name))
                 await linked_guild_log.send("**{}** (id: {}) has been unbanned. [initiated from **{}**]".format(user.mention, user.id, guild.name))
