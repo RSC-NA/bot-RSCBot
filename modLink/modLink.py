@@ -6,6 +6,8 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
+from typing import Union
+
 log = logging.getLogger("red.RSCBot.modLink")
 
 # Bot Detection
@@ -324,7 +326,7 @@ class ModeratorLink(commands.Cog):
 
 # Events
     @commands.Cog.listener("on_user_update")
-    async def on_user_update(self, before, after):
+    async def on_user_update(self, before: discord.Member, after: discord.Member):
         """Catches when a user changes their discord name or discriminator. [Not yet supported]"""
         if before.name != after.name:
             pass
@@ -332,7 +334,7 @@ class ModeratorLink(commands.Cog):
             pass
 
     @commands.Cog.listener("on_member_update")
-    async def on_member_update(self, before, after):
+    async def on_member_update(self, before: discord.Member, after: discord.Member):
         """Processes updates for roles or nicknames, and shares them across the guild network."""
         
         # If roles updated:
@@ -354,25 +356,33 @@ class ModeratorLink(commands.Cog):
             await self._process_nickname_update(before, after)
             
     @commands.Cog.listener("on_member_ban")
-    async def on_member_ban(self, guild, user):
+    async def on_member_ban(self, guild: discord.Guild, user: Union[discord.Member, discord.User]):
         """Upon a member ban, members in the guild network will be banned automatically."""
         if not await self._event_log_channel(guild):
             return
         for linked_guild in self.bot.guilds:
             linked_guild_log = await self._event_log_channel(linked_guild)
-            is_banned = user in (banned_entry.user for banned_entry in await linked_guild.bans())
+            is_banned = False 
+            async for ban in linked_guild.bans():
+                if ban.user == user:
+                    is_banned = True
+                    break
             if linked_guild_log and not is_banned:
                 await linked_guild.ban(user, reason="Banned from {}.".format(guild.name), delete_message_days=0)
                 await linked_guild_log.send("**{}** (id: {}) has been banned. [initiated from **{}**]".format(user.name, user.id, guild.name))
-    
+
     @commands.Cog.listener("on_member_unban")
-    async def on_member_unban(self, guild, user):
+    async def on_member_unban(self, guild: discord.Member, user: Union[discord.Member, discord.User]):
         """Upon a member unban, members in the guild network will be unbanned automatically."""
         if not await self._event_log_channel(guild):
             return
         for linked_guild in self.bot.guilds:
             linked_guild_log = await self._event_log_channel(linked_guild)
-            is_banned = user in (banned_entry.user for banned_entry in await linked_guild.bans())
+            is_banned = False 
+            async for ban in linked_guild.bans():
+                if ban.user == user:
+                    is_banned = True
+                    break
             if linked_guild_log and is_banned:
                 await linked_guild.unban(user, reason="Unbanned from {}.".format(guild.name))
                 await linked_guild_log.send("**{}** (id: {}) has been unbanned. [initiated from **{}**]".format(user.mention, user.id, guild.name))
@@ -441,7 +451,7 @@ class ModeratorLink(commands.Cog):
         else:
             await ctx.send("No shared roles are configured.")
 
-    async def maybe_send_welcome_message(self, member):
+    async def maybe_send_welcome_message(self, member: discord.Member):
         guild = member.guild
         welcome_msg = await self._get_welcome_message(guild)
         channel = guild.system_channel
