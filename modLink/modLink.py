@@ -465,7 +465,7 @@ class ModeratorLink(commands.Cog):
         else:
             await ctx.send("No shared roles are configured.")
 
-    async def maybe_send_welcome_message(self, member: discord.Member):
+    async def maybe_send_welcome_message(self, member: discord.Member) -> None:
         guild = member.guild
         welcome_msg = await self._get_welcome_message(guild)
         channel = guild.system_channel
@@ -473,7 +473,10 @@ class ModeratorLink(commands.Cog):
             mention_roles = True    # or roles<list>
             mention_users = True    # or members<list>
             allowed_mentions = discord.AllowedMentions(roles=guild.roles, users=mention_users)
-            return await channel.send(welcome_msg.format(member=member.mention, guild=guild.name), allowed_mentions=allowed_mentions)
+            try:
+                await channel.send(welcome_msg.format(member=member, guild=guild.name), allowed_mentions=allowed_mentions)
+            except Exception as exc:
+                log.error(f"Error sending welcome message: {type(exc)} {exc} - Guild: {guild.name}")
     
     # region bot detection
     async def has_perms(self, member: discord.Member):
