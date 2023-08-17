@@ -101,10 +101,10 @@ class Transactions(commands.Cog):
                     add_roles = [league_role, fa_role]
 
                 # get team/franchise info before role removal
-                team = (await self.team_manager_cog.teams_for_user(ctx, member))
-                if len(team) == 0:
+                teams = (await self.team_manager_cog.teams_for_user(ctx, member))
+                if len(teams) <= 0:
                     continue
-
+                team = teams[0] 
                 # gm_name = self.team_manager_cog._get_gm_name(franchise_role)
                 # franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
                 # gm: discord.Member = self.team_manager_cog._find_member_by_name(ctx, gm_name)
