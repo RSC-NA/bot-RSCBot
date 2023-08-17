@@ -365,6 +365,7 @@ class ModeratorLink(commands.Cog):
         for linked_guild in self.bot.guilds:
             # Check guild is available and if we have ban permissions. 
             if linked_guild.unavailable or not linked_guild.me.guild_permissions.ban_members:
+                log.warning(f"Unable to propagate ban action to {linked_guild.name}. Bot does not have ban_members permission or is unavailable.")
                 continue
 
             linked_guild_log = await self._event_log_channel(linked_guild)
@@ -388,6 +389,7 @@ class ModeratorLink(commands.Cog):
         for linked_guild in self.bot.guilds:
             # Check guild is available and if we have ban permissions. 
             if linked_guild.unavailable or not linked_guild.me.guild_permissions.ban_members:
+                log.warning(f"Unable to propagate unban action to {linked_guild.name}. Bot does not have ban_members permission or is unavailable.")
                 continue
 
             linked_guild_log = await self._event_log_channel(linked_guild)
