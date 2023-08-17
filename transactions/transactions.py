@@ -102,7 +102,7 @@ class Transactions(commands.Cog):
 
                 # get team/franchise info before role removal
                 try:
-                    teams = (await self.team_manager_cog.teams_for_user(ctx, member))
+                    teams = await self.team_manager_cog.teams_for_user(ctx, member)
                 except Exception as e:
                     continue
                 if len(teams) <= 0:
