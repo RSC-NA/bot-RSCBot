@@ -360,13 +360,21 @@ class ModeratorLink(commands.Cog):
         """Upon a member ban, members in the guild network will be banned automatically."""
         if not await self._event_log_channel(guild):
             return
+
+        # Iterate RSC related servers and take the same action.
         for linked_guild in self.bot.guilds:
+            # Check guild is available and if we have ban permissions. 
+            if linked_guild.unavailable or not linked_guild.me.guild_permissions.ban_members:
+                log.warning(f"Unable to propagate ban action to {linked_guild.name}. Bot does not have ban_members permission or guild unavailable.")
+                continue
+
             linked_guild_log = await self._event_log_channel(linked_guild)
             is_banned = False 
             async for ban in linked_guild.bans():
                 if ban.user == user:
                     is_banned = True
                     break
+
             if linked_guild_log and not is_banned:
                 await linked_guild.ban(user, reason="Banned from {}.".format(guild.name), delete_message_days=0)
                 await linked_guild_log.send("**{}** (id: {}) has been banned. [initiated from **{}**]".format(user.name, user.id, guild.name))
@@ -376,13 +384,21 @@ class ModeratorLink(commands.Cog):
         """Upon a member unban, members in the guild network will be unbanned automatically."""
         if not await self._event_log_channel(guild):
             return
+
+        # Iterate RSC related servers and take the same action.
         for linked_guild in self.bot.guilds:
+            # Check guild is available and if we have ban permissions. 
+            if linked_guild.unavailable or not linked_guild.me.guild_permissions.ban_members:
+                log.warning(f"Unable to propagate unban action to {linked_guild.name}. Bot does not have ban_members permission or guild unavailable.")
+                continue
+
             linked_guild_log = await self._event_log_channel(linked_guild)
             is_banned = False 
             async for ban in linked_guild.bans():
                 if ban.user == user:
                     is_banned = True
                     break
+
             if linked_guild_log and is_banned:
                 await linked_guild.unban(user, reason="Unbanned from {}.".format(guild.name))
                 await linked_guild_log.send("**{}** (id: {}) has been unbanned. [initiated from **{}**]".format(user.mention, user.id, guild.name))
@@ -451,7 +467,7 @@ class ModeratorLink(commands.Cog):
         else:
             await ctx.send("No shared roles are configured.")
 
-    async def maybe_send_welcome_message(self, member: discord.Member):
+    async def maybe_send_welcome_message(self, member: discord.Member) -> None:
         guild = member.guild
         welcome_msg = await self._get_welcome_message(guild)
         channel = guild.system_channel
@@ -459,7 +475,10 @@ class ModeratorLink(commands.Cog):
             mention_roles = True    # or roles<list>
             mention_users = True    # or members<list>
             allowed_mentions = discord.AllowedMentions(roles=guild.roles, users=mention_users)
-            return await channel.send(welcome_msg.format(member=member.mention, guild=guild.name), allowed_mentions=allowed_mentions)
+            try:
+                await channel.send(welcome_msg.format(member=member, guild=guild.name), allowed_mentions=allowed_mentions)
+            except Exception as exc:
+                log.error(f"Error sending welcome message: {type(exc)} {exc} - Guild: {guild.name}")
     
     # region bot detection
     async def has_perms(self, member: discord.Member):
