@@ -101,7 +101,10 @@ class Transactions(commands.Cog):
                     add_roles = [league_role, fa_role]
 
                 # get team/franchise info before role removal
-                teams = (await self.team_manager_cog.teams_for_user(ctx, member))
+                try:
+                    teams = await self.team_manager_cog.teams_for_user(ctx, member)
+                except Exception as e:
+                    continue
                 if len(teams) <= 0:
                     continue
                 team = teams[0] 
