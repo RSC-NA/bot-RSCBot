@@ -9,6 +9,7 @@ class AuthorOnlyView(discord.ui.View):
         self.author = author
 
     async def on_timeout(self):
+        """ Display time out message if we have reference to original """
         if self.message:
             embed = discord.Embed(
                 title="Time out",
@@ -20,6 +21,7 @@ class AuthorOnlyView(discord.ui.View):
 
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """ Check if the interaction user is the author. Allow or deny callbacks """
         if interaction.user != self.author:
             return False
         return True
