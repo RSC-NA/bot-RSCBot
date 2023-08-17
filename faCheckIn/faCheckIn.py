@@ -1,6 +1,7 @@
 import discord
 import asyncio
 import difflib
+import logging
 
 from redbot.core import Config
 from redbot.core import commands
@@ -8,6 +9,10 @@ from redbot.core import checks
 from redbot.core.utils.predicates import MessagePredicate
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
+
+from typing import Optional
+
+log = logging.getLogger("red.RSCBot.faCheckIn")
 
 defaults = {"CheckIns": {}}
 verify_timeout = 30
@@ -21,12 +26,19 @@ class FaCheckIn(commands.Cog):
         self.config.register_guild(**defaults)
         self.team_manager_cog = bot.get_cog("TeamManager")
         self.match_cog = bot.get_cog("Match")
+        self.bot = bot
 
     @commands.guild_only()
     @commands.command(aliases=["ci"])
     async def checkIn(self, ctx):
         user = ctx.message.author
-        match_day = await self.match_cog._match_day(ctx)
+
+        match_day = await self._get_match_day(ctx)
+        if not match_day:
+            log.warning(f"Unable to fetch current match day for guild: {ctx.guild}")
+            await ctx.send(":x: Unable to fetch current match day.")
+            return
+
         tier = await self._find_tier_from_fa_role(ctx, user)
 
         # await ctx.message.delete()
@@ -44,7 +56,13 @@ class FaCheckIn(commands.Cog):
     @commands.command(aliases=["co"])
     async def checkOut(self, ctx):
         user = ctx.message.author
-        match_day = await self.match_cog._match_day(ctx)
+
+        match_day = await self._get_match_day(ctx)
+        if not match_day:
+            log.warning(f"Unable to fetch current match day for guild: {ctx.guild}")
+            await ctx.send(":x: Unable to fetch current match day.")
+            return
+
         tier = await self._find_tier_from_fa_role(ctx, user)
         if tier is None:
             tier = await self.team_manager_cog.get_current_tier_role(ctx, user)
@@ -63,8 +81,14 @@ class FaCheckIn(commands.Cog):
     @commands.guild_only()
     @commands.command(aliases=["ca"])
     async def checkAvailability(self, ctx, tier_name: str, match_day: str = None):
-        if match_day is None:
-            match_day = await self.match_cog._match_day(ctx)
+        """ Check availability for Free Agents in a specific tier """
+        if not match_day:
+            match_day = await self._get_match_day(ctx)
+            if not match_day:
+                log.warning(f"Unable to fetch current match day for guild: {ctx.guild}")
+                await ctx.send(":x: Unable to fetch current match day.")
+                return
+
         tier = await self.team_manager_cog._match_tier_name(ctx, tier_name)
         if tier is None:
             await ctx.send("No tier with name: `{0}`".format(tier_name))
@@ -95,8 +119,13 @@ class FaCheckIn(commands.Cog):
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def clearAvailability(self, ctx, tier: str = None, match_day: str = None):
-        if match_day is None:
-            match_day = await self.match_cog._match_day(ctx)
+        """ Clear Free Agent availability in a tier """
+        if not match_day:
+            match_day = await self._get_match_day(ctx)
+            if not match_day:
+                log.warning(f"Unable to fetch current match day for guild: {ctx.guild}")
+                await ctx.send(":x: Unable to fetch current match day.")
+                return
 
         if tier is None:
             await self._save_match_data(ctx, match_day, {})
@@ -110,6 +139,17 @@ class FaCheckIn(commands.Cog):
     async def clearAllAvailability(self, ctx):
         await self._save_check_ins(ctx, {})
         await ctx.send("Done.")
+
+    async def _get_match_day(self, ctx) -> Optional[str]:
+        """ Returns the current match day for a specific guild. """
+        if not self.match_cog:
+            self.match_cog = self.bot.get_cog("Match")
+
+        try:
+            return await self.match_cog._match_day(ctx)
+        except Exception as exc:
+            log.error(f"Error getting match day. Guild: {ctx.guild} - {type(exc)} {exc}")
+            return None
 
     async def _send_check_in_message(self, ctx, user, match_day, tier):
         embed = discord.Embed(title="Check In", 
