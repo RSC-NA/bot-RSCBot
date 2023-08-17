@@ -166,14 +166,12 @@ class FaCheckIn(commands.Cog):
         )
 
         async def check_in(inter: discord.Interaction):
-            if inter.user == ctx.author:
-                await self._register_user(ctx, user, match_day, tier)
-                await inter.response.edit_message(embed=success, view=None)
-                checkView.stop()
+            await self._register_user(ctx, user, match_day, tier)
+            await inter.response.edit_message(embed=success, view=None)
+            checkView.stop()
         async def quit(inter: discord.Interaction):
-            if inter.user == ctx.author:
-                await inter.response.edit_message(embed=fail, view=None)
-                checkView.stop()
+            await inter.response.edit_message(embed=fail, view=None)
+            checkView.stop()
 
         confirmed = ConfirmButton(callback=check_in)
         declined = DeclineButton(callback=quit)
@@ -204,14 +202,12 @@ class FaCheckIn(commands.Cog):
         )
 
         async def check_out(inter: discord.Interaction):
-            if inter.user == user:
-                await self._unregister_user(ctx, user, match_day, tier)
-                await inter.response.edit_message(embed=success, view=None)
-                checkView.stop()
+            await self._unregister_user(ctx, user, match_day, tier)
+            await inter.response.edit_message(embed=success, view=None)
+            checkView.stop()
         async def quit(inter: discord.Interaction):
-            if inter.user == user:
-                await inter.response.edit_message(embed=fail, view=None)
-                checkView.stop()
+            await inter.response.edit_message(embed=fail, view=None)
+            checkView.stop()
 
         confirmed = ConfirmButton(callback=check_out)
         declined = DeclineButton(callback=quit)
