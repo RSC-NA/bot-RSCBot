@@ -4,11 +4,14 @@ import random
 from datetime import datetime
 import json
 import discord
+import logging
 from .config import config
 
 from redbot.core import Config, commands, checks
 
 from teamManager import TeamManager
+
+log = logging.getLogger("red.RSCBot.match")
 
 defaults = {"MatchDay": 0, "Schedules": {}, "Segment": "Regular Season",
             "Game": "Rocket League", "GameTeamSize": 3, "LobbyHashes": {}}
