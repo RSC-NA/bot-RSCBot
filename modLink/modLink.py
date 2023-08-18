@@ -472,11 +472,8 @@ class ModeratorLink(commands.Cog):
         welcome_msg = await self._get_welcome_message(guild)
         channel = guild.system_channel
         if channel and welcome_msg:
-            mention_roles = True    # or roles<list>
-            mention_users = True    # or members<list>
-            allowed_mentions = discord.AllowedMentions(roles=guild.roles, users=mention_users)
             try:
-                await channel.send(welcome_msg.format(member=member, guild=guild.name), allowed_mentions=allowed_mentions)
+                await channel.send(welcome_msg.format(member=member, guild=guild.name), allowed_mentions=discord.AllowedMentions.all)
             except Exception as exc:
                 log.error(f"Error sending welcome message: {type(exc)} {exc} - Guild: {guild.name}")
     

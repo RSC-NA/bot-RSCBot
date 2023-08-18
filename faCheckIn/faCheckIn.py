@@ -1,18 +1,18 @@
 import discord
-import asyncio
-import difflib
+import logging
 
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
-from redbot.core.utils.predicates import MessagePredicate
-from redbot.core.utils.predicates import ReactionPredicate
-from redbot.core.utils.menus import start_adding_reactions
+
+from faCheckIn.views import AuthorOnlyView, ConfirmButton, DeclineButton
+
+from typing import Optional, NoReturn
+
+log = logging.getLogger("red.RSCBot.faCheckIn")
 
 defaults = {"CheckIns": {}}
 verify_timeout = 30
-
-WHITE_CHECK_REACT = "\U00002705"
 
 class FaCheckIn(commands.Cog):
 
@@ -21,12 +21,19 @@ class FaCheckIn(commands.Cog):
         self.config.register_guild(**defaults)
         self.team_manager_cog = bot.get_cog("TeamManager")
         self.match_cog = bot.get_cog("Match")
+        self.bot = bot
 
     @commands.guild_only()
     @commands.command(aliases=["ci"])
     async def checkIn(self, ctx):
         user = ctx.message.author
-        match_day = await self.match_cog._match_day(ctx)
+
+        match_day = await self._get_match_day(ctx)
+        if not match_day:
+            log.warning(f"Unable to fetch current match day for guild: {ctx.guild}")
+            await ctx.send(":x: Unable to fetch current match day.")
+            return
+
         tier = await self._find_tier_from_fa_role(ctx, user)
 
         # await ctx.message.delete()
@@ -44,7 +51,13 @@ class FaCheckIn(commands.Cog):
     @commands.command(aliases=["co"])
     async def checkOut(self, ctx):
         user = ctx.message.author
-        match_day = await self.match_cog._match_day(ctx)
+
+        match_day = await self._get_match_day(ctx)
+        if not match_day:
+            log.warning(f"Unable to fetch current match day for guild: {ctx.guild}")
+            await ctx.send(":x: Unable to fetch current match day.")
+            return
+
         tier = await self._find_tier_from_fa_role(ctx, user)
         if tier is None:
             tier = await self.team_manager_cog.get_current_tier_role(ctx, user)
@@ -56,15 +69,21 @@ class FaCheckIn(commands.Cog):
             if user.id in tier_data:
                 await self._send_check_out_message(ctx, user, match_day, tier)
             else:
-                await user.send("You aren't currently checked in. If you want to check in, use the `{0}checkIn` command.".format(ctx.prefix))
+                await ctx.send("You aren't currently checked in. If you want to check in, use the `{0}checkIn` command.".format(ctx.prefix))
         else:
-            await user.send("Your tier could not be determined. If you are in the league please contact an admin for help.")
+            await ctx.send("Your tier could not be determined. If you are in the league please contact an admin for help.")
 
     @commands.guild_only()
     @commands.command(aliases=["ca"])
     async def checkAvailability(self, ctx, tier_name: str, match_day: str = None):
-        if match_day is None:
-            match_day = await self.match_cog._match_day(ctx)
+        """ Check availability for Free Agents in a specific tier """
+        if not match_day:
+            match_day = await self._get_match_day(ctx)
+            if not match_day:
+                log.warning(f"Unable to fetch current match day for guild: {ctx.guild}")
+                await ctx.send(":x: Unable to fetch current match day.")
+                return
+
         tier = await self.team_manager_cog._match_tier_name(ctx, tier_name)
         if tier is None:
             await ctx.send("No tier with name: `{0}`".format(tier_name))
@@ -95,8 +114,13 @@ class FaCheckIn(commands.Cog):
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def clearAvailability(self, ctx, tier: str = None, match_day: str = None):
-        if match_day is None:
-            match_day = await self.match_cog._match_day(ctx)
+        """ Clear Free Agent availability in a tier """
+        if not match_day:
+            match_day = await self._get_match_day(ctx)
+            if not match_day:
+                log.warning(f"Unable to fetch current match day for guild: {ctx.guild}")
+                await ctx.send(":x: Unable to fetch current match day.")
+                return
 
         if tier is None:
             await self._save_match_data(ctx, match_day, {})
@@ -111,53 +135,88 @@ class FaCheckIn(commands.Cog):
         await self._save_check_ins(ctx, {})
         await ctx.send("Done.")
 
-    async def _send_check_in_message(self, ctx, user, match_day, tier):
+    async def _get_match_day(self, ctx) -> Optional[str]:
+        """ Returns the current match day for a specific guild. """
+        if not self.match_cog:
+            self.match_cog = self.bot.get_cog("Match")
+
+        try:
+            return await self.match_cog._match_day(ctx)
+        except Exception as exc:
+            log.error(f"Error getting match day. Guild: {ctx.guild} - {type(exc)} {exc}")
+            return None
+
+    async def _send_check_in_message(self, ctx, user, match_day, tier) -> NoReturn:
         embed = discord.Embed(title="Check In", 
-            description="By checking in you are letting GMs know that you are available to play "
-                "on the following match day in the following tier. To confirm react with {}".format(ReactionPredicate.YES_OR_NO_EMOJIS[0]),
+            description="By checking in you are letting GMs know that you are available to play on the following match day in the following tier.",
             colour=discord.Colour.blue())
         embed.add_field(name="Match Day", value=match_day, inline=True)
         embed.add_field(name="Tier", value=tier, inline=True)
 
-        # react_msg = await user.send(embed=embed)
-        react_msg = await ctx.send(embed=embed)
+        success = discord.Embed(
+            title="Checked In",
+            description=f"{user.mention} Thank you for checking in! GMs will now be able to see that you're available.",
+            colour=discord.Colour.green()
+        )
 
-        start_adding_reactions(react_msg, ReactionPredicate.YES_OR_NO_EMOJIS)
+        fail = discord.Embed(
+            title="Unlucky...",
+            description=f"{user.mention} Not checked in. If you wish to check in use the command again.",
+            colour=discord.Colour.red()
+        )
 
-        try:
-            pred = ReactionPredicate.yes_or_no(react_msg, user)
-            await ctx.bot.wait_for("reaction_add", check=pred, timeout=verify_timeout)
-            if pred.result is True:
-                await self._register_user(ctx, user, match_day, tier)
-                # await user.send("Thank you for checking in! GMs will now be able to see that you're available.")
-                await ctx.send(f"{user.mention} Thank you for checking in! GMs will now be able to see that you're available.")
-            else:
-                # await user.send("Not checked in. If you wish to check in use the command again.")
-                await ctx.send(f"{user.mention} Not checked in. If you wish to check in use the command again.")
-        except asyncio.TimeoutError:
-            await user.send(f"{user.mention} Sorry, you didn't react quick enough. Please try again.")
+        async def check_in(inter: discord.Interaction):
+            await self._register_user(ctx, user, match_day, tier)
+            await inter.response.edit_message(embed=success, view=None)
+            checkView.stop()
+        async def quit(inter: discord.Interaction):
+            await inter.response.edit_message(embed=fail, view=None)
+            checkView.stop()
 
-    async def _send_check_out_message(self, ctx, user, match_day, tier):
+        confirmed = ConfirmButton(callback=check_in)
+        declined = DeclineButton(callback=quit)
+
+        checkView: discord.ui.View = AuthorOnlyView(user)
+        checkView.add_item(confirmed)
+        checkView.add_item(declined)
+
+        checkView.message = await ctx.send(embed=embed, view=checkView)
+
+    async def _send_check_out_message(self, ctx, user, match_day, tier) -> NoReturn:
         embed = discord.Embed(title="Check Out", 
-            description="You are currently checked in as available for the following match day and tier. "
-                "Do you wish to take yourself off the availability list? To confirm you want to check out, react with {}".format(ReactionPredicate.YES_OR_NO_EMOJIS[0]),
+            description= "You are currently checked in as available for the following match day and tier.\n\nDo you wish to take yourself off the availability list?",
             colour=discord.Colour.blue())
         embed.add_field(name="Match Day", value=match_day, inline=True)
         embed.add_field(name="Tier", value=tier, inline=True)
 
-        react_msg = await user.send(embed=embed)
-        start_adding_reactions(react_msg, ReactionPredicate.YES_OR_NO_EMOJIS)
+        success = discord.Embed(
+            title="Checked Out",
+            description=f"{user.mention} You have been removed from the list. Thank you for updating your availability!",
+            colour=discord.Colour.green()
+        )
 
-        try:
-            pred = ReactionPredicate.yes_or_no(react_msg, user)
-            await ctx.bot.wait_for("reaction_add", check=pred, timeout=verify_timeout)
-            if pred.result is True:
-                await self._unregister_user(ctx, user, match_day, tier)
-                await user.send("You have been removed from the list. Thank you for updating your availability!")
-            else:
-                await user.send("Still checked in. If you wish to check out use the command again.")
-        except asyncio.TimeoutError:
-            await user.send("Sorry, you didn't react quick enough. Please try again.")
+        fail = discord.Embed(
+            title="Great news!",
+            description=f"{user.mention} You are still checked in. If you wish to check out use the command again.",
+            colour=discord.Colour.red()
+        )
+
+        async def check_out(inter: discord.Interaction):
+            await self._unregister_user(ctx, user, match_day, tier)
+            await inter.response.edit_message(embed=success, view=None)
+            checkView.stop()
+        async def quit(inter: discord.Interaction):
+            await inter.response.edit_message(embed=fail, view=None)
+            checkView.stop()
+
+        confirmed = ConfirmButton(callback=check_out)
+        declined = DeclineButton(callback=quit)
+
+        checkView = AuthorOnlyView(user, timeout=5)
+        checkView.add_item(confirmed)
+        checkView.add_item(declined)
+
+        checkView.message = await ctx.send(embed=embed, view=checkView)
 
     async def _register_user(self, ctx, user, match_day, tier):
         tier_list = await self._tier_data(ctx, match_day, tier)
