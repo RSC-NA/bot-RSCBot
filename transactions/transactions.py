@@ -1,4 +1,5 @@
 import discord
+import logging
 
 from redbot.core import Config
 from redbot.core import commands
@@ -8,6 +9,8 @@ from .transStringTemplates import TransactionsStringsTemplates as stringTemplate
 from teamManager import TeamManager
 from prefixManager import PrefixManager
 from dmHelper import DMHelper
+
+log = logging.getLogger("red.RSCBot.transactions")
 
 defaults = {
     "TransChannel": None,
@@ -58,7 +61,6 @@ class Transactions(commands.Cog):
         empty = True
         free_agents = 0
         notFound = 0
-        message = ""
         fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
         league_role = self.team_manager_cog._find_role_by_name(ctx, "League")
 
@@ -70,15 +72,21 @@ class Transactions(commands.Cog):
 
         trans_channel : discord.TextChannel = await self._trans_channel(ctx)
 
+        message = discord.Embed(
+            title="Expire Contract Results",
+            colour=discord.Colour.blue()
+        )
+
+        not_found_list = []
+
         for user in userList:
             try:
                 member : discord.Member = await commands.MemberConverter().convert(ctx, user)
             except Exception as e:
-                await ctx.send(f"Error: {e}")
-                if notFound == 0:
-                    message += "Couldn't find:\n"
-                message += "{0}\n".format(user)
+                #await ctx.send(f"Error: {e}")
+                not_found_list.append(user)
                 notFound += 1
+                continue
             
             # Process Contract expiration
             # For each user in guild
@@ -103,7 +111,8 @@ class Transactions(commands.Cog):
                 # get team/franchise info before role removal
                 try:
                     teams = await self.team_manager_cog.teams_for_user(ctx, member)
-                except Exception as e:
+                except Exception as exc:
+                    log.error(f"Error fetching teams for {member}. {type(exc)} {exc}")
                     continue
                 if len(teams) <= 0:
                     continue
@@ -133,15 +142,19 @@ class Transactions(commands.Cog):
                 #await self.send_player_expire_contract_message(ctx, member, franchise_role, team, gm)
 
                 empty = False
+
+        if not not_found_list:
+            not_found_list.append("None")
+
+        message.add_field(name="Users Not Found", value="\n".join(not_found_list))
+
         if empty:
-            message += ":x: Nobody was set as a free agent."
+            message.description = "No users have been set as a free agent."
         else:
-            message += ":white_check_mark: everyone that was found from list is now a free agent"
-        if notFound > 0:
-            message += ". {0} user(s) were not found".format(notFound)
-        if free_agents > 0:
-            message += ". {0} user(s) have been set as a free agent.".format(free_agents)
-        await ctx.send(message)
+            message.description = "Everyone that was found from list is now a free agent"
+
+        message.set_footer(text=f"{free_agents}/{len(userList)} users have been set as a free agent.")
+        await ctx.send(embed=message)
 
     @commands.guild_only()
     @commands.command()
