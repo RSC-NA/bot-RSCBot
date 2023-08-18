@@ -40,7 +40,7 @@ global_defaults = {}
 
 verify_timeout = 30
 BALLCHASING_URL = "https://ballchasing.com"
-RSC_WEB_APP = "http://24.176.157.36:4443"
+RSC_WEB_APP = "http://24.151.184.156:4443"
 DONE = "Done"
 WHITE_X_REACT = "\U0000274E"  # :negative_squared_cross_mark:
 WHITE_CHECK_REACT = "\U00002705"  # :white_check_mark:
