@@ -251,40 +251,44 @@ class Transactions(commands.Cog):
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_roles=True)
-    async def cut(self, ctx, user: discord.Member, team_name: str, tier_fa_role: discord.Role = None) -> NoReturn:
+    async def cut(self, ctx, user: discord.Member, team_name: str, tier_fa_role: discord.Role = None) -> None:
         """Removes the team role and franchise role. Adds the free agent prefix and role to a user and posts to the assigned channel"""
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
         trans_channel = await self._trans_channel(ctx)
-        if trans_channel is not None:
-            try:
-                await self.remove_player_from_team(ctx, user, team_name)
-                if not self.team_manager_cog.is_gm(user):
-                    if tier_fa_role is None:
-                        role_name = "{0}FA".format((await self.team_manager_cog.get_current_tier_role(ctx, user)).name)
-                        tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, role_name)
-                    fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
+        if not trans_channel:
+            ctx.send(":x: Transaction channel is not configured.")
+            return None
 
-                    # add the dev league role to this new FA so that they get pings!
-                    dev_league_role = self.team_manager_cog._find_role_by_name(ctx, self.DEV_LEAGUE_ROLE)
-                    if dev_league_role is not None:
-                        await user.add_roles(dev_league_role)
+        try:
+            await self.remove_player_from_team(ctx, user, team_name)
+            # Add FA role is user is not a GM.
+            if not self.team_manager_cog.is_gm(user):
+                if tier_fa_role is None:
+                    role_name = "{0}FA".format((await self.team_manager_cog.get_current_tier_role(ctx, user)).name)
+                    tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, role_name)
+                fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
 
-                    await self.team_manager_cog._set_user_nickname_prefix(ctx, "FA", user)
-                    await user.add_roles(tier_fa_role, fa_role)
-                gm_name = self._get_gm_name(ctx, franchise_role)
-                message = f"{user.mention} was cut by {team_name} ({gm_name} - {tier_role.name})"
-                await trans_channel.send(message)
+                # add the dev league role to this new FA so that they get pings!
+                dev_league_role = self.team_manager_cog._find_role_by_name(ctx, self.DEV_LEAGUE_ROLE)
+                if dev_league_role is not None:
+                    await user.add_roles(dev_league_role)
 
-                franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
-                cut_embed = await self.get_cut_embed(ctx, ctx.author, gm_name, franchise_name, team_name, tier_role.name)
-                if cut_embed:
-                    await self.dm_helper_cog.add_to_dm_queue(user, embed=cut_embed)
+                await self.team_manager_cog._set_user_nickname_prefix(ctx, "FA", user)
+                await user.add_roles(tier_fa_role, fa_role)
+            gm_name = self._get_gm_name(ctx, franchise_role)
+            message = f"{user.mention} was cut by {team_name} ({gm_name} - {tier_role.name})"
+            await trans_channel.send(message)
 
-                await ctx.send("Done")
-            except KeyError:
-                await ctx.send(":x: Free agent role not found in dictionary")
-            except LookupError:
-                await ctx.send(":x: Free agent role not found in server")
+            franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
+            cut_embed = await self.get_cut_embed(ctx, ctx.author, gm_name, franchise_name, team_name, tier_role.name)
+            if cut_embed:
+                await self.dm_helper_cog.add_to_dm_queue(user, embed=cut_embed)
+
+            await ctx.send("Done")
+        except KeyError:
+            await ctx.send(":x: Free agent role not found in dictionary")
+        except LookupError:
+            await ctx.send(":x: Free agent role not found in server")
 
     @commands.guild_only()
     @commands.command()
