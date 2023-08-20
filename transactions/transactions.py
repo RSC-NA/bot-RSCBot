@@ -9,6 +9,8 @@ from teamManager import TeamManager
 from prefixManager import PrefixManager
 from dmHelper import DMHelper
 
+from typing import NoReturn
+
 defaults = {
     "TransChannel": None,
     "CutMessage": None,
@@ -233,7 +235,7 @@ class Transactions(commands.Cog):
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_roles=True)
-    async def cut(self, ctx, user: discord.Member, team_name: str, tier_fa_role: discord.Role = None):
+    async def cut(self, ctx, user: discord.Member, team_name: str, tier_fa_role: discord.Role = None) -> NoReturn:
         """Removes the team role and franchise role. Adds the free agent prefix and role to a user and posts to the assigned channel"""
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
         trans_channel = await self._trans_channel(ctx)
