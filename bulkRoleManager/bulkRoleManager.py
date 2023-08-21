@@ -12,6 +12,8 @@ from redbot.core.utils.menus import start_adding_reactions
 from dmHelper import DMHelper
 from teamManager import TeamManager
 
+from typing import NoReturn
+
 log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
 defaults = {"DraftEligibleMessage": None, "PermFAMessage": None}
@@ -129,20 +131,33 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def removeRoleFromAll(self, ctx, role: discord.Role):
+    async def removeRoleFromAll(self, ctx, role: discord.Role) -> NoReturn:
         """Removes the role from every member who has it in the server"""
         empty = True
+        # Check if role has no members.
+        if len(role.members) == 0:
+            noUsersEmbed = discord.Embed(
+                title="Results",
+                description=f"Nobody has the **{role.name}** role.",
+                color=discord.Color.orange()
+            )
+            noUsersEmbed.set_footer(text="0 user(s) had role removed.")
+            await ctx.send(embed=noUsersEmbed)
+            return
+
+        # Create embed before role is altered.
+        removedEmbed = discord.Embed(
+            title="Role Removed",
+            description=f"Removed {role.name} from everyone in the server.",
+            color=discord.Color.blue()
+        )
+        removedEmbed.set_footer(text=f"{len(role.members)} user(s) had role removed.")
+
+        # Remove role from all members.
         for member in role.members:
             await member.remove_roles(role)
-            empty = False
-        if empty:
-            await ctx.send(":x: Nobody had the {0} role".format(role.mention))
-        else:
-            await ctx.send(
-                ":white_check_mark: {0} role removed from everyone in the server".format(
-                    role.name
-                )
-            )
+
+        await ctx.send(embed=removedEmbed)
 
     @commands.command()
     @commands.guild_only()
