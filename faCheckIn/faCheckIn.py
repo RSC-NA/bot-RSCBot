@@ -161,7 +161,7 @@ class FaCheckIn(commands.Cog):
 
         fail = discord.Embed(
             title="Unlucky...",
-            description=f"{user.mention} Not checked in. If you wish to check in use the command again.",
+            description=f"{user.mention} Not checked in. If you wish to check in, use the command again.",
             colour=discord.Colour.red()
         )
 
@@ -197,7 +197,7 @@ class FaCheckIn(commands.Cog):
 
         fail = discord.Embed(
             title="Great news!",
-            description=f"{user.mention} You are still checked in. If you wish to check out use the command again.",
+            description=f"{user.mention} You are still checked in. If you wish to check out, use the command again.",
             colour=discord.Colour.red()
         )
 
