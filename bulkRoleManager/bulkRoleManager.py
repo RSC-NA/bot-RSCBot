@@ -131,7 +131,7 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def removeRoleFromAll(self, ctx, role: discord.Role) -> NoReturn:
+    async def removeRoleFromAll(self, ctx, role: discord.Role) -> None:
         """Removes the role from every member who has it in the server"""
         empty = True
         # Check if role has no members.
@@ -145,6 +145,14 @@ class BulkRoleManager(commands.Cog):
             await ctx.send(embed=noUsersEmbed)
             return
 
+        # Essentially a "loading" embed. Adding role to everyone takes time.
+        working_embed = discord.Embed(
+            title="Working",
+            description="Removing role from all users. This can take a bit...",
+            color=discord.Color.yellow()
+        )
+        msg = await ctx.reply(embed=working_embed)
+
         # Create embed before role is altered.
         removedEmbed = discord.Embed(
             title="Role Removed",
@@ -157,15 +165,26 @@ class BulkRoleManager(commands.Cog):
         for member in role.members:
             await member.remove_roles(role)
 
-        await ctx.send(embed=removedEmbed)
+        await msg.edit(embed=removedEmbed)
 
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
     async def addRoleToEveryone(self, ctx, role: discord.Role):
+        """ Add a role to everyone in the server. """
         added = 0
         had = 0
         failed = 0
+        
+        # Essentially a "loading" embed. Adding role to everyone takes time.
+        working_embed = discord.Embed(
+            title="Working",
+            description="Adding role to all users. This can take a bit...",
+            color=discord.Color.yellow()
+        )
+        msg = await ctx.reply(embed=working_embed)
+
+        # Loop through all members of guild and add role.
         for member in ctx.guild.members:
             try:
                 if role in member.roles:
@@ -173,11 +192,18 @@ class BulkRoleManager(commands.Cog):
                 else:
                     await member.add_roles(role)
                     added += 1
-            except:
+            except Exception as exc:
+                log.error(f"Failed to add {role.name} to {member.id}: {type(exc)} {exc}")
                 failed += 1
-        await ctx.reply(
-            f"Added role {role.name} to {added} members in this server. ({had} already had it, and {failed} failed."
+        
+        # Edit "loading" message in place with result.
+        role_embed = discord.Embed(
+            title="Role Added",
+            description=f"Added {role.name} to everyone in {ctx.guild.name}",
+            color=discord.Color.blue()
         )
+        role_embed.set_footer(text=f"{(added + had)}/{len(ctx.guild.members)} users had role applied. {failed} failures.")
+        await msg.edit(embed=role_embed)
 
     @commands.command()
     @commands.guild_only()
