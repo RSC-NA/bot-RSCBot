@@ -275,13 +275,13 @@ class Transactions(commands.Cog):
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_roles=True)
-    async def cut(self, ctx, user: discord.Member, team_name: str, tier_fa_role: discord.Role = None) -> None:
+    async def cut(self, ctx, user: discord.Member, team_name: str, tier_fa_role: discord.Role = None) -> NoReturn:
         """Removes the team role and franchise role. Adds the free agent prefix and role to a user and posts to the assigned channel"""
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
         trans_channel = await self._trans_channel(ctx)
         if not trans_channel:
             ctx.send(":x: Transaction channel is not configured.")
-            return None
+            return 
 
         try:
             await self.remove_player_from_team(ctx, user, team_name)
@@ -582,10 +582,16 @@ class Transactions(commands.Cog):
                 await self.team_manager_cog._set_user_nickname_prefix(ctx, prefix, user)
                 await user.add_roles(tier_role, leagueRole, franchise_role)
 
-    async def remove_player_from_team(self, ctx, user, team_name):
+    async def remove_player_from_team(self, ctx, user: discord.Member, team_name: str):
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
         if franchise_role not in user.roles or tier_role not in user.roles:
-            await ctx.send(":x: {0} is not on the {1}".format(user.mention, team_name))
+            errorEmbed = discord.Embed(
+                title="Error",
+                description=f"{user.mention} is not on {team_name}",
+                colour=discord.Colour.red()
+            )
+            # await ctx.send(":x: {0} is not on the {1}".format(user.mention, team_name))
+            await ctx.send(embed=errorEmbed)
             return
 
         if self.team_manager_cog.is_gm(user):
