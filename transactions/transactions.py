@@ -233,9 +233,18 @@ class Transactions(commands.Cog):
     @commands.guild_only()
     @commands.command(aliases=['re-sign', "rs"])
     @checks.admin_or_permissions(manage_roles=True)
-    async def resign(self, ctx, user: discord.Member, team_name: str):
+    async def resign(self, ctx, user: discord.Member, team_name: str) -> None:
         """Re-signs a user to a given team, and if necessary, reapplys roles before posting to the assigned channel"""
-        franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
+        try:
+            franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
+        except LookupError:
+            errorEmbed = discord.Embed(
+                title="Re-sign Error",
+                description=f"No team found with name: `{team_name}`",
+                colour=discord.Colour.red(),
+            )
+            await ctx.send(embed=errorEmbed)
+            return None
         trans_channel = await self._trans_channel(ctx)
         gm_name = self._get_gm_name(ctx, franchise_role)
         message = "{0} was re-signed by {1} ({2} - {3})".format(
