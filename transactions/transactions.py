@@ -216,7 +216,6 @@ class Transactions(commands.Cog):
                 description=f"{user.mention} is already on {team_name}",
                 colour=discord.Colour.red()
             )
-            # await ctx.send(":x: {0} is already on the {1}".format(user.mention, team_name))
             await ctx.send(embed=errorEmbed)
             return
 
@@ -590,7 +589,6 @@ class Transactions(commands.Cog):
                 description=f"{user.mention} is not on {team_name}",
                 colour=discord.Colour.red()
             )
-            # await ctx.send(":x: {0} is not on the {1}".format(user.mention, team_name))
             await ctx.send(embed=errorEmbed)
             return
 
