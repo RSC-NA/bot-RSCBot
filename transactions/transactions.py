@@ -61,8 +61,6 @@ class Transactions(commands.Cog):
     async def expireContracts(self, ctx: commands.Context, *userList):
         """Displays each member that can be found from the userList a Free Agent in their respective tier"""
         empty = True
-        free_agents = 0
-        notFound = 0
         fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
         league_role = self.team_manager_cog._find_role_by_name(ctx, "League")
 
@@ -80,14 +78,14 @@ class Transactions(commands.Cog):
         )
 
         not_found_list = []
+        no_franchise_list = []
 
         for user in userList:
             try:
                 member : discord.Member = await commands.MemberConverter().convert(ctx, user)
             except Exception as e:
-                #await ctx.send(f"Error: {e}")
+                log.debug(f"{user} not found... skipping.")
                 not_found_list.append(user)
-                notFound += 1
                 continue
             
             # Process Contract expiration
@@ -96,6 +94,11 @@ class Transactions(commands.Cog):
 
                 # prep roles to remove
                 franchise_role = self.team_manager_cog.get_current_franchise_role(member)
+                # Skip if player does not have a franchise role.
+                if not franchise_role:
+                    log.debug(f"{member} has no franchise role... skipping.")
+                    no_franchise_list.append(member.display_name)
+                    continue
                 removable_roles = [franchise_role] if franchise_role else []
                 for role in roles_to_remove:
                     if role in member.roles:
@@ -145,17 +148,23 @@ class Transactions(commands.Cog):
 
                 empty = False
 
+
+        expireCount = len(userList) - len(not_found_list) - len(no_franchise_list)
         if not not_found_list:
             not_found_list.append("None")
+        if not no_franchise_list:
+            no_franchise_list.append("None")
 
-        message.add_field(name="Users Not Found", value="\n".join(not_found_list))
+        message.add_field(name="Users Not Found", value="\n".join(not_found_list), inline=True)
+        message.add_field(name="No Franchise Role", value="\n".join(no_franchise_list), inline=True)
 
         if empty:
             message.description = "No users have been set as a free agent."
+            message.colour = discord.Colour.red()
         else:
-            message.description = "Everyone that was found from list is now a free agent"
+            message.description = "Successfully processed contracts."
 
-        message.set_footer(text=f"{free_agents}/{len(userList)} users have been set as a free agent.")
+        message.set_footer(text=f"{expireCount}/{len(userList)} users have been set as a free agent.")
         await ctx.send(embed=message)
 
     @commands.guild_only()
