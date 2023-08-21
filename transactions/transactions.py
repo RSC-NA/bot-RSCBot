@@ -209,7 +209,17 @@ class Transactions(commands.Cog):
     @checks.admin_or_permissions(manage_roles=True)
     async def sign(self, ctx, user: discord.Member, team_name: str) -> NoReturn:
         """Assigns the team role, franchise role and prefix to a user when they are signed and posts to the assigned channel"""
-        franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
+        try:
+            franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
+        except LookupError:
+            errorEmbed = discord.Embed(
+                title="Sign Error",
+                description=f"No team found with name: **{team_name}**",
+                colour=discord.Colour.red(),
+            )
+            await ctx.send(embed=errorEmbed)
+            return
+
         if franchise_role in user.roles and tier_role in user.roles:
             errorEmbed = discord.Embed(
                 title="Sign Error",
@@ -245,7 +255,7 @@ class Transactions(commands.Cog):
         except LookupError:
             errorEmbed = discord.Embed(
                 title="Re-sign Error",
-                description=f"No team found with name: `{team_name}`",
+                description=f"No team found with name: **{team_name}**",
                 colour=discord.Colour.red(),
             )
             await ctx.send(embed=errorEmbed)
