@@ -424,7 +424,12 @@ class TeamManager(commands.Cog):
                 await ctx.send(embed=await self._format_teams_for_tier(ctx, tier))
                 return
 
-        await ctx.send("No tier, franchise, prefix, or GM with name: {0}".format(franchise_tier_identifier))
+        notFoundEmbed = discord.Embed(
+            title="Not Found",
+            description=f"No tier, franchise, prefix, or GM with name: `{franchise_tier_identifier}`",
+            colour=discord.Colour.red()
+        )
+        await ctx.send(embed=notFoundEmbed)
 
     @commands.command(aliases=['team'])
     @commands.guild_only()
