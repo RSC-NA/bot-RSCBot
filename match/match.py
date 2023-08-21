@@ -126,7 +126,18 @@ class Match(commands.Cog):
         """
         schedule = await self._schedule(ctx)
         dump = json.dumps(schedule, indent=4, sort_keys=True)
-        await ctx.send("Here is all of the schedule data in JSON format.\n```json\n{0}\n```".format(dump))
+        try:
+            await ctx.send("Here is all of the schedule data in JSON format.\n```json\n{0}\n```".format(dump))
+        except discord.errors.HTTPException as exc:
+            httpErrorEmbed = discord.Embed(
+                title="Discord HTTP Error",
+                description=f"{exc.text}",
+                colour=discord.Colour.red()
+            )
+            httpErrorEmbed.add_field(name="Status", value=f"{exc.status}", inline=True)
+            httpErrorEmbed.add_field(name="Code", value=f"{exc.code}", inline=True)
+            await ctx.send(embed=httpErrorEmbed)
+
 
     @commands.command()
     @commands.guild_only()
