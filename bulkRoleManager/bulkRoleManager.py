@@ -202,7 +202,7 @@ class BulkRoleManager(commands.Cog):
             description=f"Added {role.name} to everyone in {ctx.guild.name}",
             color=discord.Color.blue()
         )
-        role_embed.set_footer(text=f"{(added + had)}/{len(ctx.guild.members)} users had role applied. {failed} failures.")
+        role_embed.set_footer(text=f"{(added + had)}/{len(ctx.guild.members)} users had role applied. {failed} failure(s).")
         await msg.edit(embed=role_embed)
 
     @commands.command()
@@ -213,8 +213,18 @@ class BulkRoleManager(commands.Cog):
         empty = True
         added = 0
         had = 0
-        notFound = 0
-        message = ""
+        failed = 0
+        not_found_list = []
+        unknown_error_list = []
+
+        # Essentially a "loading" embed. Adding role to everyone takes time.
+        working_embed = discord.Embed(
+            title="Working",
+            description="Adding role to users. This can take a bit...",
+            color=discord.Color.yellow()
+        )
+        msg = await ctx.send(embed=working_embed)
+
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
@@ -225,24 +235,26 @@ class BulkRoleManager(commands.Cog):
                     else:
                         had += 1
                     empty = False
-            except:
-                if notFound == 0:
-                    message += "Couldn't find:\n"
-                message += "{0}\n".format(user)
-                notFound += 1
-        if empty:
-            message += ":x: Nobody was given the role {0}".format(role.name)
-        else:
-            message += ":white_check_mark: {0} role given to everyone that was found from list".format(
-                role.name
-            )
-        if notFound > 0:
-            message += ". {0} user(s) were not found".format(notFound)
-        if had > 0:
-            message += ". {0} user(s) already had the role".format(had)
-        if added > 0:
-            message += ". {0} user(s) had the role added to them".format(added)
-        await ctx.send(message)
+            except discord.ext.commands.errors.MemberNotFound:
+                not_found_list.append(user)
+                failed += 1
+            except Exception as exc:
+                log.error(f"Failed to add {role.name} to {member.id}: {type(exc)} {exc}")
+                unknown_error_list.append(user)
+                failed += 1
+
+        # Update embed in place
+        role_embed = discord.Embed(
+            title="Role Added",
+            description=f"Added {role.name} to specified user(s).",
+            color=discord.Color.blue()
+        )
+        if len(not_found_list) > 0:
+            role_embed.add_field(name="Not Found", value="\n".join(not_found_list), inline=True)
+        if len(unknown_error_list) > 0:
+            role_embed.add_field(name="Error", value="\n".join(unknown_error_list), inline=True)
+        role_embed.set_footer(text=f"{(added + had)}/{len(ctx.guild.members)} users had role applied. {failed} failure(s).")
+        await msg.edit(embed=role_embed)
 
     @commands.command()
     @commands.guild_only()
