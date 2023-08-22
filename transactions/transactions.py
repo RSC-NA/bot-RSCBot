@@ -57,7 +57,7 @@ class Transactions(commands.Cog):
 
     @commands.command(aliases=['makeFA'])
     @commands.guild_only()
-    @checks.admin_or_permissions(manage_guild=True)
+    @checks.admin_or_permissions(manage_roles=True)
     async def expireContracts(self, ctx: commands.Context, *userList):
         """Displays each member that can be found from the userList a Free Agent in their respective tier"""
         empty = True
