@@ -115,17 +115,18 @@ class BCManager(commands.Cog):
 
         # BC token check
         bc_token = await self._get_bc_auth_token(guild)
-        valid_bc_token = True if bc_token else False
 
-        wcm = ":white_check_mark:"
-        x = ":x:"
-
-        output_parts = ["**RSC Guild Tokens Registered**"]
-        output_parts += (
-            [f"{wcm} Ballchasing"] if valid_bc_token else [f"{x} Ballchasing"]
+        checkEmbed = discord.Embed(
+            title=f"{guild.name} API Key Check",
+            color=discord.Color.blue()
         )
-        output_str = "\n".join(output_parts)
-        await ctx.send(output_str)
+
+        if bc_token:
+            checkEmbed.description = "Ballasing API key is valid."
+        else:
+            checkEmbed.description = "Ballchasing API key not found."
+            checkEmbed.color = discord.Color.red()
+        await ctx.send(embed=checkEmbed)
 
     @commands.command(aliases=["setLeagueSeasonGroup", "stlg"])
     @commands.guild_only()
