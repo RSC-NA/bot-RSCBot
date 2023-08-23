@@ -902,6 +902,7 @@ class BCManager(commands.Cog):
             accounts_embed.color = tier_role.color
 
         # Thumnail
+        franchise_emoji_url = None
         if franchise_role:
             franchise_emoji_url = await self.team_manager_cog.get_franchise_emoji_url(
                 ctx, franchise_role
@@ -917,7 +918,6 @@ class BCManager(commands.Cog):
                     )
                 )
             )
-
         elif ctx.guild.icon_url:
             accounts_embed.set_thumbnail(url=ctx.guild.icon.url)
 
