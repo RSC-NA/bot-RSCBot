@@ -918,7 +918,7 @@ class BCManager(commands.Cog):
                     )
                 )
             )
-        elif ctx.guild.icon_url:
+        elif ctx.guild.icon:
             accounts_embed.set_thumbnail(url=ctx.guild.icon.url)
 
         # Footer with tracker link. Footer expects string and will not handle `NoneType`
