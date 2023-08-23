@@ -931,7 +931,21 @@ class BCManager(commands.Cog):
 
         # Fetch player accounts
         linked_accounts = []
-        for acc in await self.get_player_accounts(player):
+
+        # Fetch results from RSC Members API endpoint
+        try:
+            player_accounts = await self.get_player_accounts(player)
+        except aiohttp.ClientConnectionError as exc:
+            log.error(f"Error connecting to RSC members API: {type(exc)} {exc}")
+            error_embed = discord.Embed(
+                title=f"{player.nick if player.nick else player.name}'s Accounts",
+                description=f"Error connecting to RSC Members API.\n\n{url}",
+                color=discord.Color.red()
+            )
+            await msg.edit(embed=error_embed)
+            return
+
+        for acc in player_accounts:
             log.debug(f"Account found: {acc}")
             platform = acc.get("platform").lower()
             plat_id = acc.get("platform_id")

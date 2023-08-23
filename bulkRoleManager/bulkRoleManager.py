@@ -12,6 +12,8 @@ from redbot.core.utils.menus import start_adding_reactions
 from dmHelper import DMHelper
 from teamManager import TeamManager
 
+from typing import NoReturn
+
 log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
 defaults = {"DraftEligibleMessage": None, "PermFAMessage": None}
@@ -42,34 +44,51 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     async def getAllWithRole(
-        self, ctx, role: discord.Role, getNickname: bool = False
+        self, ctx, role: discord.Role, nickname: bool = False
     ) -> None:
         """Prints out a list of members with the specific role"""
         count = 0
         messages = []
         message = ""
         await ctx.send("Players with {0} role:\n".format(role.name))
+        # Check if role has any members first
+        if len(role.members) == 0:
+            noUsersEmbed = discord.Embed(
+                title="Results",
+                description=f"Nobody has the **{role.name}** role.",
+                color=discord.Color.orange()
+            )
+            noUsersEmbed.set_footer(text="Found 0 user(s) in total.")
+            await ctx.send(embed=noUsersEmbed)
+            return
+
+        # Debug data for message splitting.
+        total_len_display = sum(len(i.display_name) for i in role.members)
+        total_len_name = sum(len(i.name) for i in role.members)
+        total_len_id = sum(len(str(i.id)) for i in role.members)
+
+        log.debug(f"role.members length. Display Name: {total_len_display} Username: {total_len_name} ")
+
         for member in role.members:
-            if getNickname:
-                message += "{0.nick}: {0.name}#{0.discriminator}\n".format(member)
+            if nickname:
+                message += "{0.display_name}\n".format(member)
             else:
                 message += "{0.name}#{0.discriminator}\n".format(member)
+            # Not sure how we would have a message > 1900 characters. 
             if len(message) > 1900:
                 messages.append(message)
                 message = ""
             count += 1
-        if count == 0:
-            await ctx.send("Nobody has the {0} role".format(role.name))
-        else:
-            if message:
-                messages.append(message)
-            for msg in messages:
-                await ctx.send("{0}{1}{0}".format("```", msg))
-            await ctx.send(
-                ":white_check_mark: {0} player(s) have the {1} role".format(
-                    count, role.name
-                )
+
+        if message:
+            messages.append(message)
+        for msg in messages:
+            await ctx.send("{0}{1}{0}".format("```", msg))
+        await ctx.send(
+            ":white_check_mark: {0} player(s) have the {1} role".format(
+                count, role.name
             )
+        )
 
     @commands.command()
     @commands.guild_only()
@@ -80,12 +99,22 @@ class BulkRoleManager(commands.Cog):
         log.debug(f"Matches: {matches}")
 
         if not matches:
-            await ctx.send("No users intersect those roles.")
-            return None
+            noUsersEmbed = discord.Embed(
+                title="Members with Intersecting Roles",
+                description="No users intersect those roles.",
+                color=discord.Color.orange()
+            )
+            await ctx.send(embed=noUsersEmbed)
+            return 
 
         embed = discord.Embed(
             color=discord.Color.blue(),
-            title="Members with intersecting roles",
+            title="Members with Intersecting Roles",
+        )
+        embed.add_field(
+            name="Name",
+            value="\n".join([f"{p.display_name}" for p in matches]),
+            inline=True
         )
         embed.add_field(
             name="Discord",
@@ -102,28 +131,60 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def removeRoleFromAll(self, ctx, role: discord.Role):
+    async def removeRoleFromAll(self, ctx, role: discord.Role) -> None:
         """Removes the role from every member who has it in the server"""
         empty = True
+        # Check if role has no members.
+        if len(role.members) == 0:
+            noUsersEmbed = discord.Embed(
+                title="Results",
+                description=f"Nobody has the **{role.name}** role.",
+                color=discord.Color.orange()
+            )
+            noUsersEmbed.set_footer(text="0 user(s) had role removed.")
+            await ctx.send(embed=noUsersEmbed)
+            return
+
+        # Essentially a "loading" embed. Adding role to everyone takes time.
+        working_embed = discord.Embed(
+            title="Working",
+            description="Removing role from all users. This can take a bit...",
+            color=discord.Color.yellow()
+        )
+        msg = await ctx.reply(embed=working_embed)
+
+        # Create embed before role is altered.
+        removedEmbed = discord.Embed(
+            title="Role Removed",
+            description=f"Removed {role.name} from everyone in the server.",
+            color=discord.Color.blue()
+        )
+        removedEmbed.set_footer(text=f"{len(role.members)} user(s) had role removed.")
+
+        # Remove role from all members.
         for member in role.members:
             await member.remove_roles(role)
-            empty = False
-        if empty:
-            await ctx.send(":x: Nobody had the {0} role".format(role.mention))
-        else:
-            await ctx.send(
-                ":white_check_mark: {0} role removed from everyone in the server".format(
-                    role.name
-                )
-            )
+
+        await msg.edit(embed=removedEmbed)
 
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
     async def addRoleToEveryone(self, ctx, role: discord.Role):
+        """ Add a role to everyone in the server. """
         added = 0
         had = 0
         failed = 0
+        
+        # Essentially a "loading" embed. Adding role to everyone takes time.
+        working_embed = discord.Embed(
+            title="Working",
+            description="Adding role to all users. This can take a bit...",
+            color=discord.Color.yellow()
+        )
+        msg = await ctx.reply(embed=working_embed)
+
+        # Loop through all members of guild and add role.
         for member in ctx.guild.members:
             try:
                 if role in member.roles:
@@ -131,11 +192,18 @@ class BulkRoleManager(commands.Cog):
                 else:
                     await member.add_roles(role)
                     added += 1
-            except:
+            except Exception as exc:
+                log.error(f"Failed to add {role.name} to {member.id}: {type(exc)} {exc}")
                 failed += 1
-        await ctx.reply(
-            f"Added role {role.name} to {added} members in this server. ({had} already had it, and {failed} failed."
+        
+        # Edit "loading" message in place with result.
+        role_embed = discord.Embed(
+            title="Role Added",
+            description=f"Added {role.name} to everyone in {ctx.guild.name}",
+            color=discord.Color.blue()
         )
+        role_embed.set_footer(text=f"{(added + had)}/{len(ctx.guild.members)} users had role applied. {failed} failure(s).")
+        await msg.edit(embed=role_embed)
 
     @commands.command()
     @commands.guild_only()
@@ -145,8 +213,18 @@ class BulkRoleManager(commands.Cog):
         empty = True
         added = 0
         had = 0
-        notFound = 0
-        message = ""
+        failed = 0
+        not_found_list = []
+        unknown_error_list = []
+
+        # Essentially a "loading" embed. Adding role to everyone takes time.
+        working_embed = discord.Embed(
+            title="Working",
+            description="Adding role to users. This can take a bit...",
+            color=discord.Color.yellow()
+        )
+        msg = await ctx.send(embed=working_embed)
+
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
@@ -157,24 +235,26 @@ class BulkRoleManager(commands.Cog):
                     else:
                         had += 1
                     empty = False
-            except:
-                if notFound == 0:
-                    message += "Couldn't find:\n"
-                message += "{0}\n".format(user)
-                notFound += 1
-        if empty:
-            message += ":x: Nobody was given the role {0}".format(role.name)
-        else:
-            message += ":white_check_mark: {0} role given to everyone that was found from list".format(
-                role.name
-            )
-        if notFound > 0:
-            message += ". {0} user(s) were not found".format(notFound)
-        if had > 0:
-            message += ". {0} user(s) already had the role".format(had)
-        if added > 0:
-            message += ". {0} user(s) had the role added to them".format(added)
-        await ctx.send(message)
+            except discord.ext.commands.errors.MemberNotFound:
+                not_found_list.append(user)
+                failed += 1
+            except Exception as exc:
+                log.error(f"Failed to add {role.name} to {member.id}: {type(exc)} {exc}")
+                unknown_error_list.append(user)
+                failed += 1
+
+        # Update embed in place
+        role_embed = discord.Embed(
+            title="Role Added",
+            description=f"Added {role.name} to specified user(s).",
+            color=discord.Color.blue()
+        )
+        if len(not_found_list) > 0:
+            role_embed.add_field(name="Not Found", value="\n".join(not_found_list), inline=True)
+        if len(unknown_error_list) > 0:
+            role_embed.add_field(name="Error", value="\n".join(unknown_error_list), inline=True)
+        role_embed.set_footer(text=f"{(added + had)}/{len(ctx.guild.members)} users had role applied. {failed} failure(s).")
+        await msg.edit(embed=role_embed)
 
     @commands.command()
     @commands.guild_only()
