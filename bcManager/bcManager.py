@@ -2401,8 +2401,8 @@ class BCManager(commands.Cog):
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(
                 ctx, team_name
             )
-            team_members = self.team_manager_cog.members_from_team(
-                ctx, franchise_role, tier_role
+            team_members = await self.team_manager_cog.members_from_team(
+                franchise_role, tier_role
             )
             all_players += team_members
 

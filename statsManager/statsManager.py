@@ -260,7 +260,7 @@ class StatsManager(commands.Cog):
         embed.add_field(name="Team Info", value=team_info, inline=False)
 
         # Current Roster
-        roster = self.team_manager.members_from_team(ctx, franchise_role, tier_role)
+        roster = await self.team_manager.members_from_team(franchise_role, tier_role)
         roster_str = "```\n{}\n```".format('\n'.join(player.nick for player in roster))
         embed.add_field(name="Current Roster", value=roster_str, inline=False)
 

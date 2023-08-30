@@ -382,7 +382,7 @@ class Transactions(commands.Cog):
                     # Removed subbed out role from all team members on team
                     subbed_out_role = self.team_manager_cog._find_role_by_name(ctx, self.SUBBED_OUT_ROLE)
                     if subbed_out_role:
-                        team_members = self.team_manager_cog.members_from_team(ctx, franchise_role, team_tier_role)
+                        team_members = await self.team_manager_cog.members_from_team(franchise_role, team_tier_role)
                         for team_member in team_members:
                             await team_member.remove_roles(subbed_out_role)
                     # Reset player temp rating if the player rating cog is used
