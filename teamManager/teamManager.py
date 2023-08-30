@@ -413,9 +413,19 @@ class TeamManager(commands.Cog):
         # Franchise Identifier
         franchise_data = await self._get_franchise_data(ctx, franchise_tier_identifier)
         if franchise_data:
-            franchise_role, gm_name, franchise_prefix, franchise_name = franchise_data
-            await ctx.send(embed=await self._format_teams_for_franchise(ctx, franchise_role))
+            try:
+                franchise_role, gm_name, franchise_prefix, franchise_name = franchise_data
+                await ctx.send(embed=await self._format_teams_for_franchise(ctx, franchise_role))
+            except LookupError as exc:
+                err_embed = discord.Embed(
+                    title="Error",
+                    description=f"{exc}",
+                    color=discord.Color.red()
+                )
+                await ctx.send(embed=err_embed)
             return
+
+                
 
         # Tier
         tiers = await self.tiers(ctx)
