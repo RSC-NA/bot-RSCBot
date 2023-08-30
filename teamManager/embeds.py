@@ -11,7 +11,6 @@ class ErrorEmbed(discord.Embed):
             **kwargs
         )
 
-
 class TimeoutEmbed(discord.Embed):
     """ Timeout Embed for Views """
     def __init__(self, author: Union[discord.Member, discord.User], **kwargs):
