@@ -207,7 +207,7 @@ class PrefixManager(commands.Cog):
             gm_name = re.findall(r'(?<=\().*(?=\))', franchise_role.name)[0]
             return prefixes[gm_name]
         except:
-            raise LookupError('GM name not found from role {0}'.format(franchise_role.name))
+            raise LookupError('GM name not found from {0}'.format(franchise_role.name))
 
     async def _prefixes(self, ctx):
         return await self.config.guild(ctx.guild).Prefixes()
