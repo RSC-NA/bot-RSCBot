@@ -273,8 +273,8 @@ class Match(commands.Cog):
         opposing_team = match_data['home'] if team_name == match_data['away'] else match_data['away']
 
         opp_franchise_role, tier_role = await self.team_manager._roles_for_team(ctx, opposing_team)
-        opposing_roster = self.team_manager.members_from_team(
-            ctx, opp_franchise_role, tier_role)
+        opposing_roster = await self.team_manager.members_from_team(
+            opp_franchise_role, tier_role)
 
         if not opposing_roster:
             await ctx.message.add_reaction("\U0000274C")
