@@ -10,6 +10,8 @@ from teamManager import TeamManager
 from prefixManager import PrefixManager
 from dmHelper import DMHelper
 
+from transactions.embeds import ErrorEmbed
+
 from typing import NoReturn
 
 log = logging.getLogger("red.RSCBot.transactions")
@@ -353,7 +355,7 @@ class Transactions(commands.Cog):
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_roles=True)
-    async def sub(self, ctx, user: discord.Member, team_name: str, subbed_out_user: discord.Member = None):
+    async def sub(self, ctx, user: discord.Member, team_name: str, subbed_out_user: discord.Member = None) -> NoReturn:
         """
         Adds the team roles to the user and posts to the assigned transaction channel
 
@@ -361,57 +363,64 @@ class Transactions(commands.Cog):
         trans_channel = await self._trans_channel(ctx)
         free_agent_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
         perm_fa_role = self.team_manager_cog._find_role_by_name(ctx, "permFA")
-        if trans_channel:
-            leagueRole = self.team_manager_cog._find_role_by_name(ctx, self.LEAGUE_ROLE)
-            if leagueRole:
-                franchise_role, team_tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
+        # Check for transaction channel
+        if not trans_channel:
+            await ctx.send(embed=ErrorEmbed(description="Transaction channel is not configured for this server."))
+            return
 
-                # End Substitution
-                if franchise_role in user.roles and team_tier_role in user.roles:
-                    if list(set([free_agent_role, perm_fa_role]) & set(user.roles)):
-                        await user.remove_roles(franchise_role)
-                        team_tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, "{0}FA".format(team_tier_role))
-                        if not team_tier_fa_role in user.roles:
-                            player_tier = await self.get_tier_role_for_fa(ctx, user)
-                            await user.remove_roles(team_tier_role)
-                            await user.add_roles(player_tier)
-                    else:
-                        await user.remove_roles(team_tier_role)
-                    gm = self._get_gm_name(ctx, franchise_role, True)
-                    message = f"{user.name} has finished their time as a substitute for the {team_name} ({gm} - {team_tier_role.name})"
-                    # Removed subbed out role from all team members on team
-                    subbed_out_role = self.team_manager_cog._find_role_by_name(ctx, self.SUBBED_OUT_ROLE)
-                    if subbed_out_role:
-                        team_members = await self.team_manager_cog.members_from_team(franchise_role, team_tier_role)
-                        for team_member in team_members:
-                            await team_member.remove_roles(subbed_out_role)
-                    # Reset player temp rating if the player rating cog is used
-                    player_ratings = self.bot.get_cog("PlayerRatings")
-                    if player_ratings:
-                        await player_ratings.reset_temp_rating(ctx, user)
+        # Check if "League" role exists
+        leagueRole = self.team_manager_cog._find_role_by_name(ctx, self.LEAGUE_ROLE)
+        if not leagueRole:
+            await ctx.send(embed=ErrorEmbed(description="League role not found in this server."))
+            return
 
-                # Begin Substitution:
-                else:
-                    if list(set([free_agent_role, perm_fa_role]) & set(user.roles)):
-                        player_tier = await self.get_tier_role_for_fa(ctx, user)
-                        await user.remove_roles(player_tier)
-                    await user.add_roles(franchise_role, team_tier_role, leagueRole)
-                    gm = self._get_gm_name(ctx, franchise_role)
-                    if subbed_out_user:
-                        message = f"{user.mention} was signed to a temporary contract by {team_name}, subbing for {subbed_out_user.name} ({gm} - {team_tier_role.name})"
-                    else:
-                        message = f"{user.mention} was signed to a temporary contract by {team_name} ({gm} - {team_tier_role.name})"
-                    # Give subbed out user the subbed out role if there is one
-                    subbed_out_role = self.team_manager_cog._find_role_by_name(ctx, self.SUBBED_OUT_ROLE)
-                    if subbed_out_user and subbed_out_role:
-                        await subbed_out_user.add_roles(subbed_out_role)
-                        player_ratings = self.bot.get_cog("PlayerRatings")
-                        if player_ratings:
-                            await player_ratings.set_player_temp_rating(ctx, user, subbed_out_user)
-                    elif subbed_out_user:
-                        await ctx.send(":x: The subbed out role is not set in this server")
-                await trans_channel.send(message)
-                await ctx.send("Done")
+        franchise_role, team_tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
+        # End Substitution
+        if franchise_role in user.roles and team_tier_role in user.roles:
+            if list(set([free_agent_role, perm_fa_role]) & set(user.roles)):
+                await user.remove_roles(franchise_role)
+                team_tier_fa_role = self.team_manager_cog._find_role_by_name(ctx, "{0}FA".format(team_tier_role))
+                if not team_tier_fa_role in user.roles:
+                    player_tier = await self.get_tier_role_for_fa(ctx, user)
+                    await user.remove_roles(team_tier_role)
+                    await user.add_roles(player_tier)
+            else:
+                await user.remove_roles(team_tier_role)
+            gm = self._get_gm_name(ctx, franchise_role, True)
+            message = f"{user.display_name} has finished their time as a substitute for the {team_name} ({gm} - {team_tier_role.name})"
+            # Removed subbed out role from all team members on team
+            subbed_out_role = self.team_manager_cog._find_role_by_name(ctx, self.SUBBED_OUT_ROLE)
+            if subbed_out_role:
+                team_members = await self.team_manager_cog.members_from_team(franchise_role, team_tier_role)
+                for team_member in team_members:
+                    await team_member.remove_roles(subbed_out_role)
+            # Reset player temp rating if the player rating cog is used
+            player_ratings = self.bot.get_cog("PlayerRatings")
+            if player_ratings:
+                await player_ratings.reset_temp_rating(ctx, user)
+
+        # Begin Substitution:
+        else:
+            if list(set([free_agent_role, perm_fa_role]) & set(user.roles)):
+                player_tier = await self.get_tier_role_for_fa(ctx, user)
+                await user.remove_roles(player_tier)
+            await user.add_roles(franchise_role, team_tier_role, leagueRole)
+            gm = self._get_gm_name(ctx, franchise_role)
+            if subbed_out_user:
+                message = f"{user.mention} was signed to a temporary contract by {team_name}, subbing for {subbed_out_user.mention} ({gm} - {team_tier_role.name})"
+            else:
+                message = f"{user.mention} was signed to a temporary contract by {team_name} ({gm} - {team_tier_role.name})"
+            # Give subbed out user the subbed out role if there is one
+            subbed_out_role = self.team_manager_cog._find_role_by_name(ctx, self.SUBBED_OUT_ROLE)
+            if subbed_out_user and subbed_out_role:
+                await subbed_out_user.add_roles(subbed_out_role)
+                player_ratings = self.bot.get_cog("PlayerRatings")
+                if player_ratings:
+                    await player_ratings.set_player_temp_rating(ctx, user, subbed_out_user)
+            elif subbed_out_user:
+                await ctx.send(embed=ErrorEmbed(description="The subbed out role is not configured in this server."))
+        await trans_channel.send(message)
+        await ctx.send("Done")
 
     @commands.guild_only()
     @commands.command()
