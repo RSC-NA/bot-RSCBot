@@ -774,7 +774,7 @@ class TeamManager(commands.Cog):
         if franchise_identifier in self._get_all_franchise_roles(ctx):
             franchise_found = True
             franchise_role = franchise_identifier
-            gm_name = self._get_gm_name(franchise_role)
+            gm_name = await self._get_gm_name(franchise_role)
             franchise_prefix = await self.prefix_cog._get_gm_prefix(ctx, gm_name)
             franchise_name = self.get_franchise_name_from_role(franchise_role)
 
@@ -800,7 +800,7 @@ class TeamManager(commands.Cog):
             if franchise_role:
                 franchise_found = True
                 franchise_name = self.get_franchise_name_from_role(franchise_role)
-                gm_name = self._get_gm_name(franchise_role)
+                gm_name = await self._get_gm_name(franchise_role)
                 franchise_prefix = await self.prefix_cog._get_gm_prefix(ctx, gm_name)
 
         if franchise_found:
@@ -902,7 +902,7 @@ class TeamManager(commands.Cog):
         team_names = []
         team_tiers = []
 
-        gm = self._get_gm(ctx, franchise_role)
+        gm = await self._get_gm(ctx, franchise_role)
         message = "**General Manager:** {0}".format(gm.mention)
         if teams:
             for team in teams:
@@ -956,7 +956,7 @@ class TeamManager(commands.Cog):
             if captain:
                 captains.append((captain, team))
             else:
-                gm = self._get_gm(ctx, franchise_role)
+                gm = await self._get_gm(ctx, franchise_role)
                 captainless_teams.append((gm, team))
 
         # dumb.
@@ -1356,7 +1356,7 @@ class TeamManager(commands.Cog):
 
     async def _get_franchise_emoji(self, ctx, franchise_role):
         prefix = await self.prefix_cog._get_franchise_prefix(ctx, franchise_role)
-        gm_name = self._get_gm_name(franchise_role)
+        gm_name = await self._get_gm_name(franchise_role)
         if prefix:
             for emoji in ctx.guild.emojis:
                 lower_emoji = emoji.name.lower()
@@ -1376,12 +1376,12 @@ class TeamManager(commands.Cog):
         return None
 
     # TODO: remove unused ctx - must remove from other references
-    def _get_gm(self, ctx, franchise_role: discord.Role):
+    async def _get_gm(self, ctx, franchise_role: discord.Role):
         for member in franchise_role.members:
             if self.is_gm(member):
                 return member
 
-    def _get_gm_name(self, franchise_role):
+    async def _get_gm_name(self, franchise_role):
         try:
             return re.findall(r"(?<=\().*(?=\))", franchise_role.name)[0]
         except:
