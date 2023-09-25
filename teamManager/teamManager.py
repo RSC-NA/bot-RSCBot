@@ -902,7 +902,7 @@ class TeamManager(commands.Cog):
         team_names = []
         team_tiers = []
 
-        gm = await self._get_gm(ctx, franchise_role)
+        gm = await self._get_gm(franchise_role)
         message = "**General Manager:** {0}".format(gm.mention)
         if teams:
             for team in teams:
@@ -956,7 +956,7 @@ class TeamManager(commands.Cog):
             if captain:
                 captains.append((captain, team))
             else:
-                gm = await self._get_gm(ctx, franchise_role)
+                gm = await self._get_gm(franchise_role)
                 captainless_teams.append((gm, team))
 
         # dumb.
@@ -1375,13 +1375,12 @@ class TeamManager(commands.Cog):
 
         return None
 
-    # TODO: remove unused ctx - must remove from other references
-    async def _get_gm(self, ctx, franchise_role: discord.Role):
+    async def _get_gm(self, franchise_role: discord.Role) -> discord.Member:
         for member in franchise_role.members:
             if self.is_gm(member):
                 return member
 
-    async def _get_gm_name(self, franchise_role):
+    async def _get_gm_name(self, franchise_role: discord.Role):
         try:
             return re.findall(r"(?<=\().*(?=\))", franchise_role.name)[0]
         except:

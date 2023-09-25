@@ -127,7 +127,7 @@ class Transactions(commands.Cog):
                 # gm_name = await self.team_manager_cog._get_gm_name(franchise_role)
                 # franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
                 # gm: discord.Member = self.team_manager_cog._find_member_by_name(ctx, gm_name)
-                gm: discord.Member = await self.team_manager_cog._get_gm(ctx, franchise_role)
+                gm: discord.Member = await self.team_manager_cog._get_gm(franchise_role)
 
                 # performs role updates
                 await member.remove_roles(*removable_roles)
@@ -654,7 +654,7 @@ class Transactions(commands.Cog):
         return tier_role
 
     async def _get_gm_name(self, ctx, franchise_role, returnNameAsString=False):
-        gm = await self.team_manager_cog._get_gm(ctx, franchise_role)
+        gm = await self.team_manager_cog._get_gm(franchise_role)
         if gm:
             if returnNameAsString:
                 return gm.name
