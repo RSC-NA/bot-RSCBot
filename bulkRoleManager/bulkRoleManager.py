@@ -50,7 +50,6 @@ class BulkRoleManager(commands.Cog):
         count = 0
         messages = []
         message = ""
-        await ctx.send("Players with {0} role:\n".format(role.name))
         # Check if role has any members first
         if len(role.members) == 0:
             noUsersEmbed = discord.Embed(
@@ -82,6 +81,8 @@ class BulkRoleManager(commands.Cog):
 
         if message:
             messages.append(message)
+
+        await ctx.send("Players with **{0}** role:\n".format(role.name))
         for msg in messages:
             await ctx.send("{0}{1}{0}".format("```", msg))
         await ctx.send(
