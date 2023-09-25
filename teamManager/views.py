@@ -70,7 +70,8 @@ class AddFranchiseView(discord.ui.View):
 
         if franchise_role:
             await self.gm.add_roles(gm_role, franchise_role)
-            await self.cog.prefix_cog.add_prefix(self.ctx, self.gm.name, self.prefix)
+            prefix_cog = self.cog.bot.get_cog("PrefixManager")
+            await prefix_cog.add_prefix(self.ctx, self.gm.name, self.prefix)
             await self.cog._set_user_nickname_prefix(self.ctx, self.prefix, self.gm)
             success_embed = discord.Embed(
                 title="Success",

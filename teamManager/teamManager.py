@@ -391,7 +391,8 @@ class TeamManager(commands.Cog):
         embed.add_field(
             name="General Manager", value="{}\n".format("\n".join(gms)), inline=True
         )
-        embed.set_thumbnail(url=ctx.guild.icon.url)
+        if ctx.guild.icon.url:
+            embed.set_thumbnail(url=ctx.guild.icon.url)
         await ctx.send(embed=embed)
 
     @commands.command()
