@@ -12,12 +12,13 @@ from dmHelper import DMHelper
 
 from transactions.embeds import ErrorEmbed
 
-from typing import NoReturn
+from typing import NoReturn, Optional
 
 log = logging.getLogger("red.RSCBot.transactions")
 
 defaults = {
     "TransChannel": None,
+    "TransLogChannel": None,
     "CutMessage": None,
     "ContractExpirationMessage": stringTemplates.contract_expiration_msg
 }
@@ -507,57 +508,108 @@ class Transactions(commands.Cog):
         for embed in embeds:
             await ctx.send(embed=embed)
 
-    @commands.guild_only()
-    @commands.command(aliases=["setTransChannel", "setTransactionsChannel"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setTransactionChannel(self, ctx, trans_channel: discord.TextChannel):
-        """Sets the channel where all transaction messages will be posted"""
-        await self._save_trans_channel(ctx, trans_channel.id)
-        await ctx.send("Done")
 
     @commands.guild_only()
-    @commands.command(aliases=["getTransChannel"])
+    @commands.group(name="transactions", aliases=["trans"])
     @checks.admin_or_permissions(manage_guild=True)
-    async def getTransactionChannel(self, ctx):
-        """Gets the channel currently assigned as the transaction channel"""
-        try:
-            await ctx.send("Transaction log channel set to: {0}".format((await self._trans_channel(ctx)).mention))
-        except:
-            await ctx.send(":x: Transaction log channel not set")
+    async def _transactions(self, ctx: commands.Context) -> NoReturn:
+        """ Display or configure transaction cog settings """
+        pass
 
-    @commands.guild_only()
-    @commands.command(aliases=["unsetTransChannel"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def unsetTransactionChannel(self, ctx):
-        """Unsets the transaction channel. Transactions will not be performed if no transaction channel is set"""
-        await self._save_trans_channel(ctx, None)
-        await ctx.send("Done")
+    @_transactions.command(name="settings")
+    async def _show_transactions_settings(self, ctx: commands.Context):
+        """ Show transactions settings """
+        log_channel = await self._trans_log_channel(ctx)
+        trans_channel = await self._trans_channel(ctx)
+        cut_msg = await self._get_cut_message(ctx.guild)
+        settings_embed = discord.Embed(
+             title="Transactions Settings",
+             description="Current configuration for Transactions Cog.",
+             color=discord.Color.blue()
+        )
 
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setCutMessage(self, ctx, *, cut_message: str):
-        """Sets the message to be sent to players when they are cut."""
-        await self._save_cut_message(ctx.guild, cut_message)
-        await ctx.send("Done")
-
-    @commands.guild_only()
-    @commands.command(aliases=["clearCutMessage"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def unsetCutMessage(self, ctx):
-        """Clears the cut message. When a cut message is not set, cut players will not receive a DM from the bot."""
-        await self._save_cut_message(ctx.guild, None)
-        await ctx.send("Done")
-
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def getCutMessage(self, ctx):
-        embed = await self.get_cut_embed(ctx, ctx.author, "{franchise_name}", "{gm}", "{team_name}", "{tier_name}")
-        if embed:
-            await ctx.send(embed=embed)
+        # Check channel values before mention to avoid exception
+        if trans_channel: 
+            settings_embed.add_field(name="Transaction Channel", value=trans_channel.mention or "None", inline=False)
         else:
-            await ctx.send(":x: No cut message has been set.")
+            settings_embed.add_field(name="Transaction Channel", value="None", inline=False)
+
+        if log_channel:
+            settings_embed.add_field(name="Log Channel", value=log_channel.mention, inline=False)
+        else:
+            settings_embed.add_field(name="Log Channel", value="None", inline=False)
+        
+        settings_embed.add_field(name="Cut Message", value=cut_msg or "None", inline=False)
+
+        await ctx.send(embed=settings_embed)
+
+    @_transactions.command(name="channel")
+    async def _set_transactions_channel(self, ctx: commands.Context, trans_channel: discord.TextChannel):
+        """ Set transaction channel """
+        await self._save_trans_channel(ctx, trans_channel.id)
+        await ctx.send(embed=discord.Embed(
+            title="Success",
+            description=f"Transaction channel configured to {trans_channel.mention}",
+            color=discord.Color.green()
+        ))
+
+    @_transactions.command(name="log")
+    async def _set_transactions_logchannel(self, ctx: commands.Context, log_channel: discord.TextChannel):
+        """ Set transactions log channel """
+        await self._save_trans_log_channel(ctx, log_channel.id)
+        await ctx.send(embed=discord.Embed(
+            title="Success",
+            description=f"Transaction log channel configured to {log_channel.mention}",
+            color=discord.Color.green()
+        ))
+
+    @_transactions.command(name="cutmsg")
+    async def _set_cut_msg(self, ctx: commands.Context, *, msg: str):
+        """ Set cut message (Must be less than 3500 characters)"""
+        if len(msg) > 3500:
+            await ctx.send(embed=ErrorEmbed(description=f"Cut message must be less than 3500 characters. (Length: {len(msg)})"))
+            return
+
+        await self._save_cut_message(ctx.guild, msg) 
+        await ctx.send(embed=discord.Embed(
+            title="Success",
+            description=f"New Cut Message:\n\n{msg}",
+            color=discord.Color.green()
+        ))
+
+    @_transactions.group(name="unset")
+    async def _transactions_unset(self, ctx: commands.Context) -> NoReturn:
+        """ Command group for removing configuration options """
+        pass
+
+    @_transactions_unset.command(name="channel")
+    async def _unset_trans_channel(self, ctx: commands.Context):
+        """ Remove configured transaction channel. """
+        await self._save_trans_channel(ctx, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="Transaction channel has been unset.",
+            color=discord.Color.orange()
+        ))
+
+    @_transactions_unset.command(name="log")
+    async def _unset_trans_log_channel(self, ctx: commands.Context):
+        """ Remove configured log channel. """
+        await self._save_trans_log_channel(ctx, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="Transaction log channel has been unset.",
+            color=discord.Color.orange()
+        ))
+
+    @_transactions_unset.command(name="cutmsg")
+    async def _unset_cut_msg(self, ctx: commands.Context):
+        await self._save_cut_message(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="Cut message has been unset.",
+            color=discord.Color.orange()
+        ))
 
 # endregion
 
@@ -718,8 +770,16 @@ class Transactions(commands.Cog):
     async def _trans_channel(self, ctx):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).TransChannel())
 
-    async def _save_trans_channel(self, ctx, trans_channel):
+    async def _save_trans_channel(self, ctx, trans_channel: Optional[int]):
         await self.config.guild(ctx.guild).TransChannel.set(trans_channel)
+
+    # Add typing
+    async def _trans_log_channel(self, ctx) -> discord.TextChannel:
+        return ctx.guild.get_channel(await self.config.guild(ctx.guild).TransLogChannel())
+
+    # Add typing
+    async def _save_trans_log_channel(self, ctx, trans_log_channel: Optional[int]):
+        await self.config.guild(ctx.guild).TransLogChannel.set(trans_log_channel)
 
     async def _get_cut_message(self, guild):
         return await self.config.guild(guild).CutMessage()
