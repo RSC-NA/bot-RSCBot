@@ -124,10 +124,10 @@ class Transactions(commands.Cog):
                 if len(teams) <= 0:
                     continue
                 team = teams[0] 
-                # gm_name = self.team_manager_cog._get_gm_name(franchise_role)
+                # gm_name = await self.team_manager_cog._get_gm_name(franchise_role)
                 # franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
                 # gm: discord.Member = self.team_manager_cog._find_member_by_name(ctx, gm_name)
-                gm: discord.Member = self.team_manager_cog._get_gm(ctx, franchise_role)
+                gm: discord.Member = await self.team_manager_cog._get_gm(franchise_role)
 
                 # performs role updates
                 await member.remove_roles(*removable_roles)
@@ -175,7 +175,7 @@ class Transactions(commands.Cog):
     async def draft(self, ctx, user: discord.Member, team_name: str, round: int = None, pick: int = None):
         """Assigns the franchise, tier, and league role to a user when they are drafted and posts to the assigned channel"""
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
-        gm_name = self._get_gm_name(ctx, franchise_role)
+        gm_name = await self._get_gm_name(franchise_role)
         if franchise_role in user.roles:
             message = "Round {0} Pick {1}: {2} was kept by {3} ({4} - {5})".format(
                 round, pick, user.mention, team_name, gm_name, tier_role.name)
@@ -239,7 +239,7 @@ class Transactions(commands.Cog):
                 if len(free_agent_roles) > 0:
                     for role in free_agent_roles:
                         await user.remove_roles(role)
-                gm_name = self._get_gm_name(ctx, franchise_role)
+                gm_name = await self._get_gm_name(franchise_role)
                 message = "{0} was signed by {1} ({2} - {3})".format(
                     user.mention, team_name, gm_name, tier_role.name)
                 await trans_channel.send(message)
@@ -263,7 +263,7 @@ class Transactions(commands.Cog):
             await ctx.send(embed=errorEmbed)
             return None
         trans_channel = await self._trans_channel(ctx)
-        gm_name = self._get_gm_name(ctx, franchise_role)
+        gm_name = await self._get_gm_name(franchise_role)
         message = "{0} was re-signed by {1} ({2} - {3})".format(
             user.mention, team_name, gm_name, tier_role.name)
 
@@ -310,7 +310,7 @@ class Transactions(commands.Cog):
 
                 await self.team_manager_cog._set_user_nickname_prefix(ctx, "FA", user)
                 await user.add_roles(tier_fa_role, fa_role)
-            gm_name = self._get_gm_name(ctx, franchise_role)
+            gm_name = await self._get_gm_name(franchise_role)
             message = f"{user.mention} was cut by {team_name} ({gm_name} - {tier_role.name})"
             await trans_channel.send(message)
 
@@ -332,8 +332,8 @@ class Transactions(commands.Cog):
         """Swaps the teams of the two players and announces the trade in the assigned channel"""
         franchise_role_1, tier_role_1 = await self.team_manager_cog._roles_for_team(ctx, new_team_name)
         franchise_role_2, tier_role_2 = await self.team_manager_cog._roles_for_team(ctx, new_team_name_2)
-        gm_name_1 = self._get_gm_name(ctx, franchise_role_1)
-        gm_name_2 = self._get_gm_name(ctx, franchise_role_2)
+        gm_name_1 = await self._get_gm_name(franchise_role_1)
+        gm_name_2 = await self._get_gm_name(franchise_role_2)
         if franchise_role_1 in user.roles and tier_role_1 in user.roles:
             await ctx.send(":x: {0} is already on the {1}".format(user.mention, new_team_name))
             return
@@ -386,8 +386,8 @@ class Transactions(commands.Cog):
                     await user.add_roles(player_tier)
             else:
                 await user.remove_roles(team_tier_role)
-            gm = self._get_gm_name(ctx, franchise_role, True)
-            message = f"{user.display_name} has finished their time as a substitute for the {team_name} ({gm} - {team_tier_role.name})"
+            gm = await self._get_gm_name(franchise_role)
+            message = f"{user.mention} has finished their time as a substitute for {team_name} ({gm} - {team_tier_role.name})"
             # Removed subbed out role from all team members on team
             subbed_out_role = self.team_manager_cog._find_role_by_name(ctx, self.SUBBED_OUT_ROLE)
             if subbed_out_role:
@@ -405,7 +405,7 @@ class Transactions(commands.Cog):
                 player_tier = await self.get_tier_role_for_fa(ctx, user)
                 await user.remove_roles(player_tier)
             await user.add_roles(franchise_role, team_tier_role, leagueRole)
-            gm = self._get_gm_name(ctx, franchise_role)
+            gm = await self._get_gm_name(franchise_role)
             if subbed_out_user:
                 message = f"{user.mention} was signed to a temporary contract by {team_name}, subbing for {subbed_out_user.mention} ({gm} - {team_tier_role.name})"
             else:
@@ -438,7 +438,7 @@ class Transactions(commands.Cog):
                 await self.remove_player_from_team(ctx, user, old_team_name)
                 await self.add_player_to_team(ctx, user, team_name)
                 franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
-                gm_name = self._get_gm_name(ctx, franchise_role)
+                gm_name = await self._get_gm_name(franchise_role)
                 message = "{0} was promoted to the {1} ({2} - {3})".format(
                     user.mention, team_name, gm_name, tier_role.name)
                 await trans_channel.send(message)
@@ -653,15 +653,15 @@ class Transactions(commands.Cog):
             ctx, tier_role_name)
         return tier_role
 
-    def _get_gm_name(self, ctx, franchise_role, returnNameAsString=False):
-        gm = self.team_manager_cog._get_gm(ctx, franchise_role)
+    async def _get_gm_name(self, franchise_role, returnNameAsString=False):
+        gm = await self.team_manager_cog._get_gm(franchise_role)
         if gm:
             if returnNameAsString:
                 return gm.name
             else:
                 return gm.mention
         else:
-            return self.team_manager_cog._get_gm_name(franchise_role)
+            return await self.team_manager_cog._get_gm_name(franchise_role)
 
     async def _send_member_message(self, ctx, member, message):
         if not message:
