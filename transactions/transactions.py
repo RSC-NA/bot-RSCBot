@@ -1,5 +1,6 @@
 import discord
 import logging
+import datetime
 
 from redbot.core import Config
 from redbot.core import commands
@@ -12,12 +13,14 @@ from dmHelper import DMHelper
 
 from transactions.embeds import ErrorEmbed
 
-from typing import NoReturn
+from typing import NoReturn, Optional, Tuple, Union
 
 log = logging.getLogger("red.RSCBot.transactions")
 
 defaults = {
     "TransChannel": None,
+    "TransLogChannel": None,
+    "TransRole": None,
     "CutMessage": None,
     "ContractExpirationMessage": stringTemplates.contract_expiration_msg
 }
@@ -51,7 +54,7 @@ class Transactions(commands.Cog):
     async def genericAnnounce(self, ctx, *, message):
         """Posts the message to the transaction log channel"""
         try:
-            trans_channel = await self._trans_channel(ctx)
+            trans_channel = await self._trans_channel(ctx.guild)
             await trans_channel.send(message)
             await ctx.send("Done")
         except KeyError:
@@ -72,7 +75,7 @@ class Transactions(commands.Cog):
             self.team_manager_cog._find_role_by_name(ctx, "Former Player")
         ]
 
-        trans_channel : discord.TextChannel = await self._trans_channel(ctx)
+        trans_channel : discord.TextChannel = await self._trans_channel(ctx.guild)
 
         message = discord.Embed(
             title="Expire Contract Results",
@@ -183,7 +186,7 @@ class Transactions(commands.Cog):
             message = "Round {0} Pick {1}: {2} was drafted by {3} ({4} - {5})".format(
                 round, pick, user.mention, team_name, gm_name, tier_role.name)
 
-        trans_channel = await self._trans_channel(ctx)
+        trans_channel = await self._trans_channel(ctx.guild)
         if trans_channel is not None:
             try:
                 await self.add_player_to_team(ctx, user, team_name)
@@ -231,7 +234,7 @@ class Transactions(commands.Cog):
             await ctx.send(embed=errorEmbed)
             return
 
-        trans_channel = await self._trans_channel(ctx)
+        trans_channel = await self._trans_channel(ctx.guild)
         if trans_channel is not None:
             try:
                 await self.add_player_to_team(ctx, user, team_name)
@@ -262,8 +265,9 @@ class Transactions(commands.Cog):
             )
             await ctx.send(embed=errorEmbed)
             return None
-        trans_channel = await self._trans_channel(ctx)
-        gm_name = await self._get_gm_name(franchise_role)
+
+        trans_channel = await self._trans_channel(ctx.guild)
+        gm_name = self._get_gm_name(franchise_role)
         message = "{0} was re-signed by {1} ({2} - {3})".format(
             user.mention, team_name, gm_name, tier_role.name)
 
@@ -289,7 +293,7 @@ class Transactions(commands.Cog):
     async def cut(self, ctx, user: discord.Member, team_name: str, tier_fa_role: discord.Role = None) -> NoReturn:
         """Removes the team role and franchise role. Adds the free agent prefix and role to a user and posts to the assigned channel"""
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(ctx, team_name)
-        trans_channel = await self._trans_channel(ctx)
+        trans_channel = await self._trans_channel(ctx.guild)
         if not trans_channel:
             ctx.send(":x: Transaction channel is not configured.")
             return 
@@ -341,7 +345,7 @@ class Transactions(commands.Cog):
             await ctx.send(":x: {0} is already on the {1}".format(user_2.mention, new_team_name_2))
             return
 
-        trans_channel = await self._trans_channel(ctx)
+        trans_channel = await self._trans_channel(ctx.guild)
         if trans_channel is not None:
             await self.remove_player_from_team(ctx, user, new_team_name_2)
             await self.remove_player_from_team(ctx, user_2, new_team_name)
@@ -360,7 +364,7 @@ class Transactions(commands.Cog):
         Adds the team roles to the user and posts to the assigned transaction channel
 
         This command is also used to end substitution periods"""
-        trans_channel = await self._trans_channel(ctx)
+        trans_channel = await self._trans_channel(ctx.guild)
         free_agent_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
         perm_fa_role = self.team_manager_cog._find_role_by_name(ctx, "permFA")
         # Check for transaction channel
@@ -433,7 +437,7 @@ class Transactions(commands.Cog):
                 await ctx.send(":x: {0} is not in the same franchise as {1}'s current team, the {2}".format(team_name.name, user.name, old_team_name))
                 return
 
-            trans_channel = await self._trans_channel(ctx)
+            trans_channel = await self._trans_channel(ctx.guild)
             if trans_channel:
                 await self.remove_player_from_team(ctx, user, old_team_name)
                 await self.add_player_to_team(ctx, user, team_name)
@@ -507,57 +511,217 @@ class Transactions(commands.Cog):
         for embed in embeds:
             await ctx.send(embed=embed)
 
-    @commands.guild_only()
-    @commands.command(aliases=["setTransChannel", "setTransactionsChannel"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setTransactionChannel(self, ctx, trans_channel: discord.TextChannel):
-        """Sets the channel where all transaction messages will be posted"""
-        await self._save_trans_channel(ctx, trans_channel.id)
-        await ctx.send("Done")
+    # Listeners
 
-    @commands.guild_only()
-    @commands.command(aliases=["getTransChannel"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def getTransactionChannel(self, ctx):
-        """Gets the channel currently assigned as the transaction channel"""
+    @commands.Cog.listener()
+    async def on_member_remove(self, member: discord.Member):
+        """ Check if a rostered player has left the server and report to tranasction log channel """
+        log.debug(f"Member left guild. Member: {member.display_name} Guild: {member.guild} ")
+        # Return if transaction log channel is not configured
+        guild = member.guild
         try:
-            await ctx.send("Transaction log channel set to: {0}".format((await self._trans_channel(ctx)).mention))
+            log_channel = await self._trans_log_channel(guild)
+            if not log_channel:
+                return
         except:
-            await ctx.send(":x: Transaction log channel not set")
+            log.error("Error fetching transaction log channel.")
+            return
 
-    @commands.guild_only()
-    @commands.command(aliases=["unsetTransChannel"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def unsetTransactionChannel(self, ctx):
-        """Unsets the transaction channel. Transactions will not be performed if no transaction channel is set"""
-        await self._save_trans_channel(ctx, None)
-        await ctx.send("Done")
+        # Only log if the member is currently on a team
+        on_team = self.team_manager_cog.get_current_franchise_role(member)
+        if not on_team:
+            log.debug(f"{member.display_name} left the server but was not on a team.")
+            return
+        
+        log.debug(f"{member.display_name} left the server while rostered on {on_team}. Sending notification.")
+        # Check if user was kicked from server
+        perp, reason = await self.get_audit_log_reason(member.guild, member, discord.AuditLogAction.kick)
 
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setCutMessage(self, ctx, *, cut_message: str):
-        """Sets the message to be sent to players when they are cut."""
-        await self._save_cut_message(ctx.guild, cut_message)
-        await ctx.send("Done")
+        log_embed = discord.Embed(
+            description=f"Player left server while rostered on {on_team.mention}",
+            color=discord.Color.orange(),
+            timestamp=datetime.datetime.now(datetime.timezone.utc)
+        )
 
-    @commands.guild_only()
-    @commands.command(aliases=["clearCutMessage"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def unsetCutMessage(self, ctx):
-        """Clears the cut message. When a cut message is not set, cut players will not receive a DM from the bot."""
-        await self._save_cut_message(ctx.guild, None)
-        await ctx.send("Done")
+        log_embed.add_field(name="Member", value=member.mention, inline=True)
+        log_embed.add_field(name="Member ID", value=str(member.id), inline=True)
 
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def getCutMessage(self, ctx):
-        embed = await self.get_cut_embed(ctx, ctx.author, "{franchise_name}", "{gm}", "{team_name}", "{tier_name}")
-        if embed:
-            await ctx.send(embed=embed)
+        if perp:
+            log_embed.add_field(name="Kicked", value=perp.mention, inline=True)
+        if reason:
+            log_embed.add_field(name="Reason", value=str(reason), inline=False)
+
+        log_embed.set_author(
+            name=f"{member} ({member.id}) has left the guild",
+            url=member.display_avatar,
+            icon_url=member.display_avatar,
+        )
+        log_embed.set_thumbnail(url=member.display_avatar)
+
+        # Ping Transaction Committee if role is configured and send embed to log channel
+        trans_role = await self._trans_role(guild)
+        if trans_role:
+            await log_channel.send(content=trans_role.mention)
+        
+        await log_channel.send(embed=log_embed)
+
+
+    async def get_audit_log_reason(
+        self,
+        guild: discord.Guild,
+        target: Union[discord.abc.GuildChannel, discord.Member, discord.Role, int],
+        action: discord.AuditLogAction,
+    ) -> Tuple[Optional[discord.abc.User], Optional[str]]:
+        """ Retrieve audit log reason for `discord.AuditLogAction` """
+        perp = None
+        reason = None
+        if not isinstance(target, int):
+            target_id = target.id
         else:
-            await ctx.send(":x: No cut message has been set.")
+            target_id = target
+        if guild.me.guild_permissions.view_audit_log:
+            async for log in guild.audit_logs(limit=5, action=action):
+                if not log.target:
+                    continue
+                if log.target.id == target_id:
+                    perp = log.user
+                    if log.reason:
+                        reason = log.reason
+                    break
+        return perp, reason
+
+        
+
+    
+    # Settings
+
+    @commands.guild_only()
+    @commands.group(name="transactions", aliases=["trans"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def _transactions(self, ctx: commands.Context) -> NoReturn:
+        """ Display or configure transaction cog settings """
+        pass
+
+    @_transactions.command(name="settings")
+    async def _show_transactions_settings(self, ctx: commands.Context):
+        """ Show transactions settings """
+        log_channel = await self._trans_log_channel(ctx.guild)
+        trans_channel = await self._trans_channel(ctx.guild)
+        trans_role = await self._trans_role(ctx.guild)
+        cut_msg = await self._get_cut_message(ctx.guild)
+        settings_embed = discord.Embed(
+             title="Transactions Settings",
+             description="Current configuration for Transactions Cog.",
+             color=discord.Color.blue()
+        )
+
+        # Check channel values before mention to avoid exception
+        if trans_channel: 
+            settings_embed.add_field(name="Transaction Channel", value=trans_channel.mention, inline=False)
+        else:
+            settings_embed.add_field(name="Transaction Channel", value="None", inline=False)
+
+        if log_channel:
+            settings_embed.add_field(name="Log Channel", value=log_channel.mention, inline=False)
+        else:
+            settings_embed.add_field(name="Log Channel", value="None", inline=False)
+
+        if trans_role:
+            settings_embed.add_field(name="Committee Role", value=trans_role.mention, inline=False)
+        else:
+            settings_embed.add_field(name="Committee Role", value="None", inline=False)
+        
+        settings_embed.add_field(name="Cut Message", value=cut_msg or "None", inline=False)
+
+        await ctx.send(embed=settings_embed)
+
+    @_transactions.command(name="channel")
+    async def _set_transactions_channel(self, ctx: commands.Context, trans_channel: discord.TextChannel):
+        """ Set transaction channel """
+        await self._save_trans_channel(ctx.guild, trans_channel.id)
+        await ctx.send(embed=discord.Embed(
+            title="Success",
+            description=f"Transaction channel configured to {trans_channel.mention}",
+            color=discord.Color.green()
+        ))
+
+    @_transactions.command(name="log")
+    async def _set_transactions_logchannel(self, ctx: commands.Context, log_channel: discord.TextChannel):
+        """ Set transactions log channel """
+        await self._save_trans_log_channel(ctx.guild, log_channel.id)
+        await ctx.send(embed=discord.Embed(
+            title="Success",
+            description=f"Transaction log channel configured to {log_channel.mention}",
+            color=discord.Color.green()
+        ))
+
+    @_transactions.command(name="role")
+    async def _set_transactions_role(self, ctx: commands.Context, trans_role: discord.Role):
+        """ Set transactions log channel """
+        await self._save_trans_role(ctx.guild, trans_role.id)
+        await ctx.send(embed=discord.Embed(
+            title="Success",
+            description=f"Transaction committee role configured to {trans_role.mention}",
+            color=discord.Color.green()
+        ))
+
+    @_transactions.command(name="cutmsg")
+    async def _set_cut_msg(self, ctx: commands.Context, *, msg: str):
+        """ Set cut message (Must be less than 3500 characters)"""
+        if len(msg) > 3500:
+            await ctx.send(embed=ErrorEmbed(description=f"Cut message must be less than 3500 characters. (Length: {len(msg)})"))
+            return
+
+        await self._save_cut_message(ctx.guild, msg) 
+        await ctx.send(embed=discord.Embed(
+            title="Success",
+            description=f"New Cut Message:\n\n{msg}",
+            color=discord.Color.green()
+        ))
+
+    @_transactions.group(name="unset")
+    async def _transactions_unset(self, ctx: commands.Context) -> NoReturn:
+        """ Command group for removing configuration options """
+        pass
+
+    @_transactions_unset.command(name="channel")
+    async def _unset_trans_channel(self, ctx: commands.Context):
+        """ Remove configured transaction channel. """
+        await self._save_trans_channel(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="Transaction channel has been unset.",
+            color=discord.Color.orange()
+        ))
+
+    @_transactions_unset.command(name="role")
+    async def _unset_trans_role(self, ctx: commands.Context):
+        """ Remove configured transaction channel. """
+        await self._save_trans_role(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="Transaction committee role has been unset.",
+            color=discord.Color.orange()
+        ))
+
+    @_transactions_unset.command(name="log")
+    async def _unset_trans_log_channel(self, ctx: commands.Context):
+        """ Remove configured log channel. """
+        await self._save_trans_log_channel(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="Transaction log channel has been unset.",
+            color=discord.Color.orange()
+        ))
+
+    @_transactions_unset.command(name="cutmsg")
+    async def _unset_cut_msg(self, ctx: commands.Context):
+        await self._save_cut_message(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="Cut message has been unset.",
+            color=discord.Color.orange()
+        ))
 
 # endregion
 
@@ -715,16 +879,31 @@ class Transactions(commands.Cog):
 
 # region json db
 
-    async def _trans_channel(self, ctx):
-        return ctx.guild.get_channel(await self.config.guild(ctx.guild).TransChannel())
+    async def _trans_role(self, guild: discord.Guild) -> Optional[discord.Role]:
+        trans_role_id = await self.config.guild(guild).TransRole()
+        return guild.get_role(trans_role_id)
 
-    async def _save_trans_channel(self, ctx, trans_channel):
-        await self.config.guild(ctx.guild).TransChannel.set(trans_channel)
+    async def _save_trans_role(self, guild: discord.Guild, trans_role_id: Optional[int]):
+        await self.config.guild(guild).TransRole.set(trans_role_id)
 
-    async def _get_cut_message(self, guild):
+    async def _trans_channel(self, guild: discord.Guild) -> Optional[discord.TextChannel]:
+        trans_channel_id = await self.config.guild(guild).TransChannel()
+        return guild.get_channel(trans_channel_id)
+
+    async def _save_trans_channel(self, guild: discord.Guild, trans_channel: Optional[int]):
+        await self.config.guild(guild).TransChannel.set(trans_channel)
+
+    async def _trans_log_channel(self, guild: discord.Guild) -> Optional[discord.TextChannel]:
+        log_channel_id = await self.config.guild(guild).TransLogChannel()
+        return guild.get_channel(log_channel_id)
+
+    async def _save_trans_log_channel(self, guild: discord.Guild, trans_log_channel: Optional[int]):
+        await self.config.guild(guild).TransLogChannel.set(trans_log_channel)
+
+    async def _get_cut_message(self, guild: discord.Guild) -> Optional[str]:
         return await self.config.guild(guild).CutMessage()
 
-    async def _save_cut_message(self, guild, message):
+    async def _save_cut_message(self, guild: discord.Guild, message):
         await self.config.guild(guild).CutMessage.set(message)
 
 # endregion

@@ -1246,7 +1246,7 @@ class TeamManager(commands.Cog):
         for team in teams:
             if await self._roles_for_team(ctx, team) == (franchise_role, tier_role):
                 return team
-        return
+        return None
 
     async def _find_teams_for_franchise(self, ctx, franchise_role):
         franchise_teams = []
