@@ -386,8 +386,8 @@ class Transactions(commands.Cog):
                     await user.add_roles(player_tier)
             else:
                 await user.remove_roles(team_tier_role)
-            gm = self._get_gm_name(ctx, franchise_role, True)
-            message = f"{user.display_name} has finished their time as a substitute for the {team_name} ({gm} - {team_tier_role.name})"
+            gm = self._get_gm_name(ctx, franchise_role)
+            message = f"{user.mention} has finished their time as a substitute for {team_name} ({gm} - {team_tier_role.name})"
             # Removed subbed out role from all team members on team
             subbed_out_role = self.team_manager_cog._find_role_by_name(ctx, self.SUBBED_OUT_ROLE)
             if subbed_out_role:
