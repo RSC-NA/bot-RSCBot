@@ -631,11 +631,18 @@ class Transactions(commands.Cog):
         else:
             settings_embed.add_field(name="Committee Role", value="None", inline=False)
 
-        if len(cut_msg) > 1024:
-            cut_msg = cut_msg[:1024]
-        settings_embed.add_field(name="Cut Message", value=cut_msg or "None", inline=False)
+        # Discord embed field max length is 1024. Send a seperate embed for cut message if greater.
+        if len(cut_msg) <= 1024:
+            settings_embed.add_field(name="Cut Message", value=cut_msg or "None", inline=False)
+            await ctx.send(embed=settings_embed)
+        else:
+            await ctx.send(embed=settings_embed)
+            await ctx.send(embed=discord.Embed(
+                title="Cut Message",
+                description=cut_msg,
+                color=discord.Color.blue()
+            ))
 
-        await ctx.send(embed=settings_embed)
 
     @_transactions.command(name="channel")
     async def _set_transactions_channel(self, ctx: commands.Context, trans_channel: discord.TextChannel):
