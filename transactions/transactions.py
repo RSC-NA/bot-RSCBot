@@ -630,7 +630,9 @@ class Transactions(commands.Cog):
             settings_embed.add_field(name="Committee Role", value=trans_role.mention, inline=False)
         else:
             settings_embed.add_field(name="Committee Role", value="None", inline=False)
-        
+
+        if len(cut_msg) > 1024:
+            cut_msg = cut_msg[:1024]
         settings_embed.add_field(name="Cut Message", value=cut_msg or "None", inline=False)
 
         await ctx.send(embed=settings_embed)
