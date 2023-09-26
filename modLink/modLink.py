@@ -473,7 +473,7 @@ class ModeratorLink(commands.Cog):
         channel = guild.system_channel
         if channel and welcome_msg:
             try:
-                await channel.send(welcome_msg.format(member=member, guild=guild.name), allowed_mentions=discord.AllowedMentions.all)
+                await channel.send(content=welcome_msg.format(member=member, guild=guild.name), allowed_mentions=discord.AllowedMentions.all)
             except Exception as exc:
                 log.error(f"Error sending welcome message: {type(exc)} {exc} - Guild: {guild.name}")
     

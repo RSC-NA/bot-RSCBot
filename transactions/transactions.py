@@ -560,8 +560,9 @@ class Transactions(commands.Cog):
 
         # Ping Transaction Committee if role is configured and send embed to log channel
         trans_role = await self._trans_role(guild)
-        if trans_role:
-            await log_channel.send(content=trans_role.mention, allowed_mentions=discord.AllowedMentions.roles)
+        if trans_role and trans_role.mentionable:
+            log.debug(f"Pinging {trans_role.name}")
+            await log_channel.send(content=trans_role.mention, allowed_mentions=discord.AllowedMentions(roles=True))
         
         await log_channel.send(embed=log_embed)
 
