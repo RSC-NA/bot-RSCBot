@@ -224,19 +224,12 @@ class Match(commands.Cog):
         franchise_role = self.team_manager.get_current_franchise_role(ctx.message.author)
         send_to_channel = await self.get_franchise_match_channel(franchise_role)
 
-        on_mobile = ctx.message.author.is_on_mobile()
         for team_name in team_names:
             team_matches = await self.get_team_matches(ctx, team_name, str(match_day))
             for match in team_matches:
-                if on_mobile:
-                    message = await self._format_match_message(ctx, match, team_name)
-                    # await ctx.message.author.send(message)
-                    await send_to_channel.send(ctx.author.mention)
-                    await send_to_channel.send(message)
-                else:
-                    embed = await self._format_match_embed(ctx, match, team_name)
-                    # await ctx.message.author.send(embed=embed)
-                    await send_to_channel.send(ctx.author.mention, embed=embed)
+                embed = await self._format_match_embed(ctx, match, team_name)
+                # await ctx.message.author.send(embed=embed)
+                await send_to_channel.send(ctx.author.mention, embed=embed)
 
             if not team_matches:
                 # await ctx.message.author.send("No matches on day {0} for {1}".format(match_day, team_name))
@@ -381,42 +374,18 @@ class Match(commands.Cog):
         #     'roomName': roomName,
         #     'roomPass': roomPass,
         # }
-        home = match['home']
-        away = match['away']
-
-        tier_role = (await self.team_manager._roles_for_team(ctx, home))[1]
+        tier_role = (await self.team_manager._roles_for_team(ctx, match['home']))[1]
 
         title = "__Match Day {0}: {1}__\n".format(
             match['matchDay'], match['matchDate'])
-        description = "**{0}**\n    versus\n**{1}**\n\n".format(home, away)
+        description = "**{0}**\n    versus\n**{1}**\n\n".format(match['home'], match['away'])
 
         embed = discord.Embed(
             title=title, description=description, color=tier_role.color)
 
-        game_team_size = await self._get_game_team_size(ctx.guild)
-
         # 2s, 3s
-        return await self._create_normal_match_embed(ctx, embed, match, user_team_name, home, away, game_team_size)
+        return await self._create_normal_match_embed(ctx, embed, match, user_team_name)
 
-    async def _format_match_message(self, ctx, match, user_team_name):
-        # Match format:
-        # match_data = {
-        #     'matchDay': match_day,
-        #     'matchDate': match_date,
-        #     'home': home,
-        #     'away': away,
-        #     'roomName': roomName,
-        #     'roomPass': roomPass
-        # }
-        home = match['home']
-        away = match['away']
-
-        message = "__Match Day {0}: {1}__\n".format(
-            match['matchDay'], match['matchDate'])
-        message += "**{0}**\n    versus\n**{1}**\n\n".format(home, away)
-
-        message += await self._create_normal_match_message(ctx, match, user_team_name, home, away)
-        return message
 
     async def get_team_matches(self, ctx, team_name, match_day=None):
         franchise_role, tier_role = await self.team_manager._roles_for_team(ctx, team_name)
@@ -439,8 +408,6 @@ class Match(commands.Cog):
         return team_matches
 
     async def _create_additional_info(self, guild, user_team_name, match, is_playoffs=False, is_embed=False):
-        home = match['home']
-        away = match['away']
         match_format = match.get('matchFormat', '4-gs')
 
         additional_info = ""
@@ -454,10 +421,10 @@ class Match(commands.Cog):
             matchup_type_str = "4 game series"
 
         if user_team_name:
-            if user_team_name == home:
+            if user_team_name == match['home']:
                 additional_info += config.home_info.format(
                     series_switch_num=int(parsed_matchup_type[1]/2))
-            elif user_team_name == away:
+            elif user_team_name == match['away']:
                 additional_info += config.away_info
 
         # TODO: Add other info (complaint form, disallowed maps, enable crossplay, etc.)
@@ -479,11 +446,11 @@ class Match(commands.Cog):
             #additional_info += config.playoff_info
             return additional_info
 
-    async def _create_normal_match_embed(self, ctx, embed, match, user_team_name, home, away, game_team_size):
+    async def _create_normal_match_embed(self, ctx, embed, match, user_team_name):
         embed.add_field(name="Lobby Info", value="Name: **{0}**\nPassword: **{1}**".format(
             match['roomName'], match['roomPass']), inline=False)
-        embed.add_field(name="**Home Team:**", value=await self.team_manager.format_roster_info(ctx, home), inline=False)
-        embed.add_field(name="**Away Team:**", value=await self.team_manager.format_roster_info(ctx, away), inline=False)
+        embed.add_field(name="**Home Team:**", value=await self.team_manager.format_roster_info(ctx, match['home']), inline=False)
+        embed.add_field(name="**Away Team:**", value=await self.team_manager.format_roster_info(ctx, match['away']), inline=False)
 
         try:
             additional_info = await self._create_additional_info(ctx.guild, user_team_name, match, is_embed=True)
@@ -494,17 +461,6 @@ class Match(commands.Cog):
         embed.add_field(name="Additional Info:", value=additional_info)
         return embed
 
-    async def _create_normal_match_message(self, ctx, match, user_team_name, home, away):
-        message = "**Lobby Info:**\nName: **{0}**\nPassword: **{1}**\n\n".format(match['roomName'], match['roomPass'])
-        message += "**Home Team:**\n{0}\n".format(await self.team_manager.format_roster_info(ctx, home))
-        message += "**Away Team:**\n{0}\n".format(await self.team_manager.format_roster_info(ctx, away))
-
-        try:
-            message += await self._create_additional_info(ctx.guild, user_team_name, match, is_embed=False)
-        except KeyError:
-            message += await self._create_additional_info(ctx.guild, user_team_name, match, is_embed=False)
-
-        return message
 
     def is_valid_match_format(self, match_format):
         match_format = match_format.lower()
