@@ -12,7 +12,9 @@ from redbot.core.utils.menus import start_adding_reactions
 from dmHelper import DMHelper
 from teamManager import TeamManager
 
-from typing import NoReturn
+from bulkRoleManager.embeds import ErrorEmbed
+
+from typing import NoReturn, Optional
 
 log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
@@ -448,47 +450,95 @@ class BulkRoleManager(commands.Cog):
     # endregion
 
     # region Message Configuration
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setDEMessage(self, ctx, *, message):
-        """Sets the draft eligible message. This message will be sent to anyone who is made a DE via the makeDE command"""
-        await self._save_draft_eligible_message(ctx, message)
-        await ctx.send("Done")
 
     @commands.guild_only()
-    @commands.command()
+    @commands.group(name="bulkrolemanager", aliases=["brm"])
     @checks.admin_or_permissions(manage_guild=True)
-    async def getDEMessage(self, ctx):
-        """Gets the draft eligible message"""
-        try:
-            await ctx.send(
-                "Draft eligible message set to: {0}".format(
-                    (await self._draft_eligible_message(ctx))
-                )
-            )
-        except:
-            await ctx.send(":x: Draft eligible message not set")
+    async def _bulk_role_manager(self, ctx: commands.Context) -> NoReturn:
+        """ Display or configure bulk role manager cog settings """
+        pass
 
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setPermFAMessage(self, ctx, *, message):
-        """Sets the permanent free agent message. This message will be sent to anyone who is made a permFA via the makePermFA command"""
-        await self._save_perm_fa_message(ctx, message)
-        await ctx.send("Done")
+    @_bulk_role_manager.command(name="settings", aliases=["info"])
+    async def _show_brm_settings(self, ctx: commands.Context):
+        """ Display current settings """
+        de_msg = await self._draft_eligible_message(ctx.guild) or "None"
+        permfa_msg = await self._perm_fa_message(ctx.guild) or "None"
+        settings_embed = discord.Embed(
+            title="Bulk Role Manager Settings",
+            description="Current configuration for BulkRoleManager Cog.",
+            color=discord.Color.blue()
+        )
+        # Discord embed field max length is 1024. Determine if multiple embeds are needed.
+        if len(de_msg) <= 1024 and len(permfa_msg) <= 1024:
+            settings_embed.add_field(name="DE Message", value=de_msg, inline=False)
+            settings_embed.add_field(name="PermFA Message", value=permfa_msg, inline=False)
+            await ctx.send(embed=settings_embed)
+        else:
+            settings_embed.set_footer(text="Bulk Role Manager Settings")
+            settings_embed.title = "DE Message"
+            settings_embed.description = de_msg
+            await ctx.send(embed=settings_embed)
 
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def getPermFAMessage(self, ctx):
-        """Gets the permFA message"""
-        try:
-            await ctx.send(
-                "PermFA message set to: {0}".format((await self._perm_fa_message(ctx)))
-            )
-        except:
-            await ctx.send(":x: PermFA message not set")
+            settings_embed.title = "PermFA Message"
+            settings_embed.description = permfa_msg
+            await ctx.send(embed=settings_embed)
+
+    @_bulk_role_manager.command(name="de")
+    async def _set_de_msg(self, ctx: commands.Context, *, message: str):
+        """ Set Draft Eligible message (4096 charactere max) """
+        if len(message) > 4096:
+            await ctx.send(embed=ErrorEmbed(description=f"DE message must be a maximum of 4096 characters. (Length: {len(message)})"))
+            return
+
+        await self._save_draft_eligible_message(ctx.guild, message)
+        de_embed = discord.Embed(
+            title="Draft Eligible Message",
+            description=message,
+            color=discord.Color.green()
+        )
+        de_embed.set_footer(text="Successfully configured DE message.")
+        await ctx.send(embed=de_embed)
+
+
+    @_bulk_role_manager.command(name="permfa")
+    async def _set_permfa_msg(self, ctx: commands.Context, *, message: str):
+        """ Set PermFA message (4096 character max) """
+        if len(message) > 4096:
+            await ctx.send(embed=ErrorEmbed(description=f"PermFA message must be a maximum of 4096 characters. (Length: {len(message)})"))
+            return
+
+        await self._save_perm_fa_message(ctx.guild, message)
+        permfa_embed = discord.Embed(
+            title="PermFA Message",
+            description=message,
+            color=discord.Color.green()
+        )
+        permfa_embed.set_footer(text="Successfully configured PermFA message.")
+        await ctx.send(embed=permfa_embed)
+
+    @_bulk_role_manager.group(name="unset")
+    async def _brm_unset(self, ctx: commands.Context):
+        """ Command group for removing configuration options """
+
+    @_brm_unset.command(name="de")
+    async def _unset_de_msg(self, ctx: commands.Context):
+        """ Clear Draft Eligible message """
+        await self._save_draft_eligible_message(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="Draft Eligible message has been unset.",
+            color=discord.Color.orange()
+        ))
+
+    @_brm_unset.command(name="permfa")
+    async def _unset_permfa_msg(self, ctx: commands.Context):
+        """ Clear PermFA message """
+        await self._save_perm_fa_message(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Removed",
+            description="PermFA message has been unset.",
+            color=discord.Color.orange()
+        ))
 
     # endregion
 
@@ -567,7 +617,7 @@ class BulkRoleManager(commands.Cog):
                     nick="{0} | {1}".format("DE", self.get_player_nickname(member))
                 )
                 await member.remove_roles(spectatorRole, formerPlayerRole)
-                deMessage = await self._draft_eligible_message(ctx)
+                deMessage = await self._draft_eligible_message(ctx.guild)
                 if deMessage:
                     await self._send_member_message(ctx, member, deMessage)
 
@@ -860,17 +910,17 @@ class BulkRoleManager(commands.Cog):
 
         return user.name
 
-    async def _draft_eligible_message(self, ctx):
-        return await self.config.guild(ctx.guild).DraftEligibleMessage()
+    async def _draft_eligible_message(self, guild: discord.Guild) -> Optional[str]:
+        return await self.config.guild(guild).DraftEligibleMessage()
 
-    async def _save_draft_eligible_message(self, ctx, message):
-        await self.config.guild(ctx.guild).DraftEligibleMessage.set(message)
+    async def _save_draft_eligible_message(self, guild: discord.Guild, message: str):
+        await self.config.guild(guild).DraftEligibleMessage.set(message)
 
-    async def _perm_fa_message(self, ctx):
-        return await self.config.guild(ctx.guild).PermFAMessage()
+    async def _perm_fa_message(self, guild: discord.Guild) -> Optional[str]:
+        return await self.config.guild(guild).PermFAMessage()
 
-    async def _save_perm_fa_message(self, ctx, message):
-        await self.config.guild(ctx.guild).PermFAMessage.set(message)
+    async def _save_perm_fa_message(self, guild: discord.Guild, message: str):
+        await self.config.guild(guild).PermFAMessage.set(message)
 
     async def _send_member_message(self, ctx, member, message):
         message_title = "**Message from {0}:**\n\n".format(ctx.guild.name)
