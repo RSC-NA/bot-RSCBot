@@ -609,7 +609,7 @@ class Transactions(commands.Cog):
         log_channel = await self._trans_log_channel(ctx.guild)
         trans_channel = await self._trans_channel(ctx.guild)
         trans_role = await self._trans_role(ctx.guild)
-        cut_msg = await self._get_cut_message(ctx.guild)
+        cut_msg = await self._get_cut_message(ctx.guild) or "None"
         settings_embed = discord.Embed(
              title="Transactions Settings",
              description="Current configuration for Transactions Cog.",
@@ -634,15 +634,16 @@ class Transactions(commands.Cog):
 
         # Discord embed field max length is 1024. Send a seperate embed for cut message if greater.
         if len(cut_msg) <= 1024:
-            settings_embed.add_field(name="Cut Message", value=cut_msg or "None", inline=False)
+            settings_embed.add_field(name="Cut Message", value=cut_msg, inline=False)
             await ctx.send(embed=settings_embed)
         else:
             await ctx.send(embed=settings_embed)
-            await ctx.send(embed=discord.Embed(
+            cut_embed=discord.Embed(
                 title="Cut Message",
                 description=cut_msg,
                 color=discord.Color.blue()
-            ))
+            )
+            await ctx.send(embed=cut_embed)
 
 
     @_transactions.command(name="channel")
@@ -677,17 +678,19 @@ class Transactions(commands.Cog):
 
     @_transactions.command(name="cutmsg")
     async def _set_cut_msg(self, ctx: commands.Context, *, msg: str):
-        """ Set cut message (Must be less than 3500 characters)"""
-        if len(msg) > 3500:
-            await ctx.send(embed=ErrorEmbed(description=f"Cut message must be less than 3500 characters. (Length: {len(msg)})"))
+        """ Set cut message (4096 characters max)"""
+        if len(msg) > 4096:
+            await ctx.send(embed=ErrorEmbed(description=f"Cut message must be a maximum of 4096 characters. (Length: {len(msg)})"))
             return
 
         await self._save_cut_message(ctx.guild, msg) 
-        await ctx.send(embed=discord.Embed(
-            title="Success",
-            description=f"New Cut Message:\n\n{msg}",
+        cut_embed = discord.Embed(
+            title="Cut Message",
+            description=f"{msg}",
             color=discord.Color.green()
-        ))
+        )
+        cut_embed.set_footer(text="Successfully configured new cut message.")
+        await ctx.send(embed=cut_embed)
 
     @_transactions.group(name="unset")
     async def _transactions_unset(self, ctx: commands.Context) -> NoReturn:
