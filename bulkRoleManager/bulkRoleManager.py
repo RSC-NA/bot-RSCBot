@@ -89,7 +89,9 @@ class BulkRoleManager(commands.Cog):
         await ctx.send(f"Players with **{role.name}** role:\n")
         for msg in messages:
             await ctx.send(f"```{msg}```")
-        await ctx.send(f":white_check_mark: {count} player(s) have the {role.name} role")
+        await ctx.send(
+            f":white_check_mark: {count} player(s) have the {role.name} role"
+        )
 
     @commands.command()
     @commands.guild_only()
@@ -317,7 +319,9 @@ class BulkRoleManager(commands.Cog):
                 member = await commands.MemberConverter().convert(ctx, user)
                 if member in ctx.guild.members:
                     nickname = self.get_player_nickname(member)
-                    found.append(f"{nickname}:{member.name}#{member.discriminator}:{member.id}\n")
+                    found.append(
+                        f"{nickname}:{member.name}#{member.discriminator}:{member.id}\n"
+                    )
             except:
                 notFound.append(user)
                 found.append(None)
@@ -330,7 +334,9 @@ class BulkRoleManager(commands.Cog):
                     notFound.remove(player_nick)
                 match_indicies = [i for i, x in enumerate(userList) if x == player_nick]
                 for match in match_indicies:
-                    found[match] = f"{player_nick}:{player.name}#{player.discriminator}:{player.id}\n"
+                    found[
+                        match
+                    ] = f"{player_nick}:{player.name}#{player.discriminator}:{player.id}\n"
 
         if notFound:
             notFoundMessage = ":x: Couldn't find:\n"
@@ -373,9 +379,13 @@ class BulkRoleManager(commands.Cog):
         if count == 0:
             message = f":x: Nobody has the {currentRole.name} role"
         else:
-            message = f":white_check_mark: {count} user(s) had the {currentRole.name} role"
+            message = (
+                f":white_check_mark: {count} user(s) had the {currentRole.name} role"
+            )
             if hadRoleCount > 0:
-                message += f". {hadRoleCount} user(s) already had the {roleToGive.name} role"
+                message += (
+                    f". {hadRoleCount} user(s) already had the {roleToGive.name} role"
+                )
             if countGiven > 0:
                 message += f". {countGiven} user(s) had the {roleToGive.name} role added to them"
         await ctx.send(message)
@@ -439,7 +449,9 @@ class BulkRoleManager(commands.Cog):
         else:
             for member in role.members:
                 nickname = self.get_player_nickname(member)
-                message += f"{nickname}:{member.name}#{member.discriminator}:{member.id}\n"
+                message += (
+                    f"{nickname}:{member.name}#{member.discriminator}:{member.id}\n"
+                )
                 if len(message) > 1900:
                     messages.append(message)
                     message = ""
@@ -638,7 +650,9 @@ class BulkRoleManager(commands.Cog):
         if notFound > 0:
             message += f". {notFound} user(s) were not found"
         if had > 0:
-            message += f". {had} user(s) already had the role or were already in the league"
+            message += (
+                f". {had} user(s) already had the role or were already in the league"
+            )
         if added > 0:
             message += f". {added} user(s) had the role added to them"
         await ctx.send(message)
@@ -712,7 +726,9 @@ class BulkRoleManager(commands.Cog):
 
                 if self.get_player_nickname(member)[:5] != "FA | ":
                     try:
-                        await member.edit(nick=f"FA | {self.get_player_nickname(member)}")
+                        await member.edit(
+                            nick=f"FA | {self.get_player_nickname(member)}"
+                        )
                     except (discord.errors.Forbidden, discord.errors.HTTPException):
                         await ctx.send(f"Cannot set nickname for {member.name}")
 
@@ -727,7 +743,9 @@ class BulkRoleManager(commands.Cog):
         if empty:
             message += f":x: Nobody was set as a {tier} permanent FA"
         else:
-            message += f":white_check_mark: All members found are now {tier} permanent FAs."
+            message += (
+                f":white_check_mark: All members found are now {tier} permanent FAs."
+            )
         if notFound:
             message += f". {notFound} user(s) were not found"
         if had:
@@ -836,8 +854,7 @@ class BulkRoleManager(commands.Cog):
         tiers = await self.team_manager_cog.tiers(ctx)
         tier_roles = [self.team_manager_cog._get_tier_role(ctx, tier) for tier in tiers]
         tiers_fa_roles = [
-            self.team_manager_cog._find_role_by_name(ctx, f"{tier}FA")
-            for tier in tiers
+            self.team_manager_cog._find_role_by_name(ctx, f"{tier}FA") for tier in tiers
         ]
 
         # validate tier
@@ -882,7 +899,9 @@ class BulkRoleManager(commands.Cog):
                 message += f"{user}\n"
                 notFound += 1
         if empty:
-            message += f":x: Nobody was assigned to the **{tier_assignment.name}** tier."
+            message += (
+                f":x: Nobody was assigned to the **{tier_assignment.name}** tier."
+            )
         else:
             message += f":white_check_mark: everyone that was found from list is now registered to the **{tier_assignment.name}** tier."
         if notFound > 0:
