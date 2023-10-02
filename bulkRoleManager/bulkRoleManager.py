@@ -393,22 +393,25 @@ class BulkRoleManager(commands.Cog):
     async def addRequiredServerRoles(self, ctx):
         """Adds any missing roles required for the bulkRoleManager cog to function properly."""
         required_roles = ["Draft Eligible", "League", "Spectator", "Former Player"]
-        found = []
         for role in ctx.guild.roles:
             if role.name in required_roles:
-                found.append(role.name)
                 required_roles.remove(role.name)
 
-        if required_roles:
+        if not required_roles:
+            await ctx.send(embed=discord.Embed(
+                title="Required Roles",
+                description="No additional roles required.",
+                color=discord.Color.blue()
+            ))
+        else:
             for role_name in required_roles:
                 await ctx.guild.create_role(name=role_name)
-            await ctx.send(
-                "The following roles have been added: {0}".format(
-                    ", ".join(required_roles)
-                )
-            )
-            return
-        await ctx.send("All required roles already exist in the server.")
+            added_roles = "\n".join([f"- {r}" for r in required_roles])
+            await ctx.send(embed=discord.Embed(
+                title="Required Roles",
+                description=f"The following roles have been added.\n\n{added_roles}",
+                color=discord.Color.green()
+            ))
 
     @commands.command()
     @commands.guild_only()
@@ -569,21 +572,19 @@ class BulkRoleManager(commands.Cog):
             if leagueRole and deRole and spectatorRole and formerPlayerRole:
                 break
 
+        # Validate guild roles exist
         if (
             deRole is None
             or leagueRole is None
             or spectatorRole is None
             or formerPlayerRole is None
         ):
-            await ctx.send(
-                ":x: Couldn't find either the Draft Eligible, League, Spectator, or Former Player role in the server. Use `{0}addRequiredServerRoles` to add these roles.".format(
-                    ctx.prefix
-                )
-            )
+            await ctx.send(embed=ErrorEmbed(description=f"Couldn't find either the **Draft Eligible**, **League**, **Spectator**, or **Former Player** role in the server.\n\nUse `{ctx.prefix}addRequiredServerRoles` to add these roles."))
             return
 
         for user in userList:
             try:
+                # Convert to `discord.Member`
                 member = await commands.MemberConverter().convert(ctx, user)
             except:
                 message += "Couldn't find: {0}\n".format(user)
@@ -653,11 +654,10 @@ class BulkRoleManager(commands.Cog):
                     leagueRole = role
 
         if role_names_to_add:
-            await ctx.send(
-                ":x: The following roles could not be found: {0}".format(
-                    ", ".join(role_names_to_add)
-                )
-            )
+            missing_roles = "\n".join([f"- {r}" for r in role_names_to_add])
+            await ctx.send(embed=ErrorEmbed(
+                description=f"The following roles could not be found.\n\n{missing_roles}"
+            ))
             return False
 
         empty = True
