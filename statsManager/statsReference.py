@@ -1,6 +1,4 @@
-
 class StatsReference:
-    
     # General
     PERM_FA_ROLE_NAME = "permFA"
     LEAGUE_ROLE_NAME = "League"
@@ -9,31 +7,56 @@ class StatsReference:
     NO_FA_STATS_MSG = "Unfortunately player stats can only be\nretrieved for rostered players at this time."
     NO_STATS_FOUND_MSG = """We couldn't find any stats for this player. This 
     is likely because of a recent name change. """
-    
+
     # Awards
-    TROPHY_EMOJI = "\U0001F3C6" # :trophy:
-    GOLD_MEDAL_EMOJI = "\U0001F3C5" # gold medal
-    FIRST_PLACE_EMOJI = "\U0001F947" # first place medal
-    STAR_EMOJI = "\U00002B50" # :star:
+    TROPHY_EMOJI = "\U0001F3C6"  # :trophy:
+    GOLD_MEDAL_EMOJI = "\U0001F3C5"  # gold medal
+    FIRST_PLACE_EMOJI = "\U0001F947"  # first place medal
+    STAR_EMOJI = "\U00002B50"  # :star:
     LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
 
     # Stats Specific
-    TEAM_LEAGUE_INFO = [
-        "franchise", "gm", "conference", "division"
-    ]
+    TEAM_LEAGUE_INFO = ["franchise", "gm", "conference", "division"]
     INCLUDE_TEAM_STATS = [
-        "gamesPlayed", "wins", "loss", "rank", "winPct", "goals", "assists", "saves",
-        "shots", "shotPct", "points", "goalDiff", "oppGoals", "oppAssists", "oppShots",
-        "oppShotPct", "oppShots", "oppPoints"
+        "gamesPlayed",
+        "wins",
+        "loss",
+        "rank",
+        "winPct",
+        "goals",
+        "assists",
+        "saves",
+        "shots",
+        "shotPct",
+        "points",
+        "goalDiff",
+        "oppGoals",
+        "oppAssists",
+        "oppShots",
+        "oppShotPct",
+        "oppShots",
+        "oppPoints",
     ]
     INCLUDE_PLAYER_STATS = [
-        "gp", "gw", "gl", "wPct", "pts", "goals", "assists", "saves",
-        "shots", "shotPct", "ppg", "cycles", "hatTricks", "playmakers", "saviors"
+        "gp",
+        "gw",
+        "gl",
+        "wPct",
+        "pts",
+        "goals",
+        "assists",
+        "saves",
+        "shots",
+        "shotPct",
+        "ppg",
+        "cycles",
+        "hatTricks",
+        "playmakers",
+        "saviors",
     ]
     DATA_CODE_NAME_MAP = {
         # General
         "gm": "GM",
-
         # Player
         "gp": "GP",
         "gw": "Wins",
@@ -49,7 +72,6 @@ class StatsReference:
         "pts": "Points",
         "wpct": "Win%",
         "shotpct": "Shooting%",
-
         # Team
         "rank": "Rank",
         "gamesplayed": "GP",
@@ -62,6 +84,5 @@ class StatsReference:
         "oppassists": "OPP. Assists",
         "oppshots": "OPP. Shots",
         "oppshotpct": "OPP. Shot%",
-        "opppoints": "OPP. Points"
+        "opppoints": "OPP. Points",
     }
-

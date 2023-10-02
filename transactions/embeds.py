@@ -1,5 +1,6 @@
 import discord
 
+
 class ErrorEmbed(discord.Embed):
     """Generic Error Embed"""
 

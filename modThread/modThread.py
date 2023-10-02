@@ -20,10 +20,12 @@ class ModThread(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
-        self.config = Config.get_conf(self, identifier=12345678921337, force_registration=True)
+        self.config = Config.get_conf(
+            self, identifier=12345678921337, force_registration=True
+        )
         self.config.register_guild(**defaults)
 
-# region commands
+    # region commands
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
@@ -31,9 +33,9 @@ class ModThread(commands.Cog):
         """Assigns the current channel to role and moves channel"""
         currentCategory = ctx.channel.category
         primaryCategory = await self._primary_category(ctx)
-        rulesCategory   = await self._rules_category(ctx)
+        rulesCategory = await self._rules_category(ctx)
         numbersCategory = await self._numbers_category(ctx)
-        modsCategory    = await self._mods_category(ctx)
+        modsCategory = await self._mods_category(ctx)
 
         isThread = False
         if currentCategory.id == primaryCategory.id:
@@ -46,19 +48,21 @@ class ModThread(commands.Cog):
             isThread = True
 
         if isThread == False:
-            await ctx.send("This channel is not in any of the ModMail Thread Categories.")
+            await ctx.send(
+                "This channel is not in any of the ModMail Thread Categories."
+            )
             return False
 
-        mentionRole = None 
-        if role == 'rules':
+        mentionRole = None
+        if role == "rules":
             category = await self._rules_category(ctx)
             mentionRole = await self._rules_role(ctx)
             await ctx.channel.move(end=True, category=category, sync_permissions=True)
-        elif role == 'numbers':
+        elif role == "numbers":
             category = await self._numbers_category(ctx)
             mentionRole = await self._numbers_role(ctx)
             await ctx.channel.move(end=True, category=category, sync_permissions=True)
-        elif role == 'mods':
+        elif role == "mods":
             category = await self._mods_category(ctx)
             mentionRole = await self._mods_role(ctx)
             await ctx.channel.move(end=True, category=category, sync_permissions=True)
@@ -67,12 +71,15 @@ class ModThread(commands.Cog):
             return False
 
         if mentionRole:
-            allowed_mentions = discord.AllowedMentions(roles = True)
-            await ctx.send("This ticket has been assigned to {0}".format(mentionRole.mention), allowed_mentions=allowed_mentions)
-        else: 
+            allowed_mentions = discord.AllowedMentions(roles=True)
+            await ctx.send(
+                "This ticket has been assigned to {0}".format(mentionRole.mention),
+                allowed_mentions=allowed_mentions,
+            )
+        else:
             await ctx.send("This ticket has been assigned to {0}".format(role))
         return True
-    
+
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_guild=True)
@@ -87,7 +94,11 @@ class ModThread(commands.Cog):
     async def getPrimaryCategory(self, ctx):
         """Gets the category currently assigned as the rules category"""
         try:
-            await ctx.send("Primary category set to: {0}".format((await self._primary_category(ctx)).mention))
+            await ctx.send(
+                "Primary category set to: {0}".format(
+                    (await self._primary_category(ctx)).mention
+                )
+            )
         except:
             await ctx.send(":x: Primary Thread category not set")
 
@@ -105,7 +116,7 @@ class ModThread(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def setRulesRole(self, ctx, rules_role: discord.Role):
         await self._save_rules_role(ctx, rules_role.id)
-        await ctx.send('Done')
+        await ctx.send("Done")
 
     @commands.guild_only()
     @commands.command()
@@ -121,7 +132,11 @@ class ModThread(commands.Cog):
     async def getRulesCategory(self, ctx):
         """Gets the category currently assigned as the rules category"""
         try:
-            await ctx.send("Rules Thread category set to: {0}".format((await self._rules_category(ctx)).mention))
+            await ctx.send(
+                "Rules Thread category set to: {0}".format(
+                    (await self._rules_category(ctx)).mention
+                )
+            )
         except:
             await ctx.send(":x: Rules Thread category not set")
 
@@ -132,6 +147,7 @@ class ModThread(commands.Cog):
         """Unsets the rules category. Thread will not be moved if no rules category is set"""
         await self._save_rules_category(ctx, None)
         await ctx.send("Done")
+
     ### End Rules Category
 
     ### Numbers Category
@@ -140,7 +156,7 @@ class ModThread(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def setNumbersRole(self, ctx, numbers_role: discord.Role):
         await self._save_numbers_role(ctx, numbers_role.id)
-        await ctx.send('Done')
+        await ctx.send("Done")
 
     @commands.guild_only()
     @commands.command()
@@ -156,7 +172,11 @@ class ModThread(commands.Cog):
     async def getNumbersCategory(self, ctx):
         """Gets the category currently assigned as the numbers category"""
         try:
-            await ctx.send("Numbers Thread category set to: {0}".format((await self._numbers_category(ctx)).mention))
+            await ctx.send(
+                "Numbers Thread category set to: {0}".format(
+                    (await self._numbers_category(ctx)).mention
+                )
+            )
         except:
             await ctx.send(":x: Numbers Thread category not set")
 
@@ -167,6 +187,7 @@ class ModThread(commands.Cog):
         """Unsets the numbers category. Thread will not be moved if no numbers category is set"""
         await self._save_numbers_category(ctx, None)
         await ctx.send("Done")
+
     ### End Numbers Category
 
     ### Mods Category
@@ -175,7 +196,7 @@ class ModThread(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def setModsRole(self, ctx, mods_role: discord.Role):
         await self._save_mods_role(ctx, mods_role.id)
-        await ctx.send('Done')
+        await ctx.send("Done")
 
     @commands.guild_only()
     @commands.command()
@@ -191,7 +212,11 @@ class ModThread(commands.Cog):
     async def getModsCategory(self, ctx):
         """Gets the category currently assigned as the transaction category"""
         try:
-            await ctx.send("Mod Thread category set to: {0}".format((await self._mods_category(ctx)).mention))
+            await ctx.send(
+                "Mod Thread category set to: {0}".format(
+                    (await self._mods_category(ctx)).mention
+                )
+            )
         except:
             await ctx.send(":x: Mod Thread category not set")
 
@@ -202,25 +227,30 @@ class ModThread(commands.Cog):
         """Unsets the mod category. Thread will not be moved if no mod category is set"""
         await self._save_mods_category(ctx, None)
         await ctx.send("Done")
+
     ### End Mod Category
 
-# endregion
+    # endregion
 
-# region json db
+    # region json db
     async def _primary_category(self, ctx):
-        return ctx.guild.get_channel(await self.config.guild(ctx.guild).PrimaryCategory())
+        return ctx.guild.get_channel(
+            await self.config.guild(ctx.guild).PrimaryCategory()
+        )
 
     async def _save_primary_category(self, ctx, primary_category):
         await self.config.guild(ctx.guild).PrimaryCategory.set(primary_category)
-    
+
     async def _rules_category(self, ctx):
         return ctx.guild.get_channel(await self.config.guild(ctx.guild).RulesCategory())
 
     async def _save_rules_category(self, ctx, rules_category):
         await self.config.guild(ctx.guild).RulesCategory.set(rules_category)
-    
+
     async def _numbers_category(self, ctx):
-        return ctx.guild.get_channel(await self.config.guild(ctx.guild).NumbersCategory())
+        return ctx.guild.get_channel(
+            await self.config.guild(ctx.guild).NumbersCategory()
+        )
 
     async def _save_numbers_category(self, ctx, numbers_category):
         await self.config.guild(ctx.guild).NumbersCategory.set(numbers_category)
@@ -233,13 +263,13 @@ class ModThread(commands.Cog):
 
     async def _save_rules_role(self, ctx, rules_role):
         await self.config.guild(ctx.guild).RulesRole.set(rules_role)
-    
+
     async def _rules_role(self, ctx):
         return ctx.guild.get_role(await self.config.guild(ctx.guild).RulesRole())
 
     async def _save_numbers_role(self, ctx, numbers_role):
         await self.config.guild(ctx.guild).NumbersRole.set(numbers_role)
-    
+
     async def _numbers_role(self, ctx):
         return ctx.guild.get_role(await self.config.guild(ctx.guild).NumbersRole())
 
@@ -248,5 +278,6 @@ class ModThread(commands.Cog):
 
     async def _mods_role(self, ctx):
         return ctx.guild.get_role(await self.config.guild(ctx.guild).ModsRole())
+
 
 # endregion

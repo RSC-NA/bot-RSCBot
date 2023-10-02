@@ -3,15 +3,22 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
-defaults = {"room_capacity": 10, "Categories": [], "public_combines": True, "acronym": "RSC"}
+defaults = {
+    "room_capacity": 10,
+    "Categories": [],
+    "public_combines": True,
+    "acronym": "RSC",
+}
 
 
 class CombineRooms(commands.Cog):
     def __init__(self, bot):
-        self.config = Config.get_conf(self, identifier=1234567892, force_registration=True)
+        self.config = Config.get_conf(
+            self, identifier=1234567892, force_registration=True
+        )
         self.config.register_guild(**defaults)
         self.team_manager_cog = bot.get_cog("TeamManager")
-    
+
     @commands.command(aliases=["startcombines"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -21,7 +28,7 @@ class CombineRooms(commands.Cog):
             await ctx.send("Combine Rooms have been created.")
             return True
         await ctx.send("Combine Rooms have already been created.")
-    
+
     @commands.command(aliases=["stopcombines"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
@@ -64,10 +71,21 @@ class CombineRooms(commands.Cog):
         This capacity is for all members, players and scouts combined.
         """
         cap = await self._room_capacity(ctx.guild)
-        await ctx.send("Combines currently have a maximum size of {0} members.".format(cap))
+        await ctx.send(
+            "Combines currently have a maximum size of {0} members.".format(cap)
+        )
         return
 
-    @commands.command(aliases=["combinePublicity", "checkCombinePublicity", "ccp", "combineStatus", "checkCombineStatus", "ccs"])
+    @commands.command(
+        aliases=[
+            "combinePublicity",
+            "checkCombinePublicity",
+            "ccp",
+            "combineStatus",
+            "checkCombineStatus",
+            "ccs",
+        ]
+    )
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def getCombinePublicity(self, ctx):
@@ -88,7 +106,9 @@ class CombineRooms(commands.Cog):
         Gets the acronym registered for combines. (Default: RSC)
         """
         acronym = await self._get_acronym(ctx.guild)
-        await ctx.send("The acronym registered for the combines cog is **{0}**.".format(acronym))
+        await ctx.send(
+            "The acronym registered for the combines cog is **{0}**.".format(acronym)
+        )
 
     @commands.command()
     @commands.guild_only()
@@ -100,9 +120,20 @@ class CombineRooms(commands.Cog):
         """
         await self._update_combine_rooms(ctx, acronym=new_acronym)
         await self._save_acronym(ctx.guild, new_acronym)
-        await ctx.send("The acronym has been registered as **{0}**.".format(new_acronym))
+        await ctx.send(
+            "The acronym has been registered as **{0}**.".format(new_acronym)
+        )
 
-    @commands.command(aliases=["togglePub", "toggleCombines", "togglePublicCombine", "tpc", "toggleCombinePermissions", "tcp"])
+    @commands.command(
+        aliases=[
+            "togglePub",
+            "toggleCombines",
+            "togglePublicCombine",
+            "tpc",
+            "toggleCombinePermissions",
+            "tcp",
+        ]
+    )
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def togglePublicity(self, ctx):
@@ -117,13 +148,12 @@ class CombineRooms(commands.Cog):
         response = "Combines are now **{0}**.".format(public_str)
         await ctx.send(response)
 
-
     @commands.Cog.listener("on_voice_state_update")
     async def on_voice_state_update(self, member, before, after):
         # ignore when voice activity is within the same room
         if before.channel == after.channel:
             return
-        
+
         # Room joined:
         if after.channel:
             await self._member_joins_voice(member, after.channel)
@@ -139,12 +169,14 @@ class CombineRooms(commands.Cog):
         tier_roles = [self._get_tier_role(ctx, tier) for tier in tiers]
         tier_roles.sort(key=lambda role: role.position, reverse=True)
         for tier_role in tier_roles:
-            tier_category = await self._add_combines_category(ctx, "{0} Combines".format(tier_role.name))
+            tier_category = await self._add_combines_category(
+                ctx, "{0} Combines".format(tier_role.name)
+            )
             await self._add_combines_voice(ctx.guild, tier_role.name, tier_category)
             categories.append(tier_category.id)
         await self._save_combine_category_ids(ctx.guild, categories)
         return True
-        
+
     async def _stop_combines(self, ctx):
         # remove combines channels, category
         saved_categories = await self._combine_category_ids(ctx.guild)
@@ -160,16 +192,22 @@ class CombineRooms(commands.Cog):
         league_role = self._get_role_by_name(ctx.guild, "League")
         is_public = await self._is_public_combine(ctx.guild)
         overwrites = {
-            league_role: discord.PermissionOverwrite(view_channel=True, connect=True, send_messages=False),
-            ctx.guild.default_role: discord.PermissionOverwrite(view_channel=is_public, connect=is_public, send_messages=False)
+            league_role: discord.PermissionOverwrite(
+                view_channel=True, connect=True, send_messages=False
+            ),
+            ctx.guild.default_role: discord.PermissionOverwrite(
+                view_channel=is_public, connect=is_public, send_messages=False
+            ),
         }
         muted_role = self._get_role_by_name(ctx.guild, "Muted")
         if muted_role:
             overwrites[muted_role] = discord.PermissionOverwrite(connect=False)
-        
+
         return await ctx.guild.create_category(name, overwrites=overwrites)
 
-    async def _add_combines_voice(self, guild: discord.Guild, tier: str, category: discord.CategoryChannel=None):
+    async def _add_combines_voice(
+        self, guild: discord.Guild, tier: str, category: discord.CategoryChannel = None
+    ):
         if not category:
             category = await self._get_tier_category(guild, tier)
             if not category:
@@ -180,11 +218,11 @@ class CombineRooms(commands.Cog):
         previous_number = 0
         acronym = await self._get_acronym(guild)
         capacity = await self._room_capacity(guild)
-        
+
         for vc in category.voice_channels:
             vc_name_substring = "{0} // {1}".format(tier, acronym.lower())
             if vc_name_substring in vc.name:
-                this_number = int(vc.name[len(vc_name_substring):])
+                this_number = int(vc.name[len(vc_name_substring) :])
                 if this_number == previous_number + 1:
                     previous_number = this_number
                     previous_position = vc.position
@@ -192,12 +230,16 @@ class CombineRooms(commands.Cog):
                     break
 
         new_position = previous_position + 1
-        new_room_number = previous_number + 1 
+        new_room_number = previous_number + 1
         new_room_name = "{0} // {1}{2}".format(tier, acronym.lower(), new_room_number)
 
-        await category.create_voice_channel(new_room_name, user_limit=capacity, position=new_position)
+        await category.create_voice_channel(
+            new_room_name, user_limit=capacity, position=new_position
+        )
 
-    async def _update_combine_rooms(self, ctx, acronym:str=None, capacity:int=None):
+    async def _update_combine_rooms(
+        self, ctx, acronym: str = None, capacity: int = None
+    ):
         categories = await self._combine_categories(ctx.guild)
         old_acronym = await self._get_acronym(ctx.guild)
         for tier_cat in categories:
@@ -206,17 +248,24 @@ class CombineRooms(commands.Cog):
                 vc_name_substring = "{0} // {1}".format(tier, old_acronym.lower())
                 if vc_name_substring in vc.name:
                     if acronym:
-                        room_num = int(vc.name[len(vc_name_substring):])
-                        new_room_name = "{0} // {1}{2}".format(tier, acronym.lower(), room_num)
+                        room_num = int(vc.name[len(vc_name_substring) :])
+                        new_room_name = "{0} // {1}{2}".format(
+                            tier, acronym.lower(), room_num
+                        )
                         await vc.edit(name=new_room_name)
                     if capacity:
                         await vc.edit(user_limit=capacity)
 
-    async def _maybe_remove_combines_voice(self, guild: discord.Guild, tier: str, category: discord.CategoryChannel=None):
+    async def _maybe_remove_combines_voice(
+        self, guild: discord.Guild, tier: str, category: discord.CategoryChannel = None
+    ):
         acronym = await self._get_acronym(guild)
         empty_vcs = []
         for vc in category.voice_channels:
-            if len(vc.members) ==  0 and "{0} // {1}".format(tier, acronym.lower()) in vc.name:
+            if (
+                len(vc.members) == 0
+                and "{0} // {1}".format(tier, acronym.lower()) in vc.name
+            ):
                 empty_vcs.append(vc)
 
         for vc in empty_vcs[1:]:
@@ -229,11 +278,13 @@ class CombineRooms(commands.Cog):
                 return tier_cat
         return None
 
-    async def _member_joins_voice(self, member: discord.Member, voice_channel: discord.VoiceChannel):
+    async def _member_joins_voice(
+        self, member: discord.Member, voice_channel: discord.VoiceChannel
+    ):
         categories = await self._combine_category_ids(member.guild)
         if not categories:
             return False
-        
+
         if voice_channel.category_id in categories and len(voice_channel.members) == 1:
             tier_cat = self._get_category_by_id(member.guild, voice_channel.category_id)
             tier_str = self._get_category_tier(tier_cat)
@@ -241,7 +292,9 @@ class CombineRooms(commands.Cog):
             return True
         return False
 
-    async def _member_leaves_voice(self, member: discord.Member, voice_channel: discord.VoiceChannel):
+    async def _member_leaves_voice(
+        self, member: discord.Member, voice_channel: discord.VoiceChannel
+    ):
         categories = await self._combine_category_ids(member.guild)
         if not categories:
             return False
@@ -252,7 +305,7 @@ class CombineRooms(commands.Cog):
             await self._maybe_remove_combines_voice(member.guild, tier_str, tier_cat)
             return True
         return False
-     
+
     def _get_tier_role(self, ctx, tier: str):
         roles = ctx.guild.roles
         for role in roles:
@@ -273,7 +326,7 @@ class CombineRooms(commands.Cog):
 
     async def _combine_category_ids(self, guild):
         return await self.config.guild(guild).Categories()
-   
+
     async def _combine_categories(self, guild):
         cat_ids = await self._combine_category_ids(guild)
         combine_categories = []
@@ -289,7 +342,7 @@ class CombineRooms(commands.Cog):
         return None
 
     def _get_category_tier(self, category: discord.CategoryChannel):
-        return category.name[:category.name.index(" ")]
+        return category.name[: category.name.index(" ")]
 
     async def _room_capacity(self, guild):
         cap = await self.config.guild(guild).room_capacity()
@@ -300,15 +353,20 @@ class CombineRooms(commands.Cog):
 
     async def _toggle_public_combine(self, guild):
         was_public = await self._is_public_combine(guild)
-        
-        #switch combine rooms publicity:
+
+        # switch combine rooms publicity:
         league_role = self._get_role_by_name(guild, "League")
         for category in await self._combine_categories(guild):
-            await category.set_permissions(guild.default_role, view_channel=not was_public, connect=not was_public, send_messages=False)
+            await category.set_permissions(
+                guild.default_role,
+                view_channel=not was_public,
+                connect=not was_public,
+                send_messages=False,
+            )
             await category.edit(sync_permissions=True)
 
         await self.config.guild(guild).public_combines.set(not was_public)
-        return not was_public # is_public (after call)
+        return not was_public  # is_public (after call)
 
     async def _is_public_combine(self, guild):
         return await self.config.guild(guild).public_combines()
