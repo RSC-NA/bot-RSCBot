@@ -133,6 +133,14 @@ class ModeratorLink(commands.Cog):
         bd = await self._get_bot_detection(ctx.guild)
         bd ^= True # Flip boolean with xor
         await self._save_bot_detection(ctx.guild, bd)
+
+        # Update self.bot_detection and reload data
+        self.bot_detection[ctx.guild] = bd
+        if bd:
+            await self._pre_load_data()
+        else:
+            self.cancel_all_tasks(ctx.guild)
+
         await ctx.send(embed=discord.Embed(
              title="Bot Detection Toggled",
              description=f"Bot detection is now **{'enabled' if bd else 'disabled'}**",
@@ -206,52 +214,6 @@ class ModeratorLink(commands.Cog):
             description=f"Shared roles have been removed.",
             color=discord.Color.orange(),
         ))
-
-    @commands.guild_only()
-    @commands.command(aliases=["setModeratorRole"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setModRole(self, ctx, role: discord.Role):
-        """Sets the mod role for bot detection commands"""
-        await self._save_mod_role(ctx.guild, role.id)
-        await ctx.send("Done")
-
-    @commands.guild_only()
-    @commands.command(aliases=["getModeratorRole"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def getModRole(self, ctx):
-        """Gets the mod role for bot detection commands"""
-        mod_role = await self._mod_role(ctx.guild)
-        if mod_role:
-            await ctx.send("Moderator Role: {}".format(mod_role.mention))
-        else:
-            await ctx.send(":x: Moderator role has not been set.")
-
-    @commands.guild_only()
-    @commands.command(aliases=["unsetModRole", "unsetModeratorRole"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def clearModRole(self, ctx):
-        """Clears the mod role from the modLink cog"""
-        await self._save_mod_role(ctx.guild, None)
-        await ctx.send("Done")
-
-    # Bot Detection
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def toggleBotDetection(self, ctx):
-        """Enables or disables bot dection for new member joins"""
-        new_bot_detection_status = not (await self._get_bot_detection(ctx.guild))
-        await self._save_bot_detection(ctx.guild, new_bot_detection_status)
-        self.bot_detection[ctx.guild] = new_bot_detection_status
-
-        if new_bot_detection_status:
-            await self._pre_load_data()
-        else:
-            self.cancel_all_tasks(ctx.guild)
-
-        action = "enabled" if new_bot_detection_status else "disabled"
-        message = "Bot detection has been **{}** for this guild.".format(action)
-        await ctx.send(message)
 
     @commands.guild_only()
     @commands.command()
@@ -349,76 +311,6 @@ class ModeratorLink(commands.Cog):
             return await ctx.send("Done")
         return await ctx.send(":x: User ID {} was not whitelisted.".format(user_id))
 
-    # Welcome Messages
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setWelcomeMessage(self, ctx, *, welcome_message):
-        """Sends a welcome message to the guild's system channel when a new member joins the guild.
-
-        Notes:
-         - Use `{member}` in your message in place of the newly added member (Optional)
-         - Use `{guild}` in your message in place of the guild name (Optional)
-         - Members or Roles mentioned in the message parameter will be pinged when a message is sent for a newly joined member
-
-        __Examples:__
-         - [p]setWelcomeMessage Hey {member}! Welcome to {guild}! We're happy to have you here.
-         - [p]setWelcomeMessage @WelcomeCommittee we have a newcomer! Everyone welcome {member}!
-        """
-        await self._save_welcome_message(ctx.guild, welcome_message)
-        await ctx.send("Done")
-
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def clearWelcomeMessage(self, ctx):
-        """Clears welcome message set for the guild, disabling messages for new members."""
-        await self._save_welcome_message(ctx.guild, None)
-        await ctx.send("Done")
-
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def getWelcomeMessage(self, ctx):
-        """Gets welcome message set for the guild which is sent to newly joined members."""
-        welcome_msg = await self._get_welcome_message(ctx.guild)
-        if welcome_msg:
-            await ctx.send("__Welcome Message:__\n{}".format(welcome_msg))
-        else:
-            await ctx.send(":x: No welcome message set.")
-
-    # Event Log Channel
-    @commands.guild_only()
-    @commands.command(aliases=["setEventLogChannel"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def setEventChannel(self, ctx, event_channel: discord.TextChannel):
-        """Sets the channel where all moderator-link related events are logged, and enables cross-guild member updates."""
-        await self._save_event_log_channel(ctx.guild, event_channel.id)
-        await ctx.send("Done")
-
-    @commands.guild_only()
-    @commands.command(aliases=["unsetEventLogChannel"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def unsetEventChannel(self, ctx):
-        """Unsets the channel currently assigned as the event log channel and disables cross-guild member updates."""
-        await self._save_event_log_channel(ctx.guild, None)
-        await ctx.send("Event log channel has been cleared.")
-
-    @commands.guild_only()
-    @commands.command(aliases=["getEventLogChannel"])
-    @checks.admin_or_permissions(manage_guild=True)
-    async def getEventChannel(self, ctx):
-        """Gets the channel currently assigned as the event log channel."""
-        try:
-            channel = await self._event_log_channel(ctx.guild)
-            if channel:
-                await ctx.send(
-                    "Event log channel set to: {0}".format((channel).mention)
-                )
-            else:
-                await ctx.send("PepeHands.")
-        except:
-            await ctx.send(":x: Event log channel not set")
 
     # League Awards
     @commands.guild_only()
@@ -687,18 +579,6 @@ class ModeratorLink(commands.Cog):
                         )
 
                     return
-
-    @commands.guild_only()
-    @commands.command()
-    @checks.admin_or_permissions(manage_guild=True)
-    async def getSharedRoles(self, ctx):
-        """Fetches list of Shared Roles between RSC servers"""
-        shared_roles = await self._get_shared_role_names(ctx.guild)
-        log.debug(f"Shared Roles List: {shared_roles}")
-        if shared_roles:
-            await ctx.send(f"Shared Roles: {shared_roles}")
-        else:
-            await ctx.send("No shared roles are configured.")
 
     async def maybe_send_welcome_message(self, member: discord.Member) -> None:
         guild = member.guild
