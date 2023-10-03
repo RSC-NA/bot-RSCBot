@@ -295,6 +295,7 @@ class ModeratorLink(commands.Cog):
         for user in userList:
             new_name = user.nick.replace(self.STAR_EMOJI, "")
             await user.edit(nick=new_name)
+        await ctx.send(f"Removed stars from **{len(userList)} player(s)**.")
 
     @commands.guild_only()
     @commands.command(aliases=["assignMedal", "awardMedal"])
