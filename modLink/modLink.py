@@ -6,7 +6,7 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
-from typing import Union
+from typing import Union, List
 
 log = logging.getLogger("red.RSCBot.modLink")
 
@@ -285,6 +285,16 @@ class ModeratorLink(commands.Cog):
         if not await self.has_perms(ctx.author):
             return
         await self.award_players(ctx, self.STAR_EMOJI, userList)
+
+    @commands.guild_only()
+    @commands.command()
+    async def removeStar(self, ctx, *userList: discord.Member):
+        """Removes a star from each user passed in the userList"""
+        if not await self.has_perms(ctx.author):
+            return
+        for user in userList:
+            new_name = user.nick.replace(self.STAR_EMOJI, "")
+            await user.edit(nick=new_name)
 
     @commands.guild_only()
     @commands.command(aliases=["assignMedal", "awardMedal"])
