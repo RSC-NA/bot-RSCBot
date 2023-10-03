@@ -11,6 +11,8 @@ from redbot.core import Config, commands, checks
 
 from teamManager import TeamManager
 
+from typing import Optional,List
+
 log = logging.getLogger("red.RSCBot.match")
 
 defaults = {
@@ -195,7 +197,7 @@ class Match(commands.Cog):
     # Player Commands
     @commands.command()
     @commands.guild_only()
-    async def match(self, ctx, *args):
+    async def match(self, ctx, match_day: int=None, *teams: str):
         """Get match info.
 
         If no arguments are provided, retrieve the match info for the
@@ -214,24 +216,27 @@ class Match(commands.Cog):
         roles) will get matchups for all their teams. User's without a team
         role will get nothing.
         """
-        match_day = args[0] if args else await self._match_day(ctx)
         if not match_day:
-            await ctx.send("Match day not provided and not set for " "the server.")
+            match_day = await self._match_day(ctx)
+        if not match_day:
+            await ctx.reply(embed=discord.Embed(
+                title="Match Error",
+                description="Match day not provided and not configured in the server.",
+                color=discord.Color.red(),
+            ))
             return
-        team_names = []
 
-        team_names_provided = len(args) > 1
-        if team_names_provided:
-            team_names = args[1:]
-        else:
-            team_names = await self.team_manager.teams_for_user(ctx, ctx.message.author)
+        if not teams:
+            teams = await self.team_manager.teams_for_user(ctx, ctx.message.author)
 
-        if not team_names:
-            await ctx.send(
-                "No teams found. If you provided teams, "
+        if not teams:
+            await ctx.reply(embed=discord.Embed(
+                title="Match Error",
+                description="No teams found. If you provided teams, "
                 "check the spelling. If not, you do not have "
-                "roles corresponding to a team."
-            )
+                "roles corresponding to a team.",
+                color=discord.Color.red(),
+            ))
             return
 
         franchise_role = self.team_manager.get_current_franchise_role(
@@ -239,19 +244,20 @@ class Match(commands.Cog):
         )
         send_to_channel = await self.get_franchise_match_channel(franchise_role)
 
-        on_mobile = ctx.message.author.is_on_mobile()
-        for team_name in team_names:
-            team_matches = await self.get_team_matches(ctx, team_name, str(match_day))
+        for team_name in teams:
+            try:
+                team_matches = await self.get_team_matches(ctx, team_name, str(match_day))
+            except LookupError as exc:
+                await ctx.reply(embed=discord.Embed(
+                    title="Match Error",
+                    description=f"**{team_name}** is not a valid team name. Please check the spelling.",
+                    color=discord.Color.red(),
+                ))
+                return
+
             for match in team_matches:
-                if on_mobile:
-                    message = await self._format_match_message(ctx, match, team_name)
-                    # await ctx.message.author.send(message)
-                    await send_to_channel.send(ctx.author.mention)
-                    await send_to_channel.send(message)
-                else:
-                    embed = await self._format_match_embed(ctx, match, team_name)
-                    # await ctx.message.author.send(embed=embed)
-                    await send_to_channel.send(ctx.author.mention, embed=embed)
+                embed = await self._format_match_embed(ctx, match, team_name)
+                await send_to_channel.send(ctx.author.mention, embed=embed)
 
             if not team_matches:
                 # await ctx.message.author.send("No matches on day {0} for {1}".format(match_day, team_name))
@@ -260,6 +266,75 @@ class Match(commands.Cog):
                 )
 
         await ctx.message.delete()
+
+    # # Player Commands
+    # @commands.command()
+    # @commands.guild_only()
+    # async def match(self, ctx, *args):
+    #     """Get match info.
+
+    #     If no arguments are provided, retrieve the match info for the
+    #     server's currently active match day for the requesting user's
+    #     team or teams. This will fail if the user has no team role or if
+    #     the match day is not set.
+
+    #     If one argument is provided, it must be the match day to retrieve. If
+    #     more than one argument is provided, the first must be the match day
+    #     followed by a list of teams for which the match info should be
+    #     retrieved.
+
+    #     Example: `[p]match 1 derechos "killer bees"`
+
+    #     Note: If no team names are sent, GMs (or anyone with multiple team
+    #     roles) will get matchups for all their teams. User's without a team
+    #     role will get nothing.
+    #     """
+    #     match_day = args[0] if args else await self._match_day(ctx)
+    #     if not match_day:
+    #         await ctx.send("Match day not provided and not set for " "the server.")
+    #         return
+    #     team_names = []
+
+    #     team_names_provided = len(args) > 1
+    #     if team_names_provided:
+    #         team_names = args[1:]
+    #     else:
+    #         team_names = await self.team_manager.teams_for_user(ctx, ctx.message.author)
+
+    #     if not team_names:
+    #         await ctx.send(
+    #             "No teams found. If you provided teams, "
+    #             "check the spelling. If not, you do not have "
+    #             "roles corresponding to a team."
+    #         )
+    #         return
+
+    #     franchise_role = self.team_manager.get_current_franchise_role(
+    #         ctx.message.author
+    #     )
+    #     send_to_channel = await self.get_franchise_match_channel(franchise_role)
+
+    #     on_mobile = ctx.message.author.is_on_mobile()
+    #     for team_name in team_names:
+    #         team_matches = await self.get_team_matches(ctx, team_name, str(match_day))
+    #         for match in team_matches:
+    #             if on_mobile:
+    #                 message = await self._format_match_message(ctx, match, team_name)
+    #                 # await ctx.message.author.send(message)
+    #                 await send_to_channel.send(ctx.author.mention)
+    #                 await send_to_channel.send(message)
+    #             else:
+    #                 embed = await self._format_match_embed(ctx, match, team_name)
+    #                 # await ctx.message.author.send(embed=embed)
+    #                 await send_to_channel.send(ctx.author.mention, embed=embed)
+
+    #         if not team_matches:
+    #             # await ctx.message.author.send("No matches on day {0} for {1}".format(match_day, team_name))
+    #             await send_to_channel.send(
+    #                 f"{ctx.author.mention}, No matches on day {match_day} for {team_name}"
+    #             )
+
+    #     await ctx.message.delete()
 
     @commands.command(aliases=["lobbyup", "up", "ready"])
     @commands.guild_only()
