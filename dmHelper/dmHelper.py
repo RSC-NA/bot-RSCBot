@@ -1,4 +1,3 @@
-
 import discord
 from redbot.core import commands, Config, checks
 from redbot.core.utils.predicates import ReactionPredicate
@@ -8,14 +7,18 @@ from datetime import datetime
 import asyncio
 import logging
 
-log : logging.Logger = logging.getLogger("red.RSCBot.dmHelper")
+log: logging.Logger = logging.getLogger("red.RSCBot.dmHelper")
 
 dm_sleep_time = 0.5
 verify_timeout = 30
 
 # role for "Needs to DM Bot"
 global_defaults = {"FailedUserMessages": {}}
-guild_defaults = {"DMNotifyChannel": None, "DMNotifyRole": None, "AutoAssignDMBotRole": True}
+guild_defaults = {
+    "DMNotifyChannel": None,
+    "DMNotifyRole": None,
+    "AutoAssignDMBotRole": True,
+}
 
 DONE = "Done"
 
@@ -23,24 +26,29 @@ DONE = "Done"
 # Send previously failed messages
 # Sync roles on server join
 
+
 class DMHelper(commands.Cog):
     """Controls Bot-to-member Direct Messages (DMs) with code to prevent rate limiting."""
 
     def __init__(self, bot):
-        self.config = Config.get_conf(self, identifier=1234567895, force_registration=True)
+        self.config = Config.get_conf(
+            self, identifier=1234567895, force_registration=True
+        )
         self.config.register_global(**global_defaults)
         self.config.register_guild(**guild_defaults)
-        
+
         self.bot = bot
-        self.message_queue : list = []
-        self.priority_message_queue : list = []
-        self.errored_message_queue : list = [] # used to store DMs that were unable to be delivered
+        self.message_queue: list = []
+        self.priority_message_queue: list = []
+        self.errored_message_queue: list = (
+            []
+        )  # used to store DMs that were unable to be delivered
         self.actively_sending = False
         self.auto_assign_dmbr = {}
         asyncio.create_task(self._pre_load_data())
         # self.task = asyncio.create_task(self.process_dm_queues())  # TODO: protect queue from bot crashes -- json?
-    
-# region Admin config commands
+
+    # region Admin config commands
     # CHANNEL
     @commands.guild_only()
     @commands.command()
@@ -56,7 +64,9 @@ class DMHelper(commands.Cog):
     async def getNeedsToDMBotChannel(self, ctx):
         """Gets the channel currently assigned as the transaction channel"""
         try:
-            await ctx.reply(f"Needs to DM Bot channel set to: {(await self._get_needs_to_dm_channel(ctx.guild)).mention}")
+            await ctx.reply(
+                f"Needs to DM Bot channel set to: {(await self._get_needs_to_dm_channel(ctx.guild)).mention}"
+            )
         except:
             await ctx.reply(":x: Needs to DM Bot Channel not set.")
 
@@ -82,7 +92,9 @@ class DMHelper(commands.Cog):
     async def getNeedsToDMBotRole(self, ctx):
         """Gets the channel currently assigned as the transaction channel"""
         try:
-            await ctx.reply(f"Needs to DM Bot role set to: {(await self._get_needs_to_dm_role(ctx.guild))}")
+            await ctx.reply(
+                f"Needs to DM Bot role set to: {(await self._get_needs_to_dm_role(ctx.guild))}"
+            )
         except:
             await ctx.reply(":x: Needs to DM Bot role not set")
 
@@ -101,12 +113,14 @@ class DMHelper(commands.Cog):
         auto_assign = await self._toggle_auto_assign_dmbr(ctx.guild)
         dmbr = await self._get_needs_to_dm_role(ctx.guild)
         action = "will" if auto_assign else "will not"
-        await ctx.reply(f"The bot **{action}** add the **{dmbr}** role to new guild members.")
+        await ctx.reply(
+            f"The bot **{action}** add the **{dmbr}** role to new guild members."
+        )
 
-# endregion
+    # endregion
 
-# region Commands
-    @commands.command(aliases=['dmm'])
+    # region Commands
+    @commands.command(aliases=["dmm"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def dmMember(self, ctx, member: discord.Member, *, message: str):
@@ -114,35 +128,37 @@ class DMHelper(commands.Cog):
         await self.add_to_dm_queue(member, content=message, ctx=ctx)
         await ctx.reply("Done")
 
-    @commands.command(aliases=['dmr'])
+    @commands.command(aliases=["dmr"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
     async def dmRole(self, ctx: commands.Context, role: discord.Role, *, message: str):
         """Sends a DM to all members with the specified role by adding them to the message queue"""
         log.debug(f"Sending mass DM to {role.name}: {message}")
         log.debug(f"{role.name} members: {[ x.name for x in role.members]}")
-        await self.add_message_players_to_dm_queue(members=role.members, content=message, ctx=ctx)
+        await self.add_message_players_to_dm_queue(
+            members=role.members, content=message, ctx=ctx
+        )
         await ctx.reply("All DMs have been queued.")
-    
-# endregion
 
-# region preload data
+    # endregion
+
+    # region preload data
 
     async def _pre_load_data(self):
         await self.bot.wait_until_ready()
         self.auto_assign_dmbr = {}
         for guild in self.bot.guilds:
-            self.auto_assign_dmbr[guild] = (await self._get_auto_assign_dmbr(guild))
+            self.auto_assign_dmbr[guild] = await self._get_auto_assign_dmbr(guild)
 
-# endregion
+    # endregion
 
-# region Listeners
-    @commands.Cog.listener('on_member_join')
+    # region Listeners
+    @commands.Cog.listener("on_member_join")
     async def on_member_join(self, member: discord.Member):
         # ignore bots
         if member.bot:
             return
-            
+
         # Don't add role if auto-assign is disabled (false)
         if not self.auto_assign_dmbr[member.guild]:
             return
@@ -151,9 +167,9 @@ class DMHelper(commands.Cog):
         if dm_bot_role:
             await member.add_roles(dm_bot_role)
 
-    @commands.Cog.listener('on_message_without_command')
+    @commands.Cog.listener("on_message_without_command")
     async def _message_listener(self, message: discord.Message):
-        #ignore non-dms
+        # ignore non-dms
         if not isinstance(message.channel, discord.DMChannel):
             return
         # ignore all self messages
@@ -162,34 +178,43 @@ class DMHelper(commands.Cog):
 
         # await message.channel.send('hello')
         await self._process_dms_unlocked(message)
-    
-# endregion
 
-# region Helper functions - open to external cogs
-    async def add_message_players_to_dm_queue(self, members: list, content: str, ctx=None):
+    # endregion
+
+    # region Helper functions - open to external cogs
+    async def add_message_players_to_dm_queue(
+        self, members: list, content: str, ctx=None
+    ):
         for member in members:
             await self.add_to_dm_queue(member, content=content, ctx=ctx)
 
-    async def add_to_dm_queue(self, member: discord.Member, content: str=None, embed: discord.Embed=None, ctx: commands.Context=None, priority: bool=False):
-        # Message Data: 
+    async def add_to_dm_queue(
+        self,
+        member: discord.Member,
+        content: str = None,
+        embed: discord.Embed = None,
+        ctx: commands.Context = None,
+        priority: bool = False,
+    ):
+        # Message Data:
         msg_data = {
-          "send_to": member,
-          "content": content,
-          "embed": embed,
-          "request_ctx": ctx
+            "send_to": member,
+            "content": content,
+            "embed": embed,
+            "request_ctx": ctx,
         }
         if priority:
             self.priority_message_queue.append(msg_data)
         else:
             self.message_queue.append(msg_data)
-        
+
         if not self.actively_sending:
             self.actively_sending = True
             await self._process_dm_queues()
 
     # region Automated Processes
     async def _process_dm_queues(self):
-        # Message Data: 
+        # Message Data:
         # {
         #   send_to: <member>,
         #   content: <string>,
@@ -204,21 +229,27 @@ class DMHelper(commands.Cog):
                 message_data = self.priority_message_queue.pop(0)
             elif self.message_queue:
                 message_data = self.message_queue.pop(0)
-            
+
             # Grabs next message
             try:
-                recipient: discord.User = message_data['send_to'] # TODO: is there any way to strongly type as member and user (union)?
+                recipient: discord.User = message_data[
+                    "send_to"
+                ]  # TODO: is there any way to strongly type as member and user (union)?
                 content: str = message_data.get("content", None)
                 embed: discord.Embed = message_data.get("embed", None)
                 req_ctx: commands.Context = message_data.get("request_ctx")
             except Exception as e:
-                message_data['exception'] = e
-                log.debug(f"Parsing message data failed due to an exception. Message Data: {message_data}")
+                message_data["exception"] = e
+                log.debug(
+                    f"Parsing message data failed due to an exception. Message Data: {message_data}"
+                )
                 failed_msg_buffer.append(message_data)
                 req_ctx: commands.Context = message_data.get("request_ctx")
                 if req_ctx:
-                    await req_ctx.reply(f"Direct Message to {recipient.mention} has failed.")
-            
+                    await req_ctx.reply(
+                        f"Direct Message to {recipient.mention} has failed."
+                    )
+
             # Sends next message
             if content or embed:
                 try:
@@ -232,29 +263,34 @@ class DMHelper(commands.Cog):
                         if dm_bot_role in member.roles:
                             await member.remove_roles(dm_bot_role)
                     except:
-                        pass 
+                        pass
                 except Exception as e:
-                    message_data['exception'] = e
+                    message_data["exception"] = e
                     failed_msg_buffer.append(message_data)
-                    log.debug(f"DM to recipient \"{recipient.name}{recipient.discriminator}\" failed due to Exception: {e}")
-                    
+                    log.debug(
+                        f'DM to recipient "{recipient.name}{recipient.discriminator}" failed due to Exception: {e}'
+                    )
+
                     # add needs to dm bot where applicable
                     for guild in recipient.mutual_guilds:
                         guild: discord.Guild
                         # 1. apply the "needs to dm bot role"
-                        needs_dm_role: discord.Role = await self._get_needs_to_dm_role(guild)
-                        
+                        needs_dm_role: discord.Role = await self._get_needs_to_dm_role(
+                            guild
+                        )
+
                         if needs_dm_role:
-                            recipient_as_member: discord.Member = guild.get_member(recipient.id)
+                            recipient_as_member: discord.Member = guild.get_member(
+                                recipient.id
+                            )
                             await recipient_as_member.add_roles(needs_dm_role)
 
                         # 3. Move DM to a "long queue" waiting for DM
                         # self.errored_message_queue.append(message_data) # INSTEAD:
                         # TODO: await self._save_failed_message(member, content, embed)
 
-
             await asyncio.sleep(dm_sleep_time)
-        
+
         self.actively_sending = False
         if failed_msg_buffer:
             await self._send_failed_msg_report(failed_msg_buffer)
@@ -262,10 +298,10 @@ class DMHelper(commands.Cog):
     async def _send_failed_msg_report(self, failed_msg_buffer):
         # organize reports based on shared channel, ping sender - Feedback
 
-        fmbc = {} # failed_messages_by_channel
+        fmbc = {}  # failed_messages_by_channel
         for failed_msg in failed_msg_buffer:
-            recipient: discord.Member = failed_msg['send_to']
-            ctx: commands.Context = failed_msg['request_ctx']
+            recipient: discord.Member = failed_msg["send_to"]
+            ctx: commands.Context = failed_msg["request_ctx"]
             channel: discord.TextChannel = ctx.channel
             sender: discord.Member = ctx.author
             jump_url = ctx.message.jump_url
@@ -273,41 +309,58 @@ class DMHelper(commands.Cog):
             if channel not in fmbc:
                 # Embed List Info
                 fmbc[channel] = {}
-                fmbc[channel]['recipients'] = []
-                fmbc[channel]['senders'] = []
-                fmbc[channel]['ctx_links_list'] = []
+                fmbc[channel]["recipients"] = []
+                fmbc[channel]["senders"] = []
+                fmbc[channel]["ctx_links_list"] = []
 
                 # Extra Embed Info
-                fmbc[channel]['oldest_msg_req'] = ctx.message.created_at
-                fmbc[channel]['all_senders'] = []
-            
+                fmbc[channel]["oldest_msg_req"] = ctx.message.created_at
+                fmbc[channel]["all_senders"] = []
+
             # List Data
-            fmbc[channel]['recipients'].append(recipient)
-            fmbc[channel]['senders'].append(sender)
-            fmbc[channel]['ctx_links_list'].append(f"[ctx link]({jump_url})")
-            
+            fmbc[channel]["recipients"].append(recipient)
+            fmbc[channel]["senders"].append(sender)
+            fmbc[channel]["ctx_links_list"].append(f"[ctx link]({jump_url})")
+
             # Failed Since <datetime>, ping all senders
-            oldest = fmbc[channel]['oldest_msg_req']
+            oldest = fmbc[channel]["oldest_msg_req"]
             if oldest < ctx.message.created_at:
                 oldest = ctx.message.created_at
-                fmbc[channel]['oldest_msg_req'] = oldest
-            
-            if sender not in fmbc[channel]['all_senders']:
-                fmbc[channel]['all_senders'].append(sender)
-        
+                fmbc[channel]["oldest_msg_req"] = oldest
+
+            if sender not in fmbc[channel]["all_senders"]:
+                fmbc[channel]["all_senders"].append(sender)
+
         for channel, data in fmbc.items():
-            embed = discord.Embed(title="Failed Direct Messages", color=discord.Color.red())
+            embed = discord.Embed(
+                title="Failed Direct Messages", color=discord.Color.red()
+            )
 
             embed.description = f"Failed DMs since {data['oldest_msg_req']}"
-            embed.add_field(name="Recipient", value='\n'.join([r.display_name for r in data['recipients']]), inline=True)
-            embed.add_field(name="Sender", value='\n'.join([r.display_name for r in data['senders']]), inline=True)
-            embed.add_field(name="Source", value='\n'.join(data.get('ctx_links_list', '--')), inline=True)
+            embed.add_field(
+                name="Recipient",
+                value="\n".join([r.display_name for r in data["recipients"]]),
+                inline=True,
+            )
+            embed.add_field(
+                name="Sender",
+                value="\n".join([r.display_name for r in data["senders"]]),
+                inline=True,
+            )
+            embed.add_field(
+                name="Source",
+                value="\n".join(data.get("ctx_links_list", "--")),
+                inline=True,
+            )
 
-            await channel.send(content=f"{' '.join([sender.mention for sender in data['all_senders']])}", embed=embed)
+            await channel.send(
+                content=f"{' '.join([sender.mention for sender in data['all_senders']])}",
+                embed=embed,
+            )
 
     async def _process_dms_unlocked(self, dm: discord.Message):
         user: discord.User = dm.author
-        
+
         # Remove role from mutual servers where applicable
         was_locked = False
         for guild in user.mutual_guilds:
@@ -318,7 +371,7 @@ class DMHelper(commands.Cog):
             if needs_to_dm_bot_role in member.roles:
                 await member.remove_roles(needs_to_dm_bot_role)
                 was_locked = True
-        
+
         if not was_locked:
             return None
 
@@ -331,10 +384,10 @@ class DMHelper(commands.Cog):
 
         # TODO: Code here is GOOD, but saving failed messages is not yet supported
         # failed_messages = await self._pop_failed_user_messages(user)
-        
+
         # if not failed_messages:
-        #     return None 
-        
+        #     return None
+
         # msg = "It looks like you have some old failed DMs. Here's what you've missed..."
         # await self.add_message_players_to_dm_queue(member, msg)
         # for failed_message in failed_messages:
@@ -349,12 +402,12 @@ class DMHelper(commands.Cog):
 
     async def _ghost_ping_in_needs_dm_channel(self, member):
         channel = await self._get_needs_to_dm_channel(member.guild)
-        ghost_msg : discord.Message = await channel.send(f"{member.mention}")
+        ghost_msg: discord.Message = await channel.send(f"{member.mention}")
         await ghost_msg.delete()
 
-# endregion
+    # endregion
 
-# region json
+    # region json
     # GET
     async def _get_needs_to_dm_role(self, guild: discord.Guild):
         return guild.get_role(await self.config.guild(guild).DMNotifyRole())
@@ -384,10 +437,13 @@ class DMHelper(commands.Cog):
     async def _save_needs_to_dm_role(self, guild: discord.Guild, role: discord.Role):
         await self.config.guild(guild).DMNotifyRole.set(role.id)
 
-    async def _save_needs_to_dm_channel(self, guild: discord.Guild, channel: discord.TextChannel):
+    async def _save_needs_to_dm_channel(
+        self, guild: discord.Guild, channel: discord.TextChannel
+    ):
         await self.config.guild(guild).DMNotifyChannel.set(channel.id)
-    
+
     async def _save_failed_user_messages(self, failed_messages: dict):
         await self.config.FailedUserMessages.set(failed_messages)
- 
- # endregion
+
+
+# endregion

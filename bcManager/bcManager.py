@@ -940,7 +940,7 @@ class BCManager(commands.Cog):
             error_embed = discord.Embed(
                 title=f"{player.nick if player.nick else player.name}'s Accounts",
                 description=f"Error connecting to RSC Members API.\n\n{url}",
-                color=discord.Color.red()
+                color=discord.Color.red(),
             )
             await msg.edit(embed=error_embed)
             return
