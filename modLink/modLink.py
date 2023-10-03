@@ -276,14 +276,14 @@ class ModeratorLink(commands.Cog):
         tracked_joins = 0
         for name, join_data in self.recently_joined_members[ctx.guild].items():
             num_joins = len(join_data["members"])
-            recent_joins += "\n - {} ({})".format(name, num_joins)
+            recent_joins += f"\n - {name} ({num_joins})"
             tracked_joins += num_joins
 
         if tracked_joins:
             return await ctx.send(recent_joins)
         minutes = NEW_MEMBER_JOIN_TIME // 60
         return await ctx.send(
-            ":x: No members have joined in the past {} minutes.".format(minutes)
+            f":x: No members have joined in the past {minutes} minutes."
         )
 
     @commands.guild_only()
@@ -298,7 +298,7 @@ class ModeratorLink(commands.Cog):
             await self._save_blacklisted_names(ctx.guild, blacklisted_names)
             return await ctx.send("Done")
         else:
-            await ctx.send(":x: **{}** is not a blacklisted name.".format(name))
+            await ctx.send(f":x: **{name}** is not a blacklisted name.")
 
     @commands.guild_only()
     @commands.command()
@@ -309,7 +309,7 @@ class ModeratorLink(commands.Cog):
         if user_id.id in self.whitelist:
             self.whitelist.remove(user_id.id)
             return await ctx.send("Done")
-        return await ctx.send(":x: User ID {} was not whitelisted.".format(user_id))
+        return await ctx.send(f":x: User ID {user_id} was not whitelisted.")
 
 
     # League Awards
@@ -386,9 +386,7 @@ class ModeratorLink(commands.Cog):
         if msg:
             return await ctx.send(msg)
         await ctx.send(
-            ":x: No members have been awarded with the {} emoji.".format(
-                self.STAR_EMOJI
-            )
+            f":x: No members have been awarded with the {self.STAR_EMOJI} emoji."
         )
 
     # Ban/Unban
@@ -467,13 +465,11 @@ class ModeratorLink(commands.Cog):
             if linked_guild_log and not is_banned:
                 await linked_guild.ban(
                     user,
-                    reason="Banned from {}.".format(guild.name),
+                    reason=f"Banned from {guild.name}.",
                     delete_message_days=0,
                 )
                 await linked_guild_log.send(
-                    "**{}** (id: {}) has been banned. [initiated from **{}**]".format(
-                        user.name, user.id, guild.name
-                    )
+                    f"**{user.name}** (id: {user.id}) has been banned. [initiated from **{guild.name}**]"
                 )
 
     @commands.Cog.listener("on_member_unban")
@@ -505,12 +501,10 @@ class ModeratorLink(commands.Cog):
 
             if linked_guild_log and is_banned:
                 await linked_guild.unban(
-                    user, reason="Unbanned from {}.".format(guild.name)
+                    user, reason=f"Unbanned from {guild.name}."
                 )
                 await linked_guild_log.send(
-                    "**{}** (id: {}) has been unbanned. [initiated from **{}**]".format(
-                        user.mention, user.id, guild.name
-                    )
+                    f"**{user.mention}** (id: {user.id}) has been unbanned. [initiated from **{guild.name}**]"
                 )
 
     @commands.Cog.listener("on_member_join")
@@ -548,13 +542,7 @@ class ModeratorLink(commands.Cog):
                 if guild_nick != member.name:
                     await member.edit(nick=guild_nick)
                     await event_log_channel.send(
-                        "{} (**{}**, id: {}) has had thier nickname set to **{}** upon joining the server [discovered from **{}**]".format(
-                            member.mention,
-                            member.name,
-                            member.id,
-                            guild_nick,
-                            guild.name,
-                        )
+                        f"{member.mention} (**{member.name}**, id: {member.id}) has had thier nickname set to **{guild_nick}** upon joining the server [discovered from **{guild.name}**]"
                     )
 
                 if shared_role_names:
@@ -718,13 +706,11 @@ class ModeratorLink(commands.Cog):
 
         # TODO: save invite as "trusted" invite
         if invite:
-            message += " Alternatively, you can wait 5 minutes, then [Click Here]({}) to rejoin the guild!".format(
-                invite.url
-            )
+            message += f" Alternatively, you can wait 5 minutes, then [Click Here]({invite.url}) to rejoin the guild!"
         message += "\n\nWe aplogize for the inconvenience."
 
         embed = discord.Embed(
-            title="Message from {}".format(guild.name),
+            title=f"Message from {guild.name}",
             color=discord.Color.red(),
             description=message,
         )
@@ -738,7 +724,7 @@ class ModeratorLink(commands.Cog):
 
         reason_note = "suspected bot"
         if reason:
-            reason_note += ": {}".format(reason)
+            reason_note += f": {reason}"
 
         # Kick or Ban members, log if even log channel is set
         event_log_channel = await self._event_log_channel(member.guild)
@@ -749,18 +735,13 @@ class ModeratorLink(commands.Cog):
                 await member.kick(reason=reason_note)
             if event_log_channel:
                 await event_log_channel.send(
-                    "**{}** (id: {}) has been flagged as a bot account and **{}** from the server (Reason: {}).".format(
-                        member.name, member.id, action, reason
-                    )
+                    f"**{member.name}** (id: {member.id}) has been flagged as a bot account and **{action}** from the server (Reason: {reason})."
                 )
         except:
             if event_log_channel:
                 current_action_word = "banning" if action == "banned" else "kicked"
                 await event_log_channel.send(
-                    "**{}** (id: {}) has been flagged as a bot account, but an error ocurred when **{}ing** from the server (Reason: {}).".format(
-                        member.name, member.id, action, current_action_word
-                    )
-                )
+                    f"**{member.name}** (id: {member.id}) has been flagged as a bot account, but an error ocurred when **{action}ing** from the server (Reason: {reason})."                )
 
     def cancel_all_tasks(self, guild=None):
         guilds = [guild] if guild else self.bot.guilds
@@ -889,17 +870,13 @@ class ModeratorLink(commands.Cog):
 
         message = ""
         if success_count:
-            message = ":white_check_mark: Trophies have been added to **{} player(s)**.".format(
-                success_count
-            )
+            message = f":white_check_mark: Trophies have been added to **{success_count} player(s)**."
 
         if notFound:
-            message += "\n:x: {} members could not be found.".format(len(notFound))
+            message += f"\n:x: {len(notFound)} members could not be found."
 
         if failed:
-            message += "\n:x: Nicknames could not be changed for {} members.".format(
-                failed
-            )
+            message += f"\n:x: Nicknames could not be changed for {failed} members."
 
         if message:
             message += "\nDone"
@@ -935,12 +912,7 @@ class ModeratorLink(commands.Cog):
                         )
                         await guild_member.edit(nick=new_guild_name)
                         await channel.send(
-                            "{} has changed their name from **{}** to **{}** [initiated from **{}**]".format(
-                                guild_member.mention,
-                                guild_nick,
-                                a_nick,
-                                before.guild.name,
-                            )
+                            f"{guild_member.mention} has changed their name from **{guild_nick}** to **{a_nick}** [initiated from **{before.guild.name}**]"
                         )
                 except:
                     pass
@@ -965,10 +937,10 @@ class ModeratorLink(commands.Cog):
         return prefix.strip(), player_name.strip(), awards.strip()
 
     def _generate_new_name(self, prefix, name, awards):
-        new_name = "{} | {}".format(prefix, name) if prefix else name
+        new_name = f"{prefix} | {name}" if prefix else name
         if awards:
             awards = "".join(sorted(awards))
-            new_name += " {}".format(awards)
+            new_name += f" {awards}"
         return new_name
 
     # endregion nickname mgmt
