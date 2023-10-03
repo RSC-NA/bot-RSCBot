@@ -110,26 +110,39 @@ class BulkRoleManager(commands.Cog):
             await ctx.send(embed=noUsersEmbed)
             return
 
-        embed = discord.Embed(
-            color=discord.Color.blue(),
-            title="Members with Intersecting Roles",
-        )
-        embed.add_field(
-            name="Name",
-            value="\n".join([f"{p.display_name}" for p in matches]),
-            inline=True,
-        )
-        embed.add_field(
-            name="Discord",
-            value="\n".join([f"{p.name}#{p.discriminator}" for p in matches]),
-            inline=True,
-        )
-        embed.add_field(
-            name="ID", value="\n".join(str(p.id) for p in matches), inline=True
-        )
-        embed.set_footer(text=f"Found {len(matches)} user(s) in total.")
+        # Check for character max being exceeded (6000 total in embed or 1024 per field)
+        nicks = "\n".join([f"{p.display_name}" for p in matches])
+        usernames = "\n".join([f"{p.name}#{p.discriminator}" for p in matches]),
+        ids = "\n".join(str(p.id) for p in matches)
 
-        await ctx.send(embed=embed)
+        if (
+            len(nicks) > 1024 or
+            len(usernames) > 1024 or
+            len(ids) > 1024
+        ):
+            msg = "\n".join([f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches])
+            await ctx.send(f"```msg```")
+        else:
+            embed = discord.Embed(
+                color=discord.Color.blue(),
+                title="Members with Intersecting Roles",
+            )
+            embed.add_field(
+                name="Name",
+                value="\n".join([f"{p.display_name}" for p in matches]),
+                inline=True,
+            )
+            embed.add_field(
+                name="Discord",
+                value="\n".join([f"{p.name}#{p.discriminator}" for p in matches]),
+                inline=True,
+            )
+            embed.add_field(
+                name="ID", value="\n".join(str(p.id) for p in matches), inline=True
+            )
+            embed.set_footer(text=f"Found {len(matches)} user(s) in total.")
+
+            await ctx.send(embed=embed)
 
     @commands.command()
     @commands.guild_only()
