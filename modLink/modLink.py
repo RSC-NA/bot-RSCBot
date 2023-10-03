@@ -6,7 +6,7 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
-from typing import Union, List
+from typing import Union, NoReturn, Optional, List
 
 log = logging.getLogger("red.RSCBot.modLink")
 
@@ -56,6 +56,157 @@ class ModeratorLink(commands.Cog):
         self.cancel_all_tasks()
 
     # Mod Role
+
+    @commands.guild_only()
+    @commands.group(name="modlink", aliases=["mlink"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def _mod_link(self, ctx: commands.Context) -> NoReturn:
+        """Display or configure mod link cog settings"""
+        pass
+
+    @_mod_link.command(name="settings", aliases=["info"])
+    async def _mod_link_settings(self, ctx:commands.Context):
+        """Display the current Mod Link configuration."""
+        mod_role = await self._mod_role(ctx.guild)
+        bot_detect = await self._get_bot_detection(ctx.guild)
+        event_channel = await self._event_log_channel(ctx.guild)
+        shared_roles = await self._get_shared_role_names(ctx.guild)
+        welcome_msg = await self._get_welcome_message(ctx.guild) or "None"
+
+        # Format Shared Roles
+        converted_roles = []
+        for r in shared_roles:
+            srole = discord.utils.get(ctx.guild.roles, name=r)
+            if not srole:
+                log.debug(f"Shared role {r} not found in {ctx.guild.name}.")
+                converted_roles.append(f"{r} **(NOT FOUND)**")
+            else:
+                converted_roles.append(srole.mention)
+
+        if not len(converted_roles):
+            converted_roles = "None"
+        else:
+            converted_roles = ", ".join(converted_roles)
+
+        settings_embed = discord.Embed(
+            title="Mod Link Settings",
+            description="Current configuration for Mod Link Cog.",
+            color=discord.Color.blue(),
+        )
+
+        if mod_role:
+            settings_embed.add_field(name="Moderator Role", value=mod_role.mention, inline=False)
+        else:
+            settings_embed.add_field(name="Moderator Role", value="None", inline=False)
+        settings_embed.add_field(name="Bot Detection", value=bot_detect, inline=False)
+        if event_channel:
+            settings_embed.add_field(name="Event Channel", value=event_channel.mention, inline=False)
+        else:
+            settings_embed.add_field(name="Event Channel", value="None", inline=False)
+        settings_embed.add_field(name="Shared Roles", value=converted_roles, inline=False)
+        settings_embed.add_field(name="Welcome Message", value=welcome_msg, inline=False)
+        await ctx.send(embed=settings_embed)
+
+    @_mod_link.command(name="modrole", aliases=["mrole"])
+    async def _set_mod_role(self, ctx:commands.Context, role: discord.Role):
+        """Configure the Moderator Role"""
+        await self._save_mod_role(ctx.guild, role.id)
+        await ctx.send(embed=discord.Embed(
+            title="Moderator Role Configured",
+            description=f"Moderator role has been set to {role.mention}",
+            color=discord.Color.green(),
+        ))
+
+    @_mod_link.command(name="welcome", aliases=["welcomemsg"])
+    async def _set_welcome_msg(self, ctx:commands.Context, *, message: str):
+        """Configure the welcome message"""
+        await self._save_welcome_message(ctx.guild, message)
+        await ctx.send(embed=discord.Embed(
+            title="Welcome Message Configured",
+            description=message,
+            color=discord.Color.green(),
+        ))
+
+    @_mod_link.command(name="botdetect", aliases=["bot"])
+    async def _toggle_bot_detection(self, ctx:commands.Context):
+        """Toggle bot detection on or off"""
+        bd = await self._get_bot_detection(ctx.guild)
+        bd ^= True # Flip boolean with xor
+        await self._save_bot_detection(ctx.guild, bd)
+        await ctx.send(embed=discord.Embed(
+             title="Bot Detection Toggled",
+             description=f"Bot detection is now **{'enabled' if bd else 'disabled'}**",
+             color=discord.Color.green(),
+        ))
+
+    @_mod_link.command(name="events", aliases=["eventchannel"])
+    async def _set_event_channel(self, ctx:commands.Context, channel: discord.TextChannel):
+        """Configure the event channel"""
+        await self._save_event_log_channel(ctx.guild, channel.id)
+        await ctx.send(embed=discord.Embed(
+            title="Event Channel Configured",
+            description=f"Event channel is now set to {channel.mention}",
+            color=discord.Color.green(),
+        ))
+
+    @_mod_link.command(name="sharedroles", aliases=["sroles"])
+    async def _set_shared_roles(self, ctx:commands.Context, *roles: discord.Role):
+        """Configure the shared roles across guilds"""
+        rnames = [r.name for r in roles]
+        log.debug(rnames)
+        await self._save_shared_roles(ctx.guild, rnames)
+        format_roles = "\n".join([r.mention for r in roles])
+        await ctx.send(embed=discord.Embed(
+            title="Shared Roles Configured",
+            description=f"Updated shared roles to the following.\n\n{format_roles}",
+            color=discord.Color.green(),
+        ))
+
+    @_mod_link.group(name="unset")
+    async def _mod_link_unset(self, ctx: commands.Context):
+        """Remove a mod link configuration option"""
+        pass
+
+    @_mod_link_unset.command(name="modrole", aliases=["mrole"])
+    async def _clear_mod_role(self, ctx:commands.Context):
+        """Remove the moderator role"""
+        await self._save_mod_role(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Moderator Role Removed",
+            description=f"Moderator role has been removed.",
+            color=discord.Color.orange(),
+        ))
+
+    @_mod_link_unset.command(name="welcome", aliases=["welcomemsg"])
+    async def _clear_welcome_msg(self, ctx:commands.Context):
+        """Remove the welcome message"""
+        await self._save_welcome_message(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Welcome Message Removed",
+            description=f"Welcome message has been removed.",
+            color=discord.Color.orange(),
+        ))
+
+    @_mod_link_unset.command(name="events", aliases=["eventchannel"])
+    async def _clear_event_channel(self, ctx:commands.Context):
+        """Remove the event channel"""
+        await self._save_event_log_channel(ctx.guild, None)
+        await ctx.send(embed=discord.Embed(
+            title="Event Channel Removed",
+            description=f"Event channel has been removed.",
+            color=discord.Color.orange(),
+        ))
+
+    @_mod_link_unset.command(name="sharedroles", aliases=["sroles"])
+    async def _clear_shared_roles(self, ctx:commands.Context):
+        """Remove shared roles"""
+        await self._save_shared_roles(ctx.guild, [])
+        await ctx.send(embed=discord.Embed(
+            title="Shared Roles Removed",
+            description=f"Shared roles have been removed.",
+            color=discord.Color.orange(),
+        ))
+
     @commands.guild_only()
     @commands.command(aliases=["setModeratorRole"])
     @checks.admin_or_permissions(manage_guild=True)
@@ -943,42 +1094,41 @@ class ModeratorLink(commands.Cog):
     # endregion nickname mgmt
 
     # region json data
-    async def _get_bot_detection(self, guild: discord.Guild):
+    async def _get_bot_detection(self, guild: discord.Guild) -> bool:
         return await self.config.guild(guild).BotDetection()
 
     async def _save_bot_detection(self, guild: discord.Guild, bot_detection: bool):
         await self.config.guild(guild).BotDetection.set(bot_detection)
 
-    async def _get_welcome_message(self, guild: discord.Guild):
+    async def _get_welcome_message(self, guild: discord.Guild) -> Optional[str]:
         return await self.config.guild(guild).WelcomeMessage()
 
     async def _save_welcome_message(self, guild: discord.Guild, message: str):
         await self.config.guild(guild).WelcomeMessage.set(message)
 
-    async def _get_blacklisted_names(self, guild: discord.Guild):
+    async def _get_blacklisted_names(self, guild: discord.Guild) -> Optional[str]:
         return await self.config.guild(guild).BlacklistedNames()
 
     async def _save_blacklisted_names(self, guild: discord.Guild, name: str):
         await self.config.guild(guild).BlacklistedNames.set(name)
 
-    async def _save_event_log_channel(self, guild, event_channel):
+    async def _save_event_log_channel(self, guild: discord.Guild, event_channel: int):
         await self.config.guild(guild).EventLogChannel.set(event_channel)
         # await self.config.guild(ctx.guild).TransChannel.set(trans_channel)
 
-    async def _event_log_channel(self, guild):
+    async def _event_log_channel(self, guild: discord.Guild) -> Optional[discord.TextChannel]:
         return guild.get_channel(await self.config.guild(guild).EventLogChannel())
 
-    async def _save_mod_role(self, guild, mod_role):
+    async def _save_mod_role(self, guild: discord.Guild, mod_role: int):
         await self.config.guild(guild).ModeratorRole.set(mod_role)
-        # await self.config.guild(ctx.guild).TransChannel.set(trans_channel)
 
-    async def _mod_role(self, guild):
+    async def _mod_role(self, guild: discord.Guild) -> Optional[discord.Role]:
         return guild.get_role(await self.config.guild(guild).ModeratorRole())
 
-    async def _save_shared_roles(self, guild, shared_role_names):
+    async def _save_shared_roles(self, guild: discord.Guild, shared_role_names: List[str]):
         await self.config.guild(guild).SharedRoles.set(shared_role_names)
 
-    async def _get_shared_role_names(self, guild):
+    async def _get_shared_role_names(self, guild: discord.Guild) -> List[str]:
         return await self.config.guild(guild).SharedRoles()
 
     # endregion json data
