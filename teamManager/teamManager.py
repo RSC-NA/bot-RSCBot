@@ -266,7 +266,7 @@ class TeamManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def addTeams(self, ctx, *teams_to_add):
+    async def addTeams(self, ctx: commands.Context, *teams_to_add: str):
         """Add the teams provided to the team list.
 
         Arguments:
@@ -317,9 +317,9 @@ class TeamManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def addTeam(self, ctx, team_name: str, gm_name: str, tier: str):
+    async def addTeam(self, ctx, team_name: str, gm_name: discord.Member, tier: str):
         """Add a single team and it's corresponding roles to the file system to be used for transactions and match info"""
-        teamAdded = await self._add_team(ctx, team_name, gm_name, tier)
+        teamAdded = await self._add_team(ctx, team_name, gm_name.display_name, tier)
         if teamAdded:
             await ctx.send("Done.")
 
@@ -1145,6 +1145,16 @@ class TeamManager(commands.Cog):
         if errors:
             errorfmt = "\n".join(errors)
             await ctx.send(embed=ErrorEmbed(description=errorfmt))
+            return False
+
+        # Check if team exists
+        _, found = await self._match_team_name(ctx, team_name)
+        if found:
+            await ctx.send(embed=discord.Embed(
+                title="Add Team Error",
+                description=f"**{team_name}** already exist!",
+                color=discord.Color.red(),
+            ))
             return False
 
         try:
