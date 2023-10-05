@@ -346,7 +346,6 @@ class RebrandFranchiseView(discord.ui.View):
                 for team in self.old_teams
             ]
         ]
-        log.debug
         # self.tier_roles.sort(key=lambda role: role.position, reverse=True)
         log.debug(f"Prompt Tier Roles: {self.tier_roles}")
 
