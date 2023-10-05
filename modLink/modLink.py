@@ -552,14 +552,14 @@ class ModeratorLink(commands.Cog):
 
     # Helper Functions
     async def process_member_standardization(self, member):
-        mutual_guilds = self._member_mutual_guilds(member)
+        mutual_guilds = await self._member_mutual_guilds(member)
         shared_role_names = await self._get_shared_role_names(member.guild)
         event_log_channel = await self._event_log_channel(member.guild)
         mutual_guilds.remove(member.guild)
         for guild in mutual_guilds:
             guild_event_log_channel = await self._event_log_channel(guild)
             if guild_event_log_channel:
-                guild_member = self._guild_member_from_id(guild, member.id)
+                guild_member = await self._guild_member_from_id(guild, member.id)
                 guild_prefix, guild_nick, guild_awards = self._get_name_components(
                     guild_member
                 )
@@ -575,7 +575,7 @@ class ModeratorLink(commands.Cog):
                     member_shared_roles = []
                     for guild_member_role in guild_member.roles:
                         if guild_member_role.name in shared_role_names:
-                            sis_role = self._guild_sister_role(
+                            sis_role = await self._guild_sister_role(
                                 member.guild, guild_member_role
                             )
                             if sis_role:
@@ -788,26 +788,23 @@ class ModeratorLink(commands.Cog):
         if not event_log_channel:
             return False
         
-        removed_roles = list((set(before.roles) - set(after.roles)) & set(shared_role_names))
-        added_roles = list((set(after.roles) - set(before.roles)) & set(shared_role_names))
+        removed_roles = list(set(before.roles) - set(after.roles))
+        added_roles = list(set(after.roles) - set(before.roles))
 
         log.debug("Processing shared role update.")
         log.debug(f"Shared Roles: {shared_role_names}")
-        log.debug(f"Removed Roles: {removed_roles}")
-        log.debug(f"Added Roles: {added_roles}")
+        log.debug(f"Roles getting removed: {removed_roles}")
+        log.debug(f"Roles getting added: {added_roles}")
 
         other_mutual_guilds = before.mutual_guilds
         other_mutual_guilds.remove(before.guild)
 
         if not removed_roles and not added_roles:
-            print("Noop")
             return
-
-        if added_roles:
-            await _process_role_addition(added_roles, other_mutual_guilds, before)
-
-        if removed_roles:
-            await _process_role_removal(added_roles, other_mutual_guilds, before)
+        elif added_roles:
+            await self._process_role_addition(added_roles, other_mutual_guilds, before)
+        elif removed_roles:
+            await self._process_role_removal(added_roles, other_mutual_guilds, before)
         
 
     async def _process_role_addition(self, added_roles, other_mutual_guilds, before: discord.Member):
@@ -815,8 +812,8 @@ class ModeratorLink(commands.Cog):
         role_assign_msg = "Shared role {} added to {} [initiated from **{}**]"
         for role in added_roles:
             for guild in other_mutual_guilds:
-                guild_role = self._guild_sister_role(guild, role)
-                guild_member = self._guild_member_from_id(guild, before.id)
+                guild_role = await self._guild_sister_role(guild, role)
+                guild_member = await self._guild_member_from_id(guild, before.id)
                 channel = await self._event_log_channel(guild_member.guild)
                 if guild_role and guild_role not in guild_member.roles and channel:
                     await guild_member.add_roles(
@@ -833,8 +830,8 @@ class ModeratorLink(commands.Cog):
         role_removal_msg = "Shared role {} removed from **{}** [initiated from **{}**]"
         for role in removed_roles:
             for guild in other_mutual_guilds:
-                guild_role = self._guild_sister_role(guild, role)
-                guild_member = self._guild_member_from_id(guild, before.id)
+                guild_role = await self._guild_sister_role(guild, role)
+                guild_member = await self._guild_member_from_id(guild, before.id)
                 channel = await self._event_log_channel(guild_member.guild)
                 if guild_role in guild_member.roles and channel:
                     await guild_member.remove_roles(guild_role)
@@ -845,8 +842,7 @@ class ModeratorLink(commands.Cog):
                     )
 
 
-
-    def _guild_member_from_id(self, guild, member_id):
+    async def _guild_member_from_id(self, guild, member_id):
         return guild.get_member(member_id)
 
     def _guild_role_from_name(self, guild, role_name):
@@ -854,14 +850,14 @@ class ModeratorLink(commands.Cog):
             if role.name == role_name:
                 return role
 
-    def _member_mutual_guilds(self, member: discord.Member):
+    async def _member_mutual_guilds(self, member: discord.Member):
         mutual_guilds = []
         for guild in self.bot.guilds:
             if member in guild.members:
                 mutual_guilds.append(guild)
         return mutual_guilds
 
-    def _guild_sister_role(self, guild, sister_role):
+    async def _guild_sister_role(self, guild, sister_role):
         for role in guild.roles:
             if role.name == sister_role.name and role != sister_role:
                 return role
@@ -918,7 +914,7 @@ class ModeratorLink(commands.Cog):
         if b_nick == a_nick or not event_log_channel:
             return
 
-        mutual_guilds = self._member_mutual_guilds(
+        mutual_guilds = await self._member_mutual_guilds(
             before
         )  # before.mutual_guilds not working
         mutual_guilds.remove(before.guild)
@@ -926,7 +922,7 @@ class ModeratorLink(commands.Cog):
         for guild in mutual_guilds:
             channel = await self._event_log_channel(guild)
             if channel:
-                guild_member = self._guild_member_from_id(guild, before.id)
+                guild_member = await self._guild_member_from_id(guild, before.id)
                 guild_prefix, guild_nick, guild_awards = self._get_name_components(
                     guild_member
                 )
