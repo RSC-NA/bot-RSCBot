@@ -1,6 +1,7 @@
 import discord
 import logging
 import datetime
+import re
 
 from redbot.core import Config
 from redbot.core import commands
@@ -13,7 +14,7 @@ from dmHelper import DMHelper
 
 from transactions.embeds import ErrorEmbed
 
-from typing import NoReturn, Optional, Tuple, Union
+from typing import NoReturn, Optional, Tuple, Union, List
 
 log = logging.getLogger("red.RSCBot.transactions")
 
@@ -662,7 +663,8 @@ class Transactions(commands.Cog):
             return
 
         # Only log if the member is currently on a team
-        on_team = self.team_manager_cog.get_current_franchise_role(member)
+        team_manager: TeamManager = self.bot.get_cog("TeamManager")
+        on_team = team_manager.get_current_franchise_role(member)
         if not on_team:
             log.debug(f"{member.display_name} left the server but was not on a team.")
             return
@@ -706,6 +708,120 @@ class Transactions(commands.Cog):
             )
 
         await log_channel.send(embed=log_embed)
+
+        # Ping GM and AGM in franchise transaction channel.
+        franchise_name = on_team.name.split(" (")[0]
+        trans_channel_name = f"{franchise_name.lower().replace(' ', '-')}-transactions"
+        log.debug(f"Transaction Channel: {trans_channel_name}")
+        trans_channel: discord.TextChannel = discord.utils.get(member.guild.channels, name=trans_channel_name)
+        if trans_channel:
+            # Find GM and mention them in their transaction channel
+            gm: discord.Member = await self._get_franchise_gm(on_team.guild, on_team)
+            if gm:
+                await trans_channel.send(content=gm.mention)
+            await trans_channel.send(embed=log_embed)
+        else:
+            log.error(f"Unable to find transaction channel. Role: {on_team.name} Channel: {trans_channel_name}")
+            log_channel.send(f"Unable to ping GM/AGM of {on_team.mention}. Missing or invalid transaction channel: **{trans_channel_name}**")
+
+    @commands.guild_only()
+    @commands.command(aliases=["agm", "getAGM"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def findAGM(self, ctx: commands.Context, franchise_role: discord.Role):
+        """Return the AGMs for a provided franchise role"""
+        franchise_name = franchise_role.name.split(" (")
+        if not franchise_name:
+            await ctx.send(embed=ErrorEmbed(description=f"Invalid franchise role: {franchise_role.mention}"))
+            return
+
+        agms = await self._get_franchise_agms(ctx.guild, franchise_role)
+        agm_embed = discord.Embed(title=f"{franchise_name[0]} AGM(s)", color=discord.Color.blue())
+        if agms:
+            agm_embed.description = "\n".join([agm.mention for agm in agms])
+            await ctx.send(embed=agm_embed)
+        else:
+            agm_embed.description = f"There are currently no Assistant GM(s) in {franchise_role.mention}"
+            agm_embed.color = discord.Color.orange()
+            await ctx.send(embed=agm_embed)
+
+
+    @commands.guild_only()
+    @commands.command(aliases=["gm", "getGM"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def findGM(self, ctx: commands.Context, franchise_role: discord.Role):
+        """Return the GM for a provided franchise role"""
+        franchise_name = franchise_role.name.split(" (")
+        if not franchise_name:
+            await ctx.send(embed=ErrorEmbed(description=f"Invalid franchise role: {franchise_role.mention}"))
+            return
+
+        gm = await self._get_franchise_gm(ctx.guild, franchise_role)
+        gm_embed = discord.Embed(title=f"{franchise_name[0]} General Manager", color=discord.Color.blue())
+        if gm:
+            gm_embed.description = gm.mention
+            await ctx.send(embed=gm_embed)
+        else:
+            gm_embed.description = f"Currently there is no General Manager for {franchise_role.mention}"
+            gm_embed.color = discord.Color.orange()
+            await ctx.send(embed=gm_embed)
+
+    async def _get_franchise_agms(self, guild: discord.Guild, franchise_role: discord.Role) -> List[discord.Member]:
+        """Return a list of AGMs in a franchise"""
+        agm_role = discord.utils.get(guild.roles, name="Assistant GM")
+        agms = []
+        for member in franchise_role.members:
+            if agm_role in member.roles:
+                agms.append(member)
+        return agms
+    
+    async def _get_franchise_gm(self, guild: discord.Guild, franchise_role: discord.Role) -> Optional[discord.Member]:
+        """Return GM from franchise role"""
+        gm_role = discord.utils.get(guild.roles, name="General Manager")
+        for member in franchise_role.members:
+            if gm_role in member.roles:
+                return member
+        return None
+    
+    @commands.guild_only()
+    @commands.command(aliases=["validateTransChan", "vts"])
+    @checks.admin_or_permissions(manage_guild=True)
+    async def validateTransactionChannels(self, ctx: commands.Context):
+        """Validate all transaction channels exist and are properly formatted"""
+        errors: List(Tuple(discord.Role, str)) = []
+        for role in ctx.guild.roles:
+            found = re.match(r"^\w.*?\x28.*?\x29$", role.name)
+            if not found:
+                continue
+
+            franchise_name = role.name.split(" (")[0]
+            trans_channel_name = f"{franchise_name.lower().replace(' ', '-')}-transactions"
+            log.debug(f"Transaction Channel: {trans_channel_name}")
+            trans_channel: discord.TextChannel = discord.utils.get(ctx.guild.channels, name=trans_channel_name)
+
+            if not trans_channel:
+                log.debug(f"Unable to find transaction channel. Role: {role.name} Channel: {trans_channel_name}")
+                errors.append((role, trans_channel_name))
+        
+        if len(errors) > 0:
+            field_data = list(zip(*errors))
+            err_embed = discord.Embed(title="Missing Transaction Channls", description=f"Error finding **{len(errors)}** transaction channels.", color=discord.Color.red())
+            role_data = "\n".join([r.mention for r in field_data[0]])
+            channel_data = "\n".join(field_data[1])
+            err_embed.add_field(name="Role", value=role_data, inline=True)
+            err_embed.add_field(name="Transaction Channel", value=channel_data, inline=True)
+            await ctx.send(embed=err_embed)
+        else:
+            await ctx.send(embed=discord.Embed(title="Validation Results", description="All transaction channels are properly configured.", color=discord.Color.green()))
+
+
+
+            
+                
+
+
+
+                
+
 
     async def get_audit_log_reason(
         self,
