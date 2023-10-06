@@ -781,20 +781,13 @@ class ModeratorLink(commands.Cog):
     # region general helpers
     async def _process_role_update(self, before: discord.Member, after: discord.Member):
 
-        # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
-        shared_role_names = await self._get_shared_role_names(before.guild)
         event_log_channel = await self._event_log_channel(before.guild)
 
         if not event_log_channel:
             return False
         
         removed_roles = list(set(before.roles) - set(after.roles))
-        added_roles = list(set(after.roles) - set(before.roles))
-
-        log.debug("Processing shared role update.")
-        log.debug(f"Shared Roles: {shared_role_names}")
-        log.debug(f"Roles getting removed: {removed_roles}")
-        log.debug(f"Roles getting added: {added_roles}")
+        added_roles = list(set(after.roles) - set(before.roles))     
 
         other_mutual_guilds = before.mutual_guilds
         other_mutual_guilds.remove(before.guild)
@@ -808,38 +801,58 @@ class ModeratorLink(commands.Cog):
         
 
     async def _process_role_addition(self, added_roles, other_mutual_guilds, before: discord.Member):
+        
+        # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
+        shared_role_names = await self._get_shared_role_names(before.guild)
+
+        log.debug("Processing shared role update.")
+        log.debug(f"Shared Roles: {shared_role_names}")
+        log.debug(f"Added Roles: {added_roles}")
+
         # Process Role Additions
         role_assign_msg = "Shared role {} added to {} [initiated from **{}**]"
+    
         for role in added_roles:
-            for guild in other_mutual_guilds:
-                guild_role = await self._guild_sister_role(guild, role)
-                guild_member = await self._guild_member_from_id(guild, before.id)
-                channel = await self._event_log_channel(guild_member.guild)
-                if guild_role and guild_role not in guild_member.roles and channel:
-                    await guild_member.add_roles(
-                        guild_role
-                    )  # This was sometimes None? added 'guild_role and' to condition
-                    await channel.send(
-                        role_assign_msg.format(
-                            guild_role.mention, guild_member.mention, before.guild.name
+            if role.name in shared_role_names:
+                for guild in other_mutual_guilds:
+                    guild_role = await self._guild_sister_role(guild, role)
+                    guild_member = await self._guild_member_from_id(guild, before.id)
+                    channel = await self._event_log_channel(guild_member.guild)
+                    if guild_role and guild_role not in guild_member.roles and channel:
+                        await guild_member.add_roles(
+                            guild_role
+                        )  # This was sometimes None? added 'guild_role and' to condition
+                        await channel.send(
+                            role_assign_msg.format(
+                                guild_role.mention, guild_member.mention, before.guild.name
+                            )
                         )
-                    )
 
     async def _process_role_removal(self, removed_roles, other_mutual_guilds, before: discord.Member):
+                
+        # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
+        shared_role_names = await self._get_shared_role_names(before.guild)
+
+        log.debug("Processing shared role update.")
+        log.debug(f"Shared Roles: {shared_role_names}")
+        log.debug(f"Removed Roles: {removed_roles}")
+
         # Process Role Removals
         role_removal_msg = "Shared role {} removed from **{}** [initiated from **{}**]"
+    
         for role in removed_roles:
-            for guild in other_mutual_guilds:
-                guild_role = await self._guild_sister_role(guild, role)
-                guild_member = await self._guild_member_from_id(guild, before.id)
-                channel = await self._event_log_channel(guild_member.guild)
-                if guild_role in guild_member.roles and channel:
-                    await guild_member.remove_roles(guild_role)
-                    await channel.send(
-                        role_removal_msg.format(
-                            guild_role.mention, guild_member.mention, before.guild.name
+            if role.name in shared_role_names:
+                for guild in other_mutual_guilds:
+                    guild_role = await self._guild_sister_role(guild, role)
+                    guild_member = await self._guild_member_from_id(guild, before.id)
+                    channel = await self._event_log_channel(guild_member.guild)
+                    if guild_role in guild_member.roles and channel:
+                        await guild_member.remove_roles(guild_role)
+                        await channel.send(
+                            role_removal_msg.format(
+                                guild_role.mention, guild_member.mention, before.guild.name
+                            )
                         )
-                    )
 
 
     async def _guild_member_from_id(self, guild, member_id):
