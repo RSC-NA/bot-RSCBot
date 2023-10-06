@@ -786,9 +786,9 @@ class ModeratorLink(commands.Cog):
         if not event_log_channel:
             return False
         
-        removed_roles = list(set(before.roles) - set(after.roles))
-        added_roles = list(set(after.roles) - set(before.roles))     
-
+        removed_roles = list(set(before.roles) - set(after.roles))        
+        added_roles = list(set(after.roles) - set(before.roles))
+        
         other_mutual_guilds = before.mutual_guilds
         other_mutual_guilds.remove(before.guild)
 
@@ -797,7 +797,7 @@ class ModeratorLink(commands.Cog):
         elif added_roles:
             await self._process_role_addition(added_roles, other_mutual_guilds, before)
         elif removed_roles:
-            await self._process_role_removal(added_roles, other_mutual_guilds, before)
+            await self._process_role_removal(removed_roles, other_mutual_guilds, before)
         
 
     async def _process_role_addition(self, added_roles, other_mutual_guilds, before: discord.Member):
@@ -805,7 +805,7 @@ class ModeratorLink(commands.Cog):
         # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
         shared_role_names = await self._get_shared_role_names(before.guild)
 
-        log.debug("Processing shared role update.")
+        log.debug("Processing shared role addition.")
         log.debug(f"Shared Roles: {shared_role_names}")
         log.debug(f"Added Roles: {added_roles}")
 
@@ -814,7 +814,9 @@ class ModeratorLink(commands.Cog):
     
         for role in added_roles:
             if role.name in shared_role_names:
+                log.debug(f"Role {role.name} is a shared role")
                 for guild in other_mutual_guilds:
+                    log.debug(f"Adding role {role.name} in guild {guild}")
                     guild_role = await self._guild_sister_role(guild, role)
                     guild_member = await self._guild_member_from_id(guild, before.id)
                     channel = await self._event_log_channel(guild_member.guild)
@@ -833,7 +835,7 @@ class ModeratorLink(commands.Cog):
         # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
         shared_role_names = await self._get_shared_role_names(before.guild)
 
-        log.debug("Processing shared role update.")
+        log.debug("Processing shared role removal.")
         log.debug(f"Shared Roles: {shared_role_names}")
         log.debug(f"Removed Roles: {removed_roles}")
 
@@ -842,7 +844,9 @@ class ModeratorLink(commands.Cog):
     
         for role in removed_roles:
             if role.name in shared_role_names:
+                log.debug(f"Role {role.name} is a shared role")
                 for guild in other_mutual_guilds:
+                    log.debug(f"Removing role {role.name} in guild {guild}")
                     guild_role = await self._guild_sister_role(guild, role)
                     guild_member = await self._guild_member_from_id(guild, before.id)
                     channel = await self._event_log_channel(guild_member.guild)
