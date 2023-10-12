@@ -197,7 +197,7 @@ class Match(commands.Cog):
     # Player Commands
     @commands.command()
     @commands.guild_only()
-    async def match(self, ctx, match_day: int=None, *teams: str):
+    async def match(self, ctx, match_day: str=None, *teams: str):
         """Get match info.
 
         If no arguments are provided, retrieve the match info for the
