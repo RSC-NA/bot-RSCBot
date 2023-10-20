@@ -415,7 +415,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     ) -> discord.CategoryChannel:
         set_cat = primary_category
         if set_cat is not None:
-            if "id" in set_cat:
+            if type(set_cat) is discord.CategoryChannel:
                 set_cat = primary_category.id
             else:
                 set_cat = None
@@ -431,7 +431,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     ) -> discord.Role:
         set_role = management_role
         if set_role is not None:
-            if "id" in set_role:
+            if type(set_role) is discord.Role:
                 set_role = management_role.id
             else:
                 set_role = None
