@@ -4,7 +4,7 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
-from typing import NoReturn, Optional, Tuple, Union, List
+from typing import NoReturn, Optional
 
 settings = {
     "PrimaryCategory": None,
@@ -69,11 +69,17 @@ class ModThread(commands.Cog):
             if role:
                 allowed_mentions = discord.AllowedMentions(roles=True)
                 await ctx.send(
-                    "This ticket has been assigned to {0}".format(role.mention),
+                    "This ticket has been assigned to {0}".format(
+                        role.mention
+                    ),
                     allowed_mentions=allowed_mentions,
                 )
             else:
-                await ctx.send("This ticket has been assigned to {0}".format(role))
+                await ctx.send(
+                    "This ticket has been assigned to {0}".format(
+                        role
+                    )
+                )
         else:
             assign_embed = discord.Embed(
                 title="ModThread Assignment",
@@ -145,7 +151,7 @@ class ModThread(commands.Cog):
         """Display or configure modthread cog settings"""
         pass
 
-    @_modthread.command(name="category")
+    @modthread.command(name="category")
     async def primary_category(
         self,
         ctx: commands.Context,
@@ -187,7 +193,7 @@ class ModThread(commands.Cog):
 
         await ctx.send(embed=settings_embed)
 
-    @_modthread.command(name="role")
+    @modthread.command(name="role")
     async def management_role(
         self,
         ctx: commands.Context,
@@ -229,7 +235,7 @@ class ModThread(commands.Cog):
 
         await ctx.send(embed=settings_embed)
 
-    @_modthread.command(name="settings")
+    @modthread.command(name="settings")
     async def settings(
         self,
         ctx: commands.Context
@@ -270,7 +276,7 @@ class ModThread(commands.Cog):
 
         await ctx.send(embed=settings_embed)
 
-    @_modthread.command(name="groups", alias="group")
+    @modthread.command(name="groups", alias="group")
     async def groups(
         self,
         ctx: commands.Context,
@@ -287,11 +293,13 @@ class ModThread(commands.Cog):
                 group = group.lower()
                 await self._set_group(ctx.guild, group, category, role)
                 await ctx.send('Ok!')
-            elif action in [ 'delete', 'rm', 'del', 'clear', 'unset' ]:
+            elif action in ['delete', 'rm', 'del', 'clear', 'unset']:
                 group = group.lower()
                 await self._unset_group(ctx.guild, group)
             else:
-                await ctx.send('Unrecognized command. [`add`, `update`, `delete`]')
+                await ctx.send(
+                    'Unrecognized command. [`add`, `update`, `delete`]'
+                )
 
         groups = await self._get_groups(ctx.guild)
 
@@ -301,7 +309,7 @@ class ModThread(commands.Cog):
             color=discord.Color.blue(),
         )
 
-        syntax_desc="""
+        syntax_desc = """
 ```Syntax: mt groups add <group> <#category> <@role>
 
 Example: ?mt groups add mods 1116910419458662490 @Mods```
