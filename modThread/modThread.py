@@ -37,7 +37,7 @@ class ModThread(commands.Cog):
         for group_name in groups:
             if currentCategory.id == groups[group_name]["category"]:
                 isThread = True
-            elif currentCategory.id == primary_category.id:
+            elif primary_category and currentCategory.id == primary_category.id:
                 isThread = True
 
         if isThread is False:
