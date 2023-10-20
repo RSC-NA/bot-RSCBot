@@ -13,41 +13,27 @@ The `modThread` cog does not have any other cog requirements.
 
 ## Usage
 
-Before using, you most likely need to set the RulesCategory, NumbersCategory, and ModsCategory. These categories are where ModMail channels will be moved when the `<p> assign` command is received.
+Before using, you will need to configure modThread.
 
-- `<p>assign <numbers|rules|mods>`
-  - Assigns the modmail message to the appropriate committee and pings them.
+- `<p>modthread settings`
+  - View the settings! 
+
+- `<p>assign <group>`
+  - Assigns the modmail message to the appropriate group and pings them.
+- `<p>unassign`
+  - Unassigns the modmail and returns it to the primary category.
   
-- `<p>setPrimaryCategory <primary_category>`
-  - Sets the category that all modmails start in. This is needed to make sure we're not randomly moving other channels around as if they were a modmail.
-- `<p>getPrimaryCategory`
-  - Returns the primary category if one has been set.
-- `<p>unsetPrimaryCategory`
-  - Unsets primary category
+- `<p>modthread groups add <group> <#category> <@role>`
+  - Adds a group recipient list and defines their category as `<#category>` and pings `<@role>`.
+- `<p>modthread groups add <group> <#category> <@role>`
+  - Updates a group recipient list with `<#category>` and pings `<@role>`.
+- `<p>modthread groups delete <group>`
+  - Deletes a defined group.
 
-- `<p>setNumbersCategory <numbers_category>`
-  - Sets the category to move ModMail messages into for Numbers Committee
-- `<p>getNumbersCategory`
-  - Returns the numbers category if one has been set.
-- `<p>unsetNumbersCategory`
-  - Unsets transaction channel
-- `<p>setNumbersRole <Role>`
-  - Sets the role to ping when a ticket is assigned to that committee.
+- `<p>category <#category>`
+  - Defines the primary entry-point category for all modmails.
+- `<p>role <@role>`
+  - Defines the primary role (admins usually) for inbound modmails.
 
-- `<p>setRulesCategory <rules_category>`
-  - Sets the category to move ModMail messages into for Rules Committee
-- `<p>getRulesCategory`
-  - Returns the rules category if one has been set.
-- `<p>unsetRulesCategory`
-  - Unsets transaction channel
-- `<p>setRulesRole <Role>`
-  - Sets the role to ping when a ticket is assigned to that committee.
-
-- `<p>setModsCategory <mods_category>`
-  - Sets the category to move ModMail messages into for Mods Committee
-- `<p>getModsCategory`
-  - Returns the mods category if one has been set.
-- `<p>unsetModsCategory`
-  - Unsets transaction channel
-- `<p>setModsRole <Role>`
-  - Sets the role to ping when a ticket is assigned to that committee.
+- `<p>THERE_IS_A_SECRET_COMMAND`
+  - Do **NOT** tell anyone about the secret command.
