@@ -4,8 +4,6 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
-from typing import NoReturn, Optional
-
 settings = {
     "PrimaryCategory": None,
     "ManagementRole": None,
@@ -93,7 +91,7 @@ class ModThread(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def unassign(self, ctx) -> NoReturn:
+    async def unassign(self, ctx) -> None:
         """Unassigns the modmail and moves channel to primary"""
         currentCategory = ctx.channel.category
         primary_category = await self._get_primary_category(ctx.guild)
@@ -129,14 +127,14 @@ class ModThread(commands.Cog):
     @commands.guild_only()
     @commands.command(name="feet")
     @checks.admin_or_permissions(manage_guild=True)
-    async def _this_is_a_secret(self, ctx: commands.Context) -> NoReturn:
+    async def _this_is_a_secret(self, ctx: commands.Context) -> None:
         """This is a secret. Nobody say anything... :shh:"""
         await ctx.send("@everyone send <@249326300148269058> some feet pics!")
 
     @commands.guild_only()
     @commands.group(name="modthread", aliases=["mt"])
     @checks.admin_or_permissions(manage_guild=True)
-    async def modthread(self, ctx: commands.Context) -> NoReturn:
+    async def modthread(self, ctx: commands.Context) -> None:
         """Display or configure modthread cog settings"""
         pass
 
@@ -145,7 +143,7 @@ class ModThread(commands.Cog):
         self,
         ctx: commands.Context,
         category: discord.CategoryChannel | str | None
-    ) -> NoReturn:
+    ) -> None:
         """View or change the primary category."""
         settings_embed = discord.Embed(
             title="ModThread Primary Category Settings",
@@ -187,7 +185,7 @@ class ModThread(commands.Cog):
         self,
         ctx: commands.Context,
         role: discord.Role | str | None
-    ) -> NoReturn:
+    ) -> None:
         """View or change the management role."""
         settings_embed = discord.Embed(
             title="ModThread Management Role Settings",
@@ -228,7 +226,7 @@ class ModThread(commands.Cog):
     async def settings(
         self,
         ctx: commands.Context
-    ) -> NoReturn:
+    ) -> None:
         """Settings command group"""
 
         primary_category = await self._get_primary_category(ctx.guild)
@@ -341,7 +339,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
         self,
         guild: discord.Guild,
         group_name: str | None,
-    ) -> NoReturn:
+    ) -> None:
         groups = await self._get_groups(guild)
         groups.pop(group_name)
 
@@ -355,7 +353,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
         group_name: str | None,
         category: discord.CategoryChannel | None,
         role: discord.Role | None
-    ) -> NoReturn:
+    ) -> None:
         groups = await self._get_groups(guild)
 
         group = {
