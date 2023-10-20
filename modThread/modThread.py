@@ -291,7 +291,7 @@ class ModThread(commands.Cog):
         role: discord.Role | None
     ):
         """Groups command group"""
-    
+
         # Only show the "help" if we haven't just successfully
         # performed an action.
         show_syntax = True
@@ -306,6 +306,7 @@ class ModThread(commands.Cog):
                 group = group.lower()
                 show_syntax = False
                 await self._unset_group(ctx.guild, group)
+                await ctx.send('Group removed!')
             else:
                 await ctx.send(
                     'Unrecognized command. [`add`, `update`, `delete`]'
