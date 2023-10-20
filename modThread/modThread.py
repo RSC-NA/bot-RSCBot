@@ -4,6 +4,8 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
+from typing import Literal
+
 settings = {
     "PrimaryCategory": None,
     "ManagementRole": None,
@@ -160,16 +162,24 @@ class ModThread(commands.Cog):
                     value="Not Set",
                     inline=False
                 )
-            else:
+            elif type(category) is discord.CategoryChannel:
                 set_category = await self._set_primary_category(
                     ctx.guild,
                     category
                 )
+                if set_category is not None:
+                    settings_embed.add_field(
+                        name="Category Set",
+                        value=f"Category set to {set_category.jump_url}",
+                        inline=False
+                    )
+            else:
                 settings_embed.add_field(
-                    name="Category Set",
-                    value=f"Category set to {set_category.jump_url}",
+                    name="Invalid Category",
+                    value="You **must** select a Discord Category Channel.",
                     inline=False
                 )
+
         else:
             primary_category = await self._get_primary_category(ctx.guild)
             if primary_category:
@@ -203,7 +213,7 @@ class ModThread(commands.Cog):
                     value="Not Set",
                     inline=False
                 )
-            else:
+            elif type(role) is discord.Role:
                 set_role = await self._set_management_role(
                     ctx.guild,
                     role
@@ -211,6 +221,12 @@ class ModThread(commands.Cog):
                 settings_embed.add_field(
                     name="Management Role Set",
                     value=f"Role set to {set_role.mention}",
+                    inline=False
+                )
+            else:
+                settings_embed.add_field(
+                    name="Invalid Role",
+                    value="You must provide a valid Discord Role",
                     inline=False
                 )
         else:
@@ -269,7 +285,7 @@ class ModThread(commands.Cog):
     async def groups(
         self,
         ctx: commands.Context,
-        action: str | None,
+        action: Literal["add", "update", "delete", "rm", "unset", "clear"] | None,
         group: str | None,
         category: discord.CategoryChannel | None,
         role: discord.Role | None
@@ -392,7 +408,10 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     ) -> discord.CategoryChannel:
         set_cat = primary_category
         if set_cat is not None:
-            set_cat = primary_category.id
+            if "id" in set_cat:
+                set_cat = primary_category.id
+            else:
+                set_cat = None
         await self.config.guild(
             guild
         ).PrimaryCategory.set(set_cat)
@@ -405,7 +424,10 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     ) -> discord.Role:
         set_role = management_role
         if set_role is not None:
-            set_role = management_role.id
+            if "id" in set_role:
+                set_role = management_role.id
+            else:
+                set_role = None
         await self.config.guild(
             guild
         ).ManagementRole.set(set_role)
