@@ -12,17 +12,6 @@ settings = {
     "Groups": {},
 }
 
-defaults = {
-    "PrimaryCategory": 1116871959406452796,
-    "PrimaryRole": 1116871959406452796,
-    "RulesCategory": 1116910594323382372,
-    "RulesRole": None,
-    "ModsCategory": 1116910419458662490,
-    "ModsRole": None,
-    "NumbersCategory": 1116910198406266890,
-    "NumbersRole": None,
-}
-
 
 class ModThread(commands.Cog):
     """Used to move modmail channels to the correct category for
@@ -105,7 +94,7 @@ class ModThread(commands.Cog):
     @commands.guild_only()
     @commands.command()
     async def unassign(self, ctx) -> NoReturn:
-        """Assigns the current channel to role and moves channel"""
+        """Unassigns the modmail and moves channel to primary"""
         currentCategory = ctx.channel.category
         primary_category = await self._get_primary_category(ctx.guild)
         management_role = await self._get_management_role(ctx.guild)
@@ -382,7 +371,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     async def _get_primary_category(
         self,
         guild: discord.Guild
-    ) -> Optional[discord.CategoryChannel]:
+    ) -> discord.CategoryChannel | None:
         return guild.get_channel(
             await self.config.guild(guild).PrimaryCategory()
         )
@@ -390,7 +379,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     async def _get_management_role(
         self,
         guild: discord.Guild
-    ) -> Optional[discord.Role]:
+    ) -> discord.Role | None:
         return guild.get_role(
             await self.config.guild(guild).ManagementRole()
         )
