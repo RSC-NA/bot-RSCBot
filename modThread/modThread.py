@@ -172,11 +172,12 @@ class ModThread(commands.Cog):
                 )
         else:
             primary_category = await self._get_primary_category(ctx.guild)
-            settings_embed.add_field(
-                name="Current Category",
-                value=f"Category set to {primary_category.jump_url}",
-                inline=False
-            )
+            if primary_category:
+                settings_embed.add_field(
+                    name="Current Category",
+                    value=f"Category set to {primary_category.jump_url}",
+                    inline=False
+                )
 
         await ctx.send(embed=settings_embed)
 
@@ -214,11 +215,12 @@ class ModThread(commands.Cog):
                 )
         else:
             management_role = await self._get_management_role(ctx.guild)
-            settings_embed.add_field(
-                name="Current Management Role",
-                value=f"Management Role set to {management_role.mention}",
-                inline=False
-            )
+            if management_role:
+                settings_embed.add_field(
+                    name="Current Management Role",
+                    value=f"Management Role set to {management_role.mention}",
+                    inline=False
+                )
 
         await ctx.send(embed=settings_embed)
 
@@ -370,8 +372,9 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
         self,
         guild: discord.Guild
     ) -> discord.CategoryChannel | None:
-        return guild.get_channel(
-            await self.config.guild(guild).PrimaryCategory()
+        return discord.utils.get(
+            guild.categories,
+            id=await self.config.guild(guild).PrimaryCategory()
         )
 
     async def _get_management_role(
@@ -387,9 +390,12 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
         guild: discord.Guild,
         primary_category: discord.CategoryChannel
     ) -> discord.CategoryChannel:
+        set_cat = primary_category
+        if set_cat is not None:
+            set_cat = primary_category.id
         await self.config.guild(
             guild
-        ).PrimaryCategory.set(primary_category.id)
+        ).PrimaryCategory.set(set_cat)
         return primary_category
 
     async def _set_management_role(
@@ -397,9 +403,12 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
         guild: discord.Guild,
         management_role: discord.Role
     ) -> discord.Role:
+        set_role = management_role
+        if set_role is not None:
+            set_role = management_role.id
         await self.config.guild(
             guild
-        ).ManagementRole.set(management_role.id)
+        ).ManagementRole.set(set_role)
         return management_role
 
     async def _get_groups(self, guild: discord.Guild) -> dict:
