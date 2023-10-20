@@ -162,7 +162,7 @@ class ModThread(commands.Cog):
                     value="Not Set",
                     inline=False
                 )
-            elif type(category) is discord.CategoryChannel:
+            elif isinstance(category, discord.CategoryChannel):
                 set_category = await self._set_primary_category(
                     ctx.guild,
                     category
@@ -213,7 +213,7 @@ class ModThread(commands.Cog):
                     value="Not Set",
                     inline=False
                 )
-            elif type(role) is discord.Role:
+            elif isinstance(role, discord.Role):
                 set_role = await self._set_management_role(
                     ctx.guild,
                     role
@@ -415,7 +415,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     ) -> discord.CategoryChannel:
         set_cat = primary_category
         if set_cat is not None:
-            if type(set_cat) is discord.CategoryChannel:
+            if isinstance(set_cat, discord.CategoryChannel):
                 set_cat = primary_category.id
             else:
                 set_cat = None
@@ -431,7 +431,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     ) -> discord.Role:
         set_role = management_role
         if set_role is not None:
-            if type(set_role) is discord.Role:
+            if isinstance(set_role, discord.Role):
                 set_role = management_role.id
             else:
                 set_role = None
