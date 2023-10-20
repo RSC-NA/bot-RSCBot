@@ -285,21 +285,26 @@ class ModThread(commands.Cog):
     async def groups(
         self,
         ctx: commands.Context,
-        action: Literal["add", "update", "delete", "rm", "unset", "clear"] | None,
+        action: str | None,
         group: str | None,
         category: discord.CategoryChannel | None,
         role: discord.Role | None
     ):
         """Groups command group"""
-
+    
+        # Only show the "help" if we haven't just successfully
+        # performed an action.
+        show_syntax = True
         if action:
             action = action.lower()
             if action in ["add", "update"]:
                 group = group.lower()
                 await self._set_group(ctx.guild, group, category, role)
+                show_syntax = False
                 await ctx.send('Ok!')
             elif action in ['delete', 'rm', 'clear', 'unset']:
                 group = group.lower()
+                show_syntax = False
                 await self._unset_group(ctx.guild, group)
             else:
                 await ctx.send(
@@ -314,27 +319,28 @@ class ModThread(commands.Cog):
             color=discord.Color.blue(),
         )
 
-        syntax_desc = """
+        if show_syntax:
+            syntax_desc = """
 ```Syntax: mt groups add <group> <#category> <@role>
 
 Example: ?mt groups add mods 1116910419458662490 @Mods```
-        """
-        groups_embed.add_field(
-            name="Syntax",
-            value=syntax_desc,
-            inline=False
-        )
+            """
+            groups_embed.add_field(
+                name="Syntax",
+                value=syntax_desc,
+                inline=False
+            )
 
-        actions_desc = """
+            actions_desc = """
 - **add** - `?mt groups add <group> <#category> <@role>`
 - **update** - `?mt groups update <group> <#category> <@role>`
 - **delete** - `?mt groups delete <group>`
-        """
-        groups_embed.add_field(
-            name="Group Actions",
-            value=actions_desc,
-            inline=False
-        )
+            """
+            groups_embed.add_field(
+                name="Group Actions",
+                value=actions_desc,
+                inline=False
+            )
 
         groups_list = "- *None*"
         if len(groups):
