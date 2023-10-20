@@ -298,7 +298,7 @@ class ModThread(commands.Cog):
                 group = group.lower()
                 await self._set_group(ctx.guild, group, category, role)
                 await ctx.send('Ok!')
-            elif action in ['delete', 'rm', 'del', 'clear', 'unset']:
+            elif action in ['delete', 'rm', 'clear', 'unset']:
                 group = group.lower()
                 await self._unset_group(ctx.guild, group)
             else:
