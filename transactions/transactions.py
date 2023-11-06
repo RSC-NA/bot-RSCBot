@@ -19,11 +19,12 @@ from typing import NoReturn, Optional, Tuple, Union, List
 log = logging.getLogger("red.RSCBot.transactions")
 
 defaults = {
+    "ContractExpirationMessage": stringTemplates.contract_expiration_msg,
+    "CutMessage": None,
     "TransChannel": None,
     "TransLogChannel": None,
+    "TransNotifications": False,
     "TransRole": None,
-    "CutMessage": None,
-    "ContractExpirationMessage": stringTemplates.contract_expiration_msg,
 }
 
 
@@ -652,6 +653,10 @@ class Transactions(commands.Cog):
         log.debug(
             f"Member left guild. Member: {member.display_name} Guild: {member.guild} "
         )
+        # Check if notifications are enabled
+        if not await self._notifications_enabled(member.guild):
+            return
+
         # Return if transaction log channel is not configured
         guild = member.guild
         try:
@@ -896,6 +901,7 @@ class Transactions(commands.Cog):
         trans_channel = await self._trans_channel(ctx.guild)
         trans_role = await self._trans_role(ctx.guild)
         cut_msg = await self._get_cut_message(ctx.guild) or "None"
+        notifications = await self._notifications_enabled(ctx.guild)
         settings_embed = discord.Embed(
             title="Transactions Settings",
             description="Current configuration for Transactions Cog.",
@@ -903,6 +909,10 @@ class Transactions(commands.Cog):
         )
 
         # Check channel values before mention to avoid exception
+        settings_embed.add_field(
+            name="Notifications Enabled", value=notifications, inline=False
+        )
+
         if trans_channel:
             settings_embed.add_field(
                 name="Transaction Channel", value=trans_channel.mention, inline=False
@@ -936,6 +946,23 @@ class Transactions(commands.Cog):
                 title="Cut Message", description=cut_msg, color=discord.Color.blue()
             )
             await ctx.send(embed=cut_embed)
+
+    @_transactions.command(name="notifications")
+    async def _toggle_notifications(self, ctx: commands.Context):
+        """Toggle channel notifications on or off"""
+        status = await self._notifications_enabled(ctx.guild)
+        log.debug(f"Current Notifications: {status}")
+        status ^= True  # Flip boolean with xor
+        log.debug(f"Transaction Notifications: {status}")
+        await self._set_notifications(ctx.guild, status)
+        result = "**enabled**" if status else "**disabled**"
+        await ctx.send(
+            embed=discord.Embed(
+                title="Successs",
+                description=f"Transaction committee and GM notifications are now {result}.",
+                color=discord.Color.green(),
+            )
+        )
 
     @_transactions.command(name="channel")
     async def _set_transactions_channel(
@@ -1271,5 +1298,10 @@ class Transactions(commands.Cog):
     async def _save_cut_message(self, guild: discord.Guild, message):
         await self.config.guild(guild).CutMessage.set(message)
 
+    async def _notifications_enabled(self, guild: discord.Guild) -> bool:
+        return await self.config.guild(guild).TransNotifications()
+
+    async def _set_notifications(self, guild: discord.Guild, enabled: bool):
+        await self.config.guild(guild).TransNotifications.set(enabled)
 
 # endregion
