@@ -958,7 +958,7 @@ class Transactions(commands.Cog):
         result = "**enabled**" if status else "**disabled**"
         await ctx.send(
             embed=discord.Embed(
-                title="Successs",
+                title="Success",
                 description=f"Transaction committee and GM notifications are now {result}.",
                 color=discord.Color.green(),
             )
