@@ -88,7 +88,7 @@ class BulkRoleManager(commands.Cog):
 
         await ctx.send(f"Players with **{role.name}** role:\n")
         for msg in messages:
-            await ctx.send(f"```{msg}```")
+            await ctx.send(f"```\n{msg}\n```")
         await ctx.send(
             f":white_check_mark: {count} player(s) have the {role.name} role"
         )
