@@ -200,7 +200,7 @@ class TeamManager(commands.Cog):
 
         franchise_role, old_gm_name, franchise_prefix, franchise_name = franchise_data
         # Convert GM name to discord.Member
-        old_gm = self._find_member_by_name(ctx, old_gm_name)
+        old_gm = await self._get_gm(franchise_role)
 
         transfer_view = TransferFranchiseView(
             self, ctx, franchise_role, franchise_name, franchise_prefix, old_gm, new_gm
