@@ -185,7 +185,7 @@ class PrefixManager(commands.Cog):
         prefixes = await self._prefixes(ctx)
         try:
             del prefixes[gm_name]
-        except ValueError:
+        except (ValueError, KeyError):
             await ctx.send("{0} does not have a prefix.".format(gm_name))
             return False
         await self._save_prefixes(ctx, prefixes)
