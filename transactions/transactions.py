@@ -300,7 +300,7 @@ class Transactions(commands.Cog):
             return None
 
         trans_channel = await self._trans_channel(ctx.guild)
-        gm_name = self._get_gm_name(franchise_role)
+        gm_name = await self._get_gm_name(franchise_role)
         message = "{0} was re-signed by {1} ({2} - {3})".format(
             user.mention, team_name, gm_name, tier_role.name
         )
