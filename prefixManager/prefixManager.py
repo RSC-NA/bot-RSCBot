@@ -124,6 +124,9 @@ class PrefixManager(commands.Cog):
 
         league_role = discord.utils.get(ctx.guild.roles, name="League")
 
+        if not clear_view.result:
+            return
+
         if not league_role:
             await clear_view.msg.edit(
                 embed=discord.Embed(
