@@ -924,8 +924,8 @@ class BulkRoleManager(commands.Cog):
         await ctx.send(message)
 
     def get_player_nickname(self, user: discord.Member):
-        if user.nick:
-            array = user.nick.split(" | ", 1)
+        if user.display_name:
+            array = user.display_name.split(" | ", 1)
             if len(array) == 2:
                 currentNickname = array[1].strip()
             else:

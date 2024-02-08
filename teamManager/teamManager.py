@@ -1307,8 +1307,8 @@ class TeamManager(commands.Cog):
         return await self._find_team_name(ctx, franchise_role, tier_role)
 
     def get_player_nickname(self, user: discord.Member):
-        if user.nick is not None:
-            array = user.nick.split(" | ", 1)
+        if user.display_name is not None:
+            array = user.display_name.split(" | ", 1)
             if len(array) == 2:
                 currentNickname = array[1].strip()
             else:
@@ -1317,7 +1317,7 @@ class TeamManager(commands.Cog):
 
         return user.global_name
 
-    async def _set_user_nickname_prefix(self, ctx, prefix: str, user: discord.member):
+    async def _set_user_nickname_prefix(self, ctx, prefix: str, user: discord.Member):
         try:
             if prefix:
                 await user.edit(nick=f"{prefix} | {self.get_player_nickname(user)}")
