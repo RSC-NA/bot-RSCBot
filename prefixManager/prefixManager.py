@@ -1,4 +1,5 @@
 import re
+import logging
 import ast
 
 import discord
@@ -6,6 +7,10 @@ import discord
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
+
+from prefixManager.views import ClearPlayerPrefixView
+
+log = logging.getLogger("red.RSCBot.prefixManager")
 
 defaults = {"Prefixes": {}}
 
@@ -108,6 +113,47 @@ class PrefixManager(commands.Cog):
 
     @commands.command()
     @commands.guild_only()
+    @checks.admin_or_permissions(manage_guild=True)
+    async def clearAllPlayerPrefixes(self, ctx):
+        """Clear the all player prefixes. CAUTION"""
+        clear_view = ClearPlayerPrefixView(ctx)
+        await clear_view.prompt()
+        await clear_view.wait()
+
+        log.debug(f"Clear Result: {clear_view.result}")
+
+        league_role = discord.utils.get(ctx.guild.roles, name="League")
+
+        if not league_role:
+            await clear_view.msg.edit(
+                embed=discord.Embed(
+                    title="Error",
+                    description="Unable to find **League** role.",
+                    color=discord.Color.red(),
+                ),
+                view=None,
+            )
+            return
+
+        log.info(
+            f"[{ctx.guild.name}] Clearing prefix from {len(league_role.members)} players"
+        )
+        for member in league_role.members:
+            player_name = self.get_player_nickname(member)
+            await member.edit(nick=player_name)
+
+        log.info(
+            f"[{ctx.guild.name}] Finished removing prefixes from {len(league_role.members)} players"
+        )
+        done_embed = discord.Embed(
+            title="Player Prefixes Cleared",
+            description=f"Successfully cleared the franchise prefix from **{len(league_role.members)}** players.",
+            color=discord.Color.blue(),
+        )
+        await clear_view.msg.edit(embed=done_embed, view=None)
+
+    @commands.command()
+    @commands.guild_only()
     async def lookupPrefix(self, ctx, gm_name: str):
         """Gets the prefix corresponding to the GM's franchise"""
         prefix = await self._get_gm_prefix(ctx, gm_name)
@@ -180,6 +226,20 @@ class PrefixManager(commands.Cog):
             return False
         await self._save_prefixes(ctx, prefixes)
         return True
+
+    def get_player_nickname(self, user: discord.Member):
+        if user.display_name:
+            array = user.display_name.split(" | ", 1)
+            if len(array) == 2:
+                currentNickname = array[1].strip()
+            else:
+                currentNickname = array[0]
+            return currentNickname
+
+        if user.global_name:
+            return user.global_name
+
+        return user.name
 
     async def remove_prefix(self, ctx, gm_name: str):
         prefixes = await self._prefixes(ctx)
