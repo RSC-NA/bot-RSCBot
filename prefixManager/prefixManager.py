@@ -125,6 +125,7 @@ class PrefixManager(commands.Cog):
         league_role = discord.utils.get(ctx.guild.roles, name="League")
 
         if not clear_view.result:
+            log.debug(f"[{ctx.guild.name}] Clear player prefixes cancelled.")
             return
 
         if not league_role:
