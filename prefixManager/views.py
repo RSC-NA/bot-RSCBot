@@ -85,7 +85,7 @@ class ClearPlayerPrefixView(discord.ui.View):
 
         deny_embed = discord.Embed(
             title="Cancelled",
-            description=f"Add franchise action was cancelled by user.",
+            description=f"Clear all player prefixes action was cancelled by user.",
             color=discord.Color.red(),
         )
         await self.msg.edit(embed=deny_embed, view=None)
