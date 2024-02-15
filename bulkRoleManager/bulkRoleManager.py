@@ -121,9 +121,9 @@ class BulkRoleManager(commands.Cog):
             len(ids) > 1024
         ):
             msg = "\n".join([f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches])
-            if len(msg) > 3900:
-                for idx in range(0, len(msg), 3096):
-                    await ctx.send(f"```\n{msg[idx : idx + 3096]}\n```")
+            if len(msg) > 1900:
+                for idx in range(0, len(msg), 1024):
+                    await ctx.send(f"```\n{msg[idx : idx + 1024]}\n```")
             else:
                 await ctx.send(f"```\n{msg}\n```")
         else:
