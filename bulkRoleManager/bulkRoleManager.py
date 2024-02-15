@@ -121,11 +121,11 @@ class BulkRoleManager(commands.Cog):
             len(ids) > 1024
         ):
             msg = "\n".join([f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches])
-            if len(msg) > 4000:
+            if len(msg) > 3900:
                 for idx in range(0, len(msg), 3096):
-                    await ctx.send(f"```{msg[idx : idx + 3096]}")
+                    await ctx.send(f"```\n{msg[idx : idx + 3096]}\n```")
             else:
-                await ctx.send(f"```{msg}```")
+                await ctx.send(f"```\n{msg}\n```")
         else:
             embed = discord.Embed(
                 color=discord.Color.blue(),
