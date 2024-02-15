@@ -122,8 +122,10 @@ class BulkRoleManager(commands.Cog):
         ):
             msg = "\n".join([f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches])
             if len(msg) > 1900:
-                for idx in range(0, len(msg), 1024):
-                    await ctx.send(f"```\n{msg[idx : idx + 1024]}\n```")
+                for idx in range(0, len(matches), 30):
+                    matches_chunk = matches[idx : idx + 30]
+                    msg_chunk = "\n".join([f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches_chunk])
+                    await ctx.send(f"```\n{msg_chunk}\n```")
             else:
                 await ctx.send(f"```\n{msg}\n```")
         else:
