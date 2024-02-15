@@ -121,7 +121,7 @@ class BulkRoleManager(commands.Cog):
             len(ids) > 1024
         ):
             msg = "\n".join([f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches])
-            await ctx.send(f"```msg```")
+            await ctx.send(f"```{msg}```")
         else:
             embed = discord.Embed(
                 color=discord.Color.blue(),
