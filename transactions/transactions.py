@@ -21,6 +21,7 @@ log = logging.getLogger("red.RSCBot.transactions")
 defaults = {
     "ContractExpirationMessage": stringTemplates.contract_expiration_msg,
     "CutMessage": None,
+    "FANotifications": False,
     "TransChannel": None,
     "TransLogChannel": None,
     "TransNotifications": False,
@@ -647,8 +648,75 @@ class Transactions(commands.Cog):
 
     # Listeners
 
-    @commands.Cog.listener()
-    async def on_member_remove(self, member: discord.Member):
+    @commands.Cog.listener("on_member_remove")
+    async def fa_server_leave(self, member: discord.Member):
+        """Check if a rostered player has left the server and report to tranasction log channel"""
+        guild = member.guild
+        log.debug(f"Member left guild. Member: {member.display_name} Guild: {guild}")
+
+        # Check if notifications are enabled
+        if not await self._fa_notifications(member.guild):
+            return
+
+        # Return if transaction log channel is not configured
+        try:
+            log_channel = await self._trans_log_channel(guild)
+            if not log_channel:
+                log.warning("Transaction log channel is not configured.")
+                return
+        except:
+            log.error("Error fetching transaction log channel.")
+            return
+
+        # Check if player was an FA
+        free_agent = False
+        for r in member.roles:
+            if r.name.lower() == "permfa":
+                free_agent = True
+                break
+            if r.name.lower() == "free agent":
+                free_agent = True
+                break
+
+        if not free_agent:
+            log.debug("Member was not a free agent.")
+            return
+
+        log.debug(
+            f"{member.display_name} left the server while in free agency. Sending notification."
+        )
+        # Check if user was kicked from server
+        perp, reason = await self.get_audit_log_reason(
+            member.guild, member, discord.AuditLogAction.kick
+        )
+
+        log_embed = discord.Embed(
+            description=f"Free agent has left the server.",
+            color=discord.Color.orange(),
+            timestamp=datetime.datetime.now(datetime.timezone.utc),
+        )
+
+        log_embed.add_field(name="Member", value=member.mention, inline=True)
+        log_embed.add_field(name="Member ID", value=str(member.id), inline=True)
+
+        if perp:
+            log_embed.add_field(name="Kicked", value=perp.mention, inline=True)
+        if reason:
+            log_embed.add_field(name="Reason", value=str(reason), inline=False)
+
+        log_embed.set_author(
+            name=f"{member} ({member.id}) has left the guild",
+            url=member.display_avatar,
+            icon_url=member.display_avatar,
+        )
+        log_embed.set_thumbnail(url=member.display_avatar)
+
+        # Send to transaction log channel
+        log.debug(f"Sending FA notice to transaction log channel.")
+        await log_channel.send(embed=log_embed)
+
+    @commands.Cog.listener("on_member_remove")
+    async def rostered_server_leave(self, member: discord.Member):
         """Check if a rostered player has left the server and report to tranasction log channel"""
         log.debug(
             f"Member left guild. Member: {member.display_name} Guild: {member.guild} "
@@ -662,6 +730,7 @@ class Transactions(commands.Cog):
         try:
             log_channel = await self._trans_log_channel(guild)
             if not log_channel:
+                log.warning("Transaction log channel is not configured.")
                 return
         except:
             log.error("Error fetching transaction log channel.")
@@ -897,11 +966,18 @@ class Transactions(commands.Cog):
     @_transactions.command(name="settings")
     async def _show_transactions_settings(self, ctx: commands.Context):
         """Show transactions settings"""
-        log_channel = await self._trans_log_channel(ctx.guild)
-        trans_channel = await self._trans_channel(ctx.guild)
-        trans_role = await self._trans_role(ctx.guild)
-        cut_msg = await self._get_cut_message(ctx.guild) or "None"
-        notifications = await self._notifications_enabled(ctx.guild)
+
+        guild = ctx.guild
+        if not guild:
+            return
+
+        log_channel = await self._trans_log_channel(guild)
+        trans_channel = await self._trans_channel(guild)
+        trans_role = await self._trans_role(guild)
+        cut_msg = await self._get_cut_message(guild) or "None"
+        notifications = await self._notifications_enabled(guild)
+        fa_notifications = await self._fa_notifications(guild)
+
         settings_embed = discord.Embed(
             title="Transactions Settings",
             description="Current configuration for Transactions Cog.",
@@ -911,6 +987,10 @@ class Transactions(commands.Cog):
         # Check channel values before mention to avoid exception
         settings_embed.add_field(
             name="Notifications Enabled", value=notifications, inline=False
+        )
+
+        settings_embed.add_field(
+            name="Free Agent Notifications", value=fa_notifications, inline=False
         )
 
         if trans_channel:
@@ -960,6 +1040,27 @@ class Transactions(commands.Cog):
             embed=discord.Embed(
                 title="Success",
                 description=f"Transaction committee and GM notifications are now {result}.",
+                color=discord.Color.green(),
+            )
+        )
+
+    @_transactions.command(name="fanotify")
+    async def _toggle_fa_notifications(self, ctx: commands.Context):
+        """Toggle free agent notifications on or off"""
+        guild = ctx.guild
+        if not guild:
+            return
+
+        status = await self._fa_notifications(guild)
+        log.debug(f"Current FA Notifications: {status}")
+        status ^= True  # Flip boolean with xor
+        log.debug(f"New FA Notifications: {status}")
+        await self._set_fa_notifications(guild, status)
+        result = "**enabled**" if status else "**disabled**"
+        await ctx.send(
+            embed=discord.Embed(
+                title="Success",
+                description=f"Free agent notifications are now {result}.",
                 color=discord.Color.green(),
             )
         )
@@ -1303,5 +1404,14 @@ class Transactions(commands.Cog):
 
     async def _set_notifications(self, guild: discord.Guild, enabled: bool):
         await self.config.guild(guild).TransNotifications.set(enabled)
+
+    async def _fa_notifications(self, guild: discord.Guild) -> bool:
+        return await self.config.guild(guild).FANotifications()
+
+    async def _set_fa_notifications(self, guild: discord.Guild, enabled: bool):
+        await self.config.guild(guild).FANotifications.set(enabled)
+
+
+
 
 # endregion
