@@ -493,7 +493,7 @@ class ModeratorLink(commands.Cog):
                 await linked_guild.ban(
                     user,
                     reason=f"Banned from {guild.name}.",
-                    delete_message_days=0,
+                    delete_message_seconds=0,
                 )
                 await linked_guild_log.send(
                     f"**{user.name}** (id: {user.id}) has been banned. [initiated from **{guild.name}**]"
@@ -755,7 +755,7 @@ class ModeratorLink(commands.Cog):
         event_log_channel = await self._event_log_channel(member.guild)
         try:
             if ban:
-                await member.ban(reason=reason_note, delete_message_days=7)
+                await member.ban(reason=reason_note, delete_message_seconds=7 * 86400)
             else:
                 await member.kick(reason=reason_note)
             if event_log_channel:
