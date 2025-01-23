@@ -20,10 +20,10 @@ log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
 defaults = {"DraftEligibleMessage": None, "PermFAMessage": None}
 
-TROPHY_EMOJI = "\U0001F3C6"  # :trophy:
-GOLD_MEDAL_EMOJI = "\U0001F3C5"  # gold medal
-FIRST_PLACE_EMOJI = "\U0001F947"  # first place medal
-STAR_EMOJI = "\U00002B50"  # :star:
+TROPHY_EMOJI = "\U0001f3c6"  # :trophy:
+GOLD_MEDAL_EMOJI = "\U0001f3c5"  # gold medal
+FIRST_PLACE_EMOJI = "\U0001f947"  # first place medal
+STAR_EMOJI = "\U00002b50"  # :star:
 LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
 
 
@@ -87,8 +87,15 @@ class BulkRoleManager(commands.Cog):
             messages.append(message)
 
         await ctx.send(f"Players with **{role.name}** role:\n")
+        c = 0
         for msg in messages:
+            if c > 5:
+                await ctx.send("Too many users to display... stopping.")
+                break
+
             await ctx.send(f"```\n{msg}\n```")
+            c += 1
+
         await ctx.send(
             f":white_check_mark: {count} player(s) have the {role.name} role"
         )
@@ -112,19 +119,22 @@ class BulkRoleManager(commands.Cog):
 
         # Check for character max being exceeded (6000 total in embed or 1024 per field)
         nicks = "\n".join([f"{p.display_name}" for p in matches])
-        usernames = "\n".join([f"{p.name}#{p.discriminator}" for p in matches]),
+        usernames = ("\n".join([f"{p.name}#{p.discriminator}" for p in matches]),)
         ids = "\n".join(str(p.id) for p in matches)
 
-        if (
-            len(nicks) > 1024 or
-            len(usernames) > 1024 or
-            len(ids) > 1024
-        ):
-            msg = "\n".join([f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches])
+        if len(nicks) > 1024 or len(usernames) > 1024 or len(ids) > 1024:
+            msg = "\n".join(
+                [f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches]
+            )
             if len(msg) > 1900:
                 for idx in range(0, len(matches), 30):
                     matches_chunk = matches[idx : idx + 30]
-                    msg_chunk = "\n".join([f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}" for p in matches_chunk])
+                    msg_chunk = "\n".join(
+                        [
+                            f"{p.display_name}:{p.name}#{p.discriminator}:{p.id}"
+                            for p in matches_chunk
+                        ]
+                    )
                     await ctx.send(f"```\n{msg_chunk}\n```")
             else:
                 await ctx.send(f"```\n{msg}\n```")
@@ -353,9 +363,9 @@ class BulkRoleManager(commands.Cog):
                     notFound.remove(player_nick)
                 match_indicies = [i for i, x in enumerate(userList) if x == player_nick]
                 for match in match_indicies:
-                    found[
-                        match
-                    ] = f"{player_nick}:{player.name}#{player.discriminator}:{player.id}\n"
+                    found[match] = (
+                        f"{player_nick}:{player.name}#{player.discriminator}:{player.id}\n"
+                    )
 
         if notFound:
             notFoundMessage = ":x: Couldn't find:\n"
