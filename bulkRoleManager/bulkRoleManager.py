@@ -26,6 +26,8 @@ FIRST_PLACE_EMOJI = "\U0001f947"  # first place medal
 STAR_EMOJI = "\U00002b50"  # :star:
 LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
 
+CHANNEL_PERMS = ['send_messages', 'send_messages_in_threads', 'view_channel', 'read_messages']
+
 
 class BulkRoleManager(commands.Cog):
     """Used to manage roles role for large numbers of members"""
@@ -422,6 +424,42 @@ class BulkRoleManager(commands.Cog):
     # endregion
 
     # region general admin use
+    @commands.command(aliases=["scrp", "setChanRolePerms"])
+    @commands.guild_only()
+    @checks.admin_or_permissions(manage_roles=True)
+    # https://discord.com/developers/docs/topics/permissions#permissions
+    async def setChannelRolePerms(
+        self,
+        ctx,
+        channel: discord.TextChannel,
+        role: discord.Role,
+        permission: str, # from: https://discord.com/developers/docs/topics/permissions#permissions
+        perm_value: str, # on, off, inherit
+    ):
+        """Allows you to specify a channel, role, and an individual permission to toggle on/off/inherit."""
+
+        if permission not in CHANNEL_PERMS:
+            message = f":x: {permmission} is not a valid moderation setting you can set."
+            await ctx.send(message)
+        else:
+
+            perms = channel.overwrites_for(channel)
+            if permission in perms:
+                if permission == 'send_messages':
+                    perms.send_messages = True if perm_value == 'on' else False if perm_value == 'off' else None
+                elif permission == 'send_messages_in_threads':
+                    perms.send_messages_in_threads = True if perm_value == 'on' else False if perm_value == 'off' else None
+                elif permission == 'view_channel':
+                    perms.view_channel = True if perm_value == 'on' else False if perm_value == 'off' else None
+                elif permission == 'read_messages':
+                    perms.read_messages = True if perm_value == 'on' else False if perm_value == 'off' else None
+
+                await channel.edit(role, overwrites=perms)
+
+                message = f":x: {channel}, {role} {permmission} set to {perm_value}"
+                await ctx.send(message)
+
+
     @commands.command(aliases=["addMissingServerRoles"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
