@@ -955,9 +955,13 @@ class BulkRoleManager(commands.Cog):
     # region Helper Functions
     async def check_perms_for_role(self, member: discord.Member, role: discord.Role):
         if member.guild_permissions.manage_roles:
-            if role.position < member.top_role.position:
-                return True
-            if role.permissions < member.guild_permissions:
+            log.debug("Member has manage roles permission.")
+            log.debug(f"Member top role position: {member.top_role.position}")
+            log.debug(f"Role position: {role.position}")
+            if (
+                role.position < member.top_role.position
+                and role.permissions < member.guild_permissions
+            ):
                 return True
         return False
 
