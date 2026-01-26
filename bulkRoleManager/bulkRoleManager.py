@@ -6,6 +6,7 @@ import logging
 
 from redbot.core import commands, Config, checks
 from discord import File
+from discord.ext.commands import Context
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
 
@@ -163,9 +164,26 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def removeRoleFromAll(self, ctx, role: discord.Role) -> None:
+    async def removeRoleFromAll(self, ctx: Context, role: discord.Role) -> None:
         """Removes the role from every member who has it in the server"""
         empty = True
+
+        if not (ctx.author and isinstance(ctx.author, discord.Member)):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description="Could not verify your permissions to assign roles."
+                )
+            )
+            return
+
+        if not self.check_perms_for_role(ctx.author, role):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description=f"You do not have permission to assign the {role.name} role."
+                )
+            )
+            return
+
         # Check if role has no members.
         if len(role.members) == 0:
             noUsersEmbed = discord.Embed(
@@ -202,11 +220,27 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def addRoleToEveryone(self, ctx, role: discord.Role):
+    async def addRoleToEveryone(self, ctx: Context, role: discord.Role):
         """Add a role to everyone in the server."""
         added = 0
         had = 0
         failed = 0
+
+        if not (ctx.author and isinstance(ctx.author, discord.Member)):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description="Could not verify your permissions to assign roles."
+                )
+            )
+            return
+
+        if not self.check_perms_for_role(ctx.author, role):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description=f"You do not have permission to assign the {role.name} role."
+                )
+            )
+            return
 
         # Essentially a "loading" embed. Adding role to everyone takes time.
         working_embed = discord.Embed(
@@ -244,7 +278,7 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def addRole(self, ctx, role: discord.Role, *userList):
+    async def addRole(self, ctx: Context, role: discord.Role, *userList):
         """Adds the role to every member that can be found from the userList"""
         empty = True
         added = 0
@@ -252,6 +286,22 @@ class BulkRoleManager(commands.Cog):
         failed = 0
         not_found_list = []
         unknown_error_list = []
+
+        if not (ctx.author and isinstance(ctx.author, discord.Member)):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description="Could not verify your permissions to assign roles."
+                )
+            )
+            return
+
+        if not self.check_perms_for_role(ctx.author, role):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description=f"You do not have permission to assign the {role.name} role."
+                )
+            )
+            return
 
         # Essentially a "loading" embed. Adding role to everyone takes time.
         working_embed = discord.Embed(
@@ -303,13 +353,30 @@ class BulkRoleManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
-    async def removeRole(self, ctx, role: discord.Role, *userList):
+    async def removeRole(self, ctx: Context, role: discord.Role, *userList):
         """Removes the role from every member that can be found from the userList"""
         empty = True
         removed = 0
         notHave = 0
         notFound = 0
         message = ""
+
+        if not (ctx.author and isinstance(ctx.author, discord.Member)):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description="Could not verify your permissions to assign roles."
+                )
+            )
+            return
+
+        if not self.check_perms_for_role(ctx.author, role):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description=f"You do not have permission to assign the {role.name} role."
+                )
+            )
+            return
+
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
@@ -391,12 +458,28 @@ class BulkRoleManager(commands.Cog):
     @commands.guild_only()
     @checks.admin_or_permissions(manage_roles=True)
     async def giveRoleToAllWithRole(
-        self, ctx, currentRole: discord.Role, roleToGive: discord.Role
+        self, ctx: Context, currentRole: discord.Role, roleToGive: discord.Role
     ):
         """Gives the roleToGive to every member who already has the currentRole"""
         count = 0
         hadRoleCount = 0
         countGiven = 0
+
+        if not (ctx.author and isinstance(ctx.author, discord.Member)):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description="Could not verify your permissions to assign roles."
+                )
+            )
+            return
+
+        if not self.check_perms_for_role(ctx.author, roleToGive):
+            await ctx.send(
+                embed=ErrorEmbed(
+                    description=f"You do not have permission to assign the {roleToGive.name} role."
+                )
+            )
+            return
 
         for member in currentRole.members:
             count += 1
@@ -870,6 +953,14 @@ class BulkRoleManager(commands.Cog):
     # endregion
 
     # region Helper Functions
+    async def check_perms_for_role(self, member: discord.Member, role: discord.Role):
+        if member.guild_permissions.manage_roles:
+            if role.position < member.top_role.position:
+                return True
+            if role.permissions < member.guild_permissions:
+                return True
+        return False
+
     async def update_tiers(self, ctx, tier_assignment, userList):
         empty = True
         updated = 0
