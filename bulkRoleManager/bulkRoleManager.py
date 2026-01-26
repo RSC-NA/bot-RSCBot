@@ -176,7 +176,7 @@ class BulkRoleManager(commands.Cog):
             )
             return
 
-        if not self.check_perms_for_role(ctx.author, role):
+        if not await self.check_perms_for_role(ctx.author, role):
             await ctx.send(
                 embed=ErrorEmbed(
                     description=f"You do not have permission to assign the {role.name} role."
@@ -234,7 +234,7 @@ class BulkRoleManager(commands.Cog):
             )
             return
 
-        if not self.check_perms_for_role(ctx.author, role):
+        if not await self.check_perms_for_role(ctx.author, role):
             await ctx.send(
                 embed=ErrorEmbed(
                     description=f"You do not have permission to assign the {role.name} role."
@@ -295,7 +295,7 @@ class BulkRoleManager(commands.Cog):
             )
             return
 
-        if not self.check_perms_for_role(ctx.author, role):
+        if not await self.check_perms_for_role(ctx.author, role):
             await ctx.send(
                 embed=ErrorEmbed(
                     description=f"You do not have permission to assign the {role.name} role."
@@ -369,7 +369,7 @@ class BulkRoleManager(commands.Cog):
             )
             return
 
-        if not self.check_perms_for_role(ctx.author, role):
+        if not await self.check_perms_for_role(ctx.author, role):
             await ctx.send(
                 embed=ErrorEmbed(
                     description=f"You do not have permission to assign the {role.name} role."
@@ -473,7 +473,7 @@ class BulkRoleManager(commands.Cog):
             )
             return
 
-        if not self.check_perms_for_role(ctx.author, roleToGive):
+        if not await self.check_perms_for_role(ctx.author, roleToGive):
             await ctx.send(
                 embed=ErrorEmbed(
                     description=f"You do not have permission to assign the {roleToGive.name} role."
