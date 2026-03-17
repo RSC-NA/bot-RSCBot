@@ -1521,7 +1521,6 @@ class BCManager(commands.Cog):
         emoji: discord.Emoji,
         reason="canceled",
     ):
-
         embed_update = message.embeds[0]
         embed_update.remove_field(-1)
 

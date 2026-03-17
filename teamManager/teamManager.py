@@ -11,7 +11,7 @@ from redbot.core import checks
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
 
-from prefixManager.prefixManager import PrefixManager
+from prefixManager import PrefixManager
 from teamManager.embeds import ErrorEmbed
 from teamManager.views import (
     AddFranchiseView,
