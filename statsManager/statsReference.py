@@ -9,10 +9,10 @@ class StatsReference:
     is likely because of a recent name change. """
 
     # Awards
-    TROPHY_EMOJI = "\U0001F3C6"  # :trophy:
-    GOLD_MEDAL_EMOJI = "\U0001F3C5"  # gold medal
-    FIRST_PLACE_EMOJI = "\U0001F947"  # first place medal
-    STAR_EMOJI = "\U00002B50"  # :star:
+    TROPHY_EMOJI = "\U0001f3c6"  # :trophy:
+    GOLD_MEDAL_EMOJI = "\U0001f3c5"  # gold medal
+    FIRST_PLACE_EMOJI = "\U0001f947"  # first place medal
+    STAR_EMOJI = "\U00002b50"  # :star:
     LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
 
     # Stats Specific

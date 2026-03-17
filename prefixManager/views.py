@@ -1,12 +1,12 @@
 import discord
 import logging
 from redbot.core.commands import Context
-from teamManager.embeds import TimeoutEmbed, ErrorEmbed
+from teamManager.embeds import TimeoutEmbed
 
-from typing import Callable, Union, List, TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from teamManager.teamManager import TeamManager
+    pass
 
 log = logging.getLogger("red.RSCBot.prefixManager.views")
 
@@ -33,9 +33,10 @@ class ClearPlayerPrefixView(discord.ui.View):
     async def prompt(self):
         """Prompt for prefix clear"""
 
-
         if not self.guild:
-            await self.ctx.reply(content="Unable to run this command outside of a guild.")
+            await self.ctx.reply(
+                content="Unable to run this command outside of a guild."
+            )
             raise RuntimeError("Unable to run this command outside of a guild.")
 
         confirm_embed = discord.Embed(
@@ -62,7 +63,7 @@ class ClearPlayerPrefixView(discord.ui.View):
     async def confirm(
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
-        self.result = True 
+        self.result = True
         if not self.msg:
             return
 
@@ -85,7 +86,7 @@ class ClearPlayerPrefixView(discord.ui.View):
 
         deny_embed = discord.Embed(
             title="Cancelled",
-            description=f"Clear all player prefixes action was cancelled by user.",
+            description="Clear all player prefixes action was cancelled by user.",
             color=discord.Color.red(),
         )
         await self.msg.edit(embed=deny_embed, view=None)

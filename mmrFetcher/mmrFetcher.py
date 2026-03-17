@@ -1,4 +1,3 @@
-import discord
 import gspread
 import requests
 import csv
@@ -153,15 +152,15 @@ class MMRFetcher(commands.Cog):
                                 .text
                             )
                             playerdata[gamertag][season][playlist]["MMR"] = mmr
-                            playerdata[gamertag][season][playlist][
-                                "Games Played"
-                            ] = gamesplayed
-                            playerdata[gamertag][season][playlist][
-                                "Rank"
-                            ] = rank  # futureproof
-                            playerdata[gamertag][season][playlist][
-                                "Rank Division"
-                            ] = division  # futureproof
+                            playerdata[gamertag][season][playlist]["Games Played"] = (
+                                gamesplayed
+                            )
+                            playerdata[gamertag][season][playlist]["Rank"] = (
+                                rank  # futureproof
+                            )
+                            playerdata[gamertag][season][playlist]["Rank Division"] = (
+                                division  # futureproof
+                            )
             else:
                 tracker = "%s/%s/%s/%s" % (webpath, "profile", platform, gamertag)
                 page = requests.get(tracker)
@@ -213,9 +212,9 @@ class MMRFetcher(commands.Cog):
                                         .select("td")[3]
                                         .text
                                     )
-                                    playerdata[gamertag][season][playlist][
-                                        "MMR"
-                                    ] = mmr.strip()
+                                    playerdata[gamertag][season][playlist]["MMR"] = (
+                                        mmr.strip()
+                                    )
                                     if "n/a" not in gamesplayed:
                                         playerdata[gamertag][season][playlist][
                                             "Games Played"

@@ -39,9 +39,17 @@ class BulkRoleManager(commands.Cog):
             self, identifier=1234567897, force_registration=True
         )
         self.config.register_guild(**defaults)
-        self.team_manager_cog: TeamManager = bot.get_cog("TeamManager")
-        self.dm_helper_cog: DMHelper = bot.get_cog("DMHelper")
         self.discord_bot = bot
+
+    # properties
+
+    @property
+    def team_manager(self) -> TeamManager:
+        return self.discord_bot.get_cog("TeamManager")
+
+    @property
+    def dm_helper(self) -> DMHelper:
+        return self.discord_bot.get_cog("DMHelper")
 
     # region general
     @commands.command()

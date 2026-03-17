@@ -36,10 +36,10 @@ class Transactions(commands.Cog):
     PERM_FA_ROLE = "PermFA"
     SUBBED_OUT_ROLE = "Subbed Out"
     DEV_LEAGUE_ROLE = "Dev League Interest"
-    TROPHY_EMOJI = "\U0001F3C6"  # :trophy:
-    GOLD_MEDAL_EMOJI = "\U0001F3C5"  # gold medal
-    FIRST_PLACE_EMOJI = "\U0001F947"  # first place medal
-    STAR_EMOJI = "\U00002B50"  # :star:
+    TROPHY_EMOJI = "\U0001f3c6"  # :trophy:
+    GOLD_MEDAL_EMOJI = "\U0001f3c5"  # gold medal
+    FIRST_PLACE_EMOJI = "\U0001f947"  # first place medal
+    STAR_EMOJI = "\U00002b50"  # :star:
     LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
 
     def __init__(self, bot):
@@ -48,9 +48,19 @@ class Transactions(commands.Cog):
             self, identifier=1234567895, force_registration=True
         )
         self.config.register_guild(**defaults)
-        self.prefix_cog: PrefixManager = bot.get_cog("PrefixManager")
-        self.team_manager_cog: TeamManager = bot.get_cog("TeamManager")
-        self.dm_helper_cog: DMHelper = bot.get_cog("DMHelper")
+
+    # region properties
+    @property
+    def team_manager_cog(self) -> TeamManager:
+        return self.bot.get_cog("TeamManager")
+
+    @property
+    def prefix_cog(self) -> PrefixManager:
+        return self.bot.get_cog("PrefixManager")
+
+    @property
+    def dm_helper_cog(self) -> DMHelper:
+        return self.bot.get_cog("DMHelper")
 
     # region commands
     @commands.guild_only()
@@ -94,7 +104,7 @@ class Transactions(commands.Cog):
                 member: discord.Member = await commands.MemberConverter().convert(
                     ctx, user
                 )
-            except Exception as e:
+            except Exception:
                 log.debug(f"{user} not found... skipping.")
                 not_found_list.append(user)
                 continue
@@ -484,7 +494,7 @@ class Transactions(commands.Cog):
                 team_tier_fa_role = self.team_manager_cog._find_role_by_name(
                     ctx, "{0}FA".format(team_tier_role)
                 )
-                if not team_tier_fa_role in user.roles:
+                if team_tier_fa_role not in user.roles:
                     player_tier = await self.get_tier_role_for_fa(ctx, user)
                     await user.remove_roles(team_tier_role)
                     await user.add_roles(player_tier)
@@ -691,7 +701,7 @@ class Transactions(commands.Cog):
         )
 
         log_embed = discord.Embed(
-            description=f"Free agent has left the server.",
+            description="Free agent has left the server.",
             color=discord.Color.orange(),
             timestamp=datetime.datetime.now(datetime.timezone.utc),
         )
@@ -712,7 +722,7 @@ class Transactions(commands.Cog):
         log_embed.set_thumbnail(url=member.display_avatar)
 
         # Send to transaction log channel
-        log.debug(f"Sending FA notice to transaction log channel.")
+        log.debug("Sending FA notice to transaction log channel.")
         await log_channel.send(embed=log_embed)
 
     @commands.Cog.listener("on_member_remove")
@@ -1410,8 +1420,6 @@ class Transactions(commands.Cog):
 
     async def _set_fa_notifications(self, guild: discord.Guild, enabled: bool):
         await self.config.guild(guild).FANotifications.set(enabled)
-
-
 
 
 # endregion

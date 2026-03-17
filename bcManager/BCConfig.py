@@ -1,5 +1,3 @@
-from datetime import datetime
-
 # Discord ID: Steam ID -- maybe handle multiple accounts?
 
 # ###############################################################################

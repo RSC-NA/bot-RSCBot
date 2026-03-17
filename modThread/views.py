@@ -2,6 +2,7 @@ import discord
 
 from typing import Union
 
+
 class AssignView(discord.ui.View):
     """View class designed to only interact with the interaction author"""
 

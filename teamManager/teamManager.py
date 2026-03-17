@@ -1,6 +1,4 @@
 import logging
-from sys import prefix
-from typing import NewType
 import discord
 import re
 import ast
@@ -10,11 +8,10 @@ import difflib
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
-from collections import Counter
-from redbot.core.utils.predicates import MessagePredicate
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
 
+from prefixManager.prefixManager import PrefixManager
 from teamManager.embeds import ErrorEmbed
 from teamManager.views import (
     AddFranchiseView,
@@ -22,6 +19,7 @@ from teamManager.views import (
     TransferFranchiseView,
     RebrandFranchiseView,
 )
+from utilities import remove_prefix
 
 from typing import NoReturn
 
@@ -51,7 +49,10 @@ class TeamManager(commands.Cog):
             self, identifier=1234567892, force_registration=True
         )
         self.config.register_guild(**defaults)
-        self.prefix_cog = bot.get_cog("PrefixManager")
+
+    @property
+    def prefix_cog(self) -> PrefixManager:
+        return self.bot.get_cog("PrefixManager")
 
     # Admin Commands
     @commands.command()
@@ -119,7 +120,7 @@ class TeamManager(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def addFranchise(
         self, ctx, gm: discord.Member, franchise_prefix: str, *, franchise_name: str
-    ) -> NoReturn:
+    ):
         """Add a single franchise and prefix
         This will also create the franchise role in the format: <franchise name> (GM name)
         Afterwards it will assign this role and the General Manager role to the new GM and modify their nickname
@@ -140,8 +141,8 @@ class TeamManager(commands.Cog):
 
     @commands.command()
     @commands.guild_only()
-    @commands.admin_or_permissions(manage_guild=True)
-    async def removeFranchise(self, ctx, *, franchise_identifier: str) -> NoReturn:
+    @checks.admin_or_permissions(manage_guild=True)
+    async def removeFranchise(self, ctx, *, franchise_identifier: str):
         """Removes a franchise and all of its components (role, prefix) from the league.
         A franchise must not have any teams for this command to work.
 
@@ -319,7 +320,8 @@ class TeamManager(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def addTeam(self, ctx, team_name: str, gm_name: discord.Member, tier: str):
         """Add a single team and it's corresponding roles to the file system to be used for transactions and match info"""
-        teamAdded = await self._add_team(ctx, team_name, gm_name.display_name, tier)
+        gm_no_prefix = await remove_prefix(gm_name)
+        teamAdded = await self._add_team(ctx, team_name, gm_no_prefix, tier)
         if teamAdded:
             await ctx.send("Done.")
 
@@ -1150,11 +1152,13 @@ class TeamManager(commands.Cog):
         # Check if team exists
         _, found = await self._match_team_name(ctx, team_name)
         if found:
-            await ctx.send(embed=discord.Embed(
-                title="Add Team Error",
-                description=f"**{team_name}** already exist!",
-                color=discord.Color.red(),
-            ))
+            await ctx.send(
+                embed=discord.Embed(
+                    title="Add Team Error",
+                    description=f"**{team_name}** already exist!",
+                    color=discord.Color.red(),
+                )
+            )
             return False
 
         try:
@@ -1221,10 +1225,11 @@ class TeamManager(commands.Cog):
     def _get_franchise_role(self, ctx, gm_name):
         for role in ctx.message.guild.roles:
             try:
-                gmNameFromRole = re.findall(r"(?<=\().*(?=\))", role.name)[0]
-                if gmNameFromRole == gm_name:
+                gmNameFromRole = re.findall(r"(?<=\().*(?=\))", role.name)
+                if gmNameFromRole and gmNameFromRole[0] == gm_name:
                     return role
-            except:
+            except Exception as exc:
+                log.exception(exc)
                 continue
 
     def _get_all_franchise_roles(self, ctx):

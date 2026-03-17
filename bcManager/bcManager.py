@@ -3,8 +3,6 @@ import logging
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
-from redbot.core.utils.predicates import ReactionPredicate
-from redbot.core.utils.menus import start_adding_reactions
 
 from .BCConfig import BCConfig
 from teamManager import TeamManager
@@ -13,7 +11,6 @@ from match import Match
 import random
 import string
 import struct
-import tempfile
 import asyncio
 import aiohttp
 from typing import List
@@ -23,7 +20,6 @@ from datetime import datetime, timedelta
 from urllib.parse import unquote
 
 import ballchasing
-import requests
 import re
 
 log = logging.getLogger("red.RSCBot.bcManager")
@@ -42,7 +38,7 @@ verify_timeout = 30
 BALLCHASING_URL = "https://ballchasing.com"
 RSC_WEB_APP = "https://staging-api.rscna.com"
 DONE = "Done"
-WHITE_X_REACT = "\U0000274E"  # :negative_squared_cross_mark:
+WHITE_X_REACT = "\U0000274e"  # :negative_squared_cross_mark:
 WHITE_CHECK_REACT = "\U00002705"  # :white_check_mark:
 RSC_STEAM_ID = 76561199096013422
 # RSC_STEAM_ID = 76561197960409023 # REMOVEME - my steam id for development
@@ -58,12 +54,20 @@ class BCManager(commands.Cog):
         self.config.register_guild(**defaults)
         self.config.register_global(**global_defaults)
         self.bot = bot
-        self.team_manager_cog: TeamManager = bot.get_cog("TeamManager")
-        self.match_cog: Match = bot.get_cog("Match")
         self.ballchasing_api = {}
         self.rsc_api = {}
         self.task = asyncio.create_task(self.pre_load_data())
         self.ffp = {}  # forfeit processing
+
+    # region properties
+
+    @property
+    def team_manager_cog(self) -> TeamManager:
+        return self.bot.get_cog("TeamManager")
+
+    @property
+    def match_cog(self) -> Match:
+        return self.bot.get_cog("Match")
 
     # region admin commands
 
@@ -307,9 +311,9 @@ class BCManager(commands.Cog):
         for match in schedule.get(tier.name, {}).get(match_day, []):
             log.debug(f"Looking for match: {match}")
             match_group_info = {}
-            bc_report_summary_json[tier][
-                "active_match"
-            ] = f"{match['home']} vs {match['away']}"
+            bc_report_summary_json[tier]["active_match"] = (
+                f"{match['home']} vs {match['away']}"
+            )
             # update RAM status message
             await self.update_embed_in_messages(
                 status_messages,
@@ -444,9 +448,9 @@ class BCManager(commands.Cog):
             for match in schedule.get(tier_role.name, {}).get(match_day, []):
                 log.debug(f"Looking for match: {match}")
                 match_group_info = {}
-                bc_report_summary_json[tier_role][
-                    "active_match"
-                ] = f"{match['home']} vs {match['away']}"
+                bc_report_summary_json[tier_role]["active_match"] = (
+                    f"{match['home']} vs {match['away']}"
+                )
                 # update RAM status message
                 await self.update_embed_in_messages(
                     status_messages,
@@ -493,9 +497,9 @@ class BCManager(commands.Cog):
                         log.debug(
                             f"BC Group Link: {bc_report_summary_json[tier_role]['bc_group_link']}"
                         )
-                        bc_report_summary_json[tier_role][
-                            "bc_group_link"
-                        ] = tier_md_group_link
+                        bc_report_summary_json[tier_role]["bc_group_link"] = (
+                            tier_md_group_link
+                        )
 
                     if not match_group_info.get("is_valid_set", False):
                         missing_tier_replays.append(match)
@@ -631,9 +635,9 @@ class BCManager(commands.Cog):
                             match_report_message: discord.Message = (
                                 await tier_report_channel.send(embed=score_report_embed)
                             )
-                            match["report"][
-                                "score_report_msg_id"
-                            ] = match_report_message.id
+                            match["report"]["score_report_msg_id"] = (
+                                match_report_message.id
+                            )
                             bc_scan_summary[tier_role]["new_reports"].append(
                                 f"[{active_match}]({match['report']['link']})"
                             )
@@ -645,9 +649,9 @@ class BCManager(commands.Cog):
                         await self.update_match_report(
                             ctx, tier_role.name, match, match["report"]
                         )
-                        bc_scan_summary[tier_role][
-                            "active_match"
-                        ] = f"{match['home']} vs {match['away']}"
+                        bc_scan_summary[tier_role]["active_match"] = (
+                            f"{match['home']} vs {match['away']}"
+                        )
                     except:
                         pass
 
@@ -816,9 +820,9 @@ class BCManager(commands.Cog):
             else:
                 discovery_data["away_wins"] += 1
 
-        discovery_data[
-            "summary"
-        ] = f"**{match['home']}** {discovery_data['home_wins']} - {discovery_data['away_wins']} **{match['away']}**"
+        discovery_data["summary"] = (
+            f"**{match['home']}** {discovery_data['home_wins']} - {discovery_data['away_wins']} **{match['away']}**"
+        )
 
         if discovery_data["home_wins"] > discovery_data["away_wins"]:
             discovery_data["winner"] = match["home"]
@@ -1223,9 +1227,9 @@ class BCManager(commands.Cog):
         if not home_wins + away_wins:
             return report
 
-        report[
-            "summary"
-        ] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+        report["summary"] = (
+            f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+        )
         report["home_wins"] = home_wins
         report["away_wins"] = away_wins
 
@@ -1430,9 +1434,9 @@ class BCManager(commands.Cog):
                     description_parts[1] = description_parts[1].replace("~", "")
 
             elif len(description_parts) == 3:
-                description_parts[
-                    2
-                ] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+                description_parts[2] = (
+                    f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+                )
         else:
             description_parts = description_parts[:2]
             description_parts[1] = description_parts[1].replace("~", "")
@@ -1495,9 +1499,9 @@ class BCManager(commands.Cog):
             embed.set_thumbnail(url=guild.icon.url)
 
         # update match info
-        match["report"][
-            "summary"
-        ] = f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+        match["report"]["summary"] = (
+            f"**{match['home']}** {home_wins} - {away_wins} **{match['away']}**"
+        )
         match["report"]["winner"] = winner
         if emoji == WHITE_CHECK_REACT:
             match["report"]["forfeits"] = (
@@ -1517,7 +1521,6 @@ class BCManager(commands.Cog):
         emoji: discord.Emoji,
         reason="canceled",
     ):
-        from pprint import pprint as pp
 
         embed_update = message.embeds[0]
         embed_update.remove_field(-1)
@@ -1692,9 +1695,9 @@ class BCManager(commands.Cog):
                                     match, discovery_data
                                 )
                                 if discovery_data.get("is_valid_set", is_valid_set):
-                                    discovery_data[
-                                        "summary"
-                                    ] = f"**{match['home']}** {discovery_data['home_wins']} - {discovery_data['away_wins']} **{match['away']}**"
+                                    discovery_data["summary"] = (
+                                        f"**{match['home']}** {discovery_data['home_wins']} - {discovery_data['away_wins']} **{match['away']}**"
+                                    )
                                     return discovery_data
 
                 # update accounts searched to avoid duplicate searches (maybe not needed)
@@ -1918,16 +1921,12 @@ class BCManager(commands.Cog):
             r"\W+", "", replay_teams["blue"]["name"].lower()
         ) in re.sub(r"\W+", "", home_team.lower()) or re.sub(
             r"\W+", "", replay_teams["orange"]["name"].lower()
-        ) in re.sub(
-            r"\W+", "", home_team.lower()
-        )
+        ) in re.sub(r"\W+", "", home_team.lower())
         away_team_found = re.sub(
             r"\W+", "", replay_teams["blue"]["name"].lower()
         ) in re.sub(r"\W+", "", away_team.lower()) or re.sub(
             r"\W+", "", replay_teams["orange"]["name"].lower()
-        ) in re.sub(
-            r"\W+", "", away_team.lower()
-        )
+        ) in re.sub(r"\W+", "", away_team.lower())
 
         return home_team_found and away_team_found
 
@@ -2445,7 +2444,7 @@ class BCManager(commands.Cog):
 
         tier_roles.sort(key=lambda role: role.position, reverse=True)
 
-        return f"{tier_roles.index(target_tier_role)+1}{target_tier_name}"  # ie --> 1Premier
+        return f"{tier_roles.index(target_tier_role) + 1}{target_tier_name}"  # ie --> 1Premier
 
     # TODO: get/create channel in cat
     async def get_score_reporting_channel(self, tier_role: discord.Role):

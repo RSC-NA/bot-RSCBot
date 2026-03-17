@@ -1,4 +1,3 @@
-import traceback
 import ast
 import random
 from datetime import datetime
@@ -11,7 +10,6 @@ from redbot.core import Config, commands, checks
 
 from teamManager import TeamManager
 
-from typing import Optional,List
 
 log = logging.getLogger("red.RSCBot.match")
 
@@ -36,9 +34,15 @@ class Match(commands.Cog):
             self, identifier=1234567893, force_registration=True
         )
         self.config.register_guild(**defaults)
-        self.team_manager: TeamManager = bot.get_cog("TeamManager")
+        self.bot = bot
 
         # TODO: Data Setup on startup - guild[field] = x -> match dates, time zone, gameTeamSize, SeriesType
+
+    # Properties
+
+    @property
+    def team_manager(self) -> TeamManager:
+        return self.bot.get_cog("TeamManager")
 
     # Admin Configuration
     @commands.command()
@@ -197,7 +201,7 @@ class Match(commands.Cog):
     # Player Commands
     @commands.command()
     @commands.guild_only()
-    async def match(self, ctx, match_day: str=None, *teams: str):
+    async def match(self, ctx, match_day: str = None, *teams: str):
         """Get match info.
 
         If no arguments are provided, retrieve the match info for the
@@ -219,24 +223,28 @@ class Match(commands.Cog):
         if not match_day:
             match_day = await self._match_day(ctx)
         if not match_day:
-            await ctx.reply(embed=discord.Embed(
-                title="Match Error",
-                description="Match day not provided and not configured in the server.",
-                color=discord.Color.red(),
-            ))
+            await ctx.reply(
+                embed=discord.Embed(
+                    title="Match Error",
+                    description="Match day not provided and not configured in the server.",
+                    color=discord.Color.red(),
+                )
+            )
             return
 
         if not teams:
             teams = await self.team_manager.teams_for_user(ctx, ctx.message.author)
 
         if not teams:
-            await ctx.reply(embed=discord.Embed(
-                title="Match Error",
-                description="No teams found. If you provided teams, "
-                "check the spelling. If not, you do not have "
-                "roles corresponding to a team.",
-                color=discord.Color.red(),
-            ))
+            await ctx.reply(
+                embed=discord.Embed(
+                    title="Match Error",
+                    description="No teams found. If you provided teams, "
+                    "check the spelling. If not, you do not have "
+                    "roles corresponding to a team.",
+                    color=discord.Color.red(),
+                )
+            )
             return
 
         franchise_role = self.team_manager.get_current_franchise_role(
@@ -246,13 +254,17 @@ class Match(commands.Cog):
 
         for team_name in teams:
             try:
-                team_matches = await self.get_team_matches(ctx, team_name, str(match_day))
-            except LookupError as exc:
-                await ctx.reply(embed=discord.Embed(
-                    title="Match Error",
-                    description=f"**{team_name}** is not a valid team name. Please check the spelling.",
-                    color=discord.Color.red(),
-                ))
+                team_matches = await self.get_team_matches(
+                    ctx, team_name, str(match_day)
+                )
+            except LookupError:
+                await ctx.reply(
+                    embed=discord.Embed(
+                        title="Match Error",
+                        description=f"**{team_name}** is not a valid team name. Please check the spelling.",
+                        color=discord.Color.red(),
+                    )
+                )
                 return
 
             for match in team_matches:
@@ -274,7 +286,7 @@ class Match(commands.Cog):
         match_day = await self._match_day(ctx)
         team_size = await self._get_game_team_size(ctx.guild)
         if team_size not in [3]:
-            await ctx.message.add_reaction("\U0000274C")
+            await ctx.message.add_reaction("\U0000274c")
             return await ctx.send(
                 ":x: This command is not supported for this game mode."
             )
@@ -282,7 +294,7 @@ class Match(commands.Cog):
         teams = await self.team_manager.teams_for_user(ctx, ctx.author)
 
         if not (match_day and teams):
-            return await ctx.message.add_reaction("\U0000274C")
+            return await ctx.message.add_reaction("\U0000274c")
 
         team_name = teams[0]
 
@@ -290,7 +302,7 @@ class Match(commands.Cog):
 
         # TODO: handle more gracefully for 2s league, simplify logic
         if not match_data:
-            await ctx.message.add_reaction("\U0000274C")
+            await ctx.message.add_reaction("\U0000274c")
             return await ctx.send(":x: Match could not be found")
 
         match_data = match_data[0]
@@ -309,7 +321,7 @@ class Match(commands.Cog):
         )
 
         if not opposing_roster:
-            await ctx.message.add_reaction("\U0000274C")
+            await ctx.message.add_reaction("\U0000274c")
             await ctx.send(":x: No roster found for the **{}**".format(opposing_team))
 
         message = "Please join your match against the **{}** with the following lobby information:".format(
@@ -367,7 +379,7 @@ class Match(commands.Cog):
         errors = []
         if match_date_error:
             errors.append(
-                "Date provided is not valid. " "(Make sure to use the right format.)"
+                "Date provided is not valid. (Make sure to use the right format.)"
             )
         if not homeRoles:
             errors.append("Home team roles not found ({}).".format(home))
@@ -379,7 +391,7 @@ class Match(commands.Cog):
             )
         if errors:
             await ctx.send(
-                ":x: Errors with input:\n\n  " "* {0}\n".format("\n  * ".join(errors))
+                ":x: Errors with input:\n\n  * {0}\n".format("\n  * ".join(errors))
             )
             return
 
@@ -422,10 +434,12 @@ class Match(commands.Cog):
         #     'roomName': roomName,
         #     'roomPass': roomPass,
         # }
-        tier_role = (await self.team_manager._roles_for_team(ctx, match['home']))[1]
+        tier_role = (await self.team_manager._roles_for_team(ctx, match["home"]))[1]
 
         title = "__Match Day {0}: {1}__\n".format(match["matchDay"], match["matchDate"])
-        description = "**{0}**\n    versus\n**{1}**\n\n".format(match["home"], match["away"])
+        description = "**{0}**\n    versus\n**{1}**\n\n".format(
+            match["home"], match["away"]
+        )
 
         embed = discord.Embed(
             title=title, description=description, color=tier_role.color
@@ -502,7 +516,13 @@ class Match(commands.Cog):
             # additional_info += config.playoff_info
             return additional_info
 
-    async def _create_normal_match_embed(self, ctx: commands.Context, embed: discord.Embed, match: dict, user_team_name: str):
+    async def _create_normal_match_embed(
+        self,
+        ctx: commands.Context,
+        embed: discord.Embed,
+        match: dict,
+        user_team_name: str,
+    ):
         embed.add_field(
             name="Lobby Info",
             value="Name: **{0}**\nPassword: **{1}**".format(
