@@ -3,6 +3,8 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
+from teamManager.teamManager import TeamManager
+
 defaults = {
     "room_capacity": 10,
     "Categories": [],
@@ -17,7 +19,13 @@ class CombineRooms(commands.Cog):
             self, identifier=1234567892, force_registration=True
         )
         self.config.register_guild(**defaults)
-        self.team_manager_cog = bot.get_cog("TeamManager")
+        self.bot = bot
+
+    # properties
+
+    @property
+    def team_manager_cog(self) -> TeamManager:
+        return self.bot.get_cog("TeamManager")
 
     @commands.command(aliases=["startcombines"])
     @commands.guild_only()

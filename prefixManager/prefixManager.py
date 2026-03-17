@@ -220,7 +220,7 @@ class PrefixManager(commands.Cog):
             errors.append("Prefix not found from input for GM {0}.".format(gm_name))
         if errors:
             await ctx.send(
-                ":x: Errors with input:\n\n  " "* {0}\n".format("\n  * ".join(errors))
+                ":x: Errors with input:\n\n  * {0}\n".format("\n  * ".join(errors))
             )
             return
 
@@ -278,7 +278,8 @@ class PrefixManager(commands.Cog):
         try:
             gm_name = re.findall(r"(?<=\().*(?=\))", franchise_role.name)[0]
             return prefixes[gm_name]
-        except:
+        except Exception:
+            return prefixes[gm_name.lower()]
             raise LookupError("GM name not found from {0}".format(franchise_role.name))
 
     async def _prefixes(self, ctx):

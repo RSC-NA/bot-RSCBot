@@ -1,7 +1,6 @@
 import asyncio
 import discord
 import logging
-from datetime import date, datetime
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
@@ -36,10 +35,10 @@ class ModeratorLink(commands.Cog):
         self.config.register_guild(**defaults)
         self.bot = bot
 
-        self.TROPHY_EMOJI = "\U0001F3C6"  # :trophy:
-        self.GOLD_MEDAL_EMOJI = "\U0001F3C5"  # gold medal
-        self.FIRST_PLACE_EMOJI = "\U0001F947"  # first place medal
-        self.STAR_EMOJI = "\U00002B50"  # :star:
+        self.TROPHY_EMOJI = "\U0001f3c6"  # :trophy:
+        self.GOLD_MEDAL_EMOJI = "\U0001f3c5"  # gold medal
+        self.FIRST_PLACE_EMOJI = "\U0001f947"  # first place medal
+        self.STAR_EMOJI = "\U00002b50"  # :star:
         self.LEAGUE_AWARDS = [
             self.TROPHY_EMOJI,
             self.GOLD_MEDAL_EMOJI,
@@ -202,7 +201,7 @@ class ModeratorLink(commands.Cog):
         await ctx.send(
             embed=discord.Embed(
                 title="Moderator Role Removed",
-                description=f"Moderator role has been removed.",
+                description="Moderator role has been removed.",
                 color=discord.Color.orange(),
             )
         )
@@ -214,7 +213,7 @@ class ModeratorLink(commands.Cog):
         await ctx.send(
             embed=discord.Embed(
                 title="Welcome Message Removed",
-                description=f"Welcome message has been removed.",
+                description="Welcome message has been removed.",
                 color=discord.Color.orange(),
             )
         )
@@ -226,7 +225,7 @@ class ModeratorLink(commands.Cog):
         await ctx.send(
             embed=discord.Embed(
                 title="Event Channel Removed",
-                description=f"Event channel has been removed.",
+                description="Event channel has been removed.",
                 color=discord.Color.orange(),
             )
         )
@@ -238,7 +237,7 @@ class ModeratorLink(commands.Cog):
         await ctx.send(
             embed=discord.Embed(
                 title="Shared Roles Removed",
-                description=f"Shared roles have been removed.",
+                description="Shared roles have been removed.",
                 color=discord.Color.orange(),
             )
         )
@@ -799,8 +798,9 @@ class ModeratorLink(commands.Cog):
         elif removed_roles:
             await self._process_role_removal(removed_roles, other_guilds, before)
 
-
-    async def _process_role_addition(self, added_roles, other_guilds, before: discord.Member):
+    async def _process_role_addition(
+        self, added_roles, other_guilds, before: discord.Member
+    ):
 
         # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
         shared_role_names = await self._get_shared_role_names(before.guild)
@@ -826,12 +826,16 @@ class ModeratorLink(commands.Cog):
                         )  # This was sometimes None? added 'guild_role and' to condition
                         await channel.send(
                             role_assign_msg.format(
-                                guild_role.mention, guild_member.mention, before.guild.name
+                                guild_role.mention,
+                                guild_member.mention,
+                                before.guild.name,
                             )
                         )
 
-    async def _process_role_removal(self, removed_roles, other_guilds, before: discord.Member):
-                
+    async def _process_role_removal(
+        self, removed_roles, other_guilds, before: discord.Member
+    ):
+
         # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
         shared_role_names = await self._get_shared_role_names(before.guild)
 
@@ -841,7 +845,7 @@ class ModeratorLink(commands.Cog):
 
         # Process Role Removals
         role_removal_msg = "Shared role {} removed from **{}** [initiated from **{}**]"
-    
+
         for role in removed_roles:
             if role.name in shared_role_names:
                 log.debug(f"Role {role.name} is a shared role")
@@ -854,10 +858,11 @@ class ModeratorLink(commands.Cog):
                         await guild_member.remove_roles(guild_role)
                         await channel.send(
                             role_removal_msg.format(
-                                guild_role.mention, guild_member.mention, before.guild.name
+                                guild_role.mention,
+                                guild_member.mention,
+                                before.guild.name,
                             )
                         )
-
 
     async def _guild_member_from_id(self, guild, member_id):
         return guild.get_member(member_id)

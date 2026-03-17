@@ -4,7 +4,6 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
-from typing import Literal
 
 settings = {
     "PrimaryCategory": None,
@@ -24,7 +23,7 @@ class ModThread(commands.Cog):
         )
         self.config.register_guild(**settings)
 
-# region commands
+    # region commands
     @commands.guild_only()
     @commands.command()
     async def assign(self, ctx, group: str):
@@ -48,32 +47,22 @@ class ModThread(commands.Cog):
 
         if group in groups:
             category = ctx.guild.get_channel(groups[group]["category"])
-            await ctx.channel.move(
-                end=True,
-                category=category,
-                sync_permissions=True
-            )
+            await ctx.channel.move(end=True, category=category, sync_permissions=True)
 
             role = ctx.guild.get_role(groups[group]["role"])
             if role:
                 allowed_mentions = discord.AllowedMentions(roles=True)
                 await ctx.send(
-                    "This ticket has been assigned to {0}".format(
-                        role.mention
-                    ),
+                    "This ticket has been assigned to {0}".format(role.mention),
                     allowed_mentions=allowed_mentions,
                 )
             else:
-                await ctx.send(
-                    "This ticket has been assigned to {0}".format(
-                        role
-                    )
-                )
+                await ctx.send("This ticket has been assigned to {0}".format(role))
         else:
             assign_embed = discord.Embed(
                 title="ModThread Assignment",
                 description="```Syntax: ?assign <group>```",
-                color=discord.Color.blue()
+                color=discord.Color.blue(),
             )
             assign_embed.set_footer(
                 text="You can also run `?unassign` to remove channel."
@@ -83,9 +72,7 @@ class ModThread(commands.Cog):
                 group_obj = ctx.guild.get_role(groups[group_name]["role"])
                 group_list += f"\n- **{group_name}** - {group_obj.mention}"
             assign_embed.add_field(
-                name="Available Groups",
-                value=group_list,
-                inline=False
+                name="Available Groups", value=group_list, inline=False
             )
             await ctx.send(embed=assign_embed)
 
@@ -114,9 +101,7 @@ class ModThread(commands.Cog):
             return False
 
         await ctx.channel.move(
-            end=True,
-            category=primary_category,
-            sync_permissions=True
+            end=True, category=primary_category, sync_permissions=True
         )
 
         allowed_mentions = discord.AllowedMentions(roles=True)
@@ -142,9 +127,7 @@ class ModThread(commands.Cog):
 
     @modthread.command(name="category")
     async def primary_category(
-        self,
-        ctx: commands.Context,
-        category: discord.CategoryChannel | str | None
+        self, ctx: commands.Context, category: discord.CategoryChannel | str | None
     ) -> None:
         """View or change the primary category."""
         settings_embed = discord.Embed(
@@ -154,30 +137,25 @@ class ModThread(commands.Cog):
         )
 
         if category is not None:
-            if category in ['delete', 'rm', 'del', 'clear', 'unset']:
+            if category in ["delete", "rm", "del", "clear", "unset"]:
                 category = category.lower()
                 await self._set_primary_category(ctx.guild, None)
                 settings_embed.add_field(
-                    name="Primary Category Removed",
-                    value="Not Set",
-                    inline=False
+                    name="Primary Category Removed", value="Not Set", inline=False
                 )
             elif isinstance(category, discord.CategoryChannel):
-                set_category = await self._set_primary_category(
-                    ctx.guild,
-                    category
-                )
+                set_category = await self._set_primary_category(ctx.guild, category)
                 if set_category is not None:
                     settings_embed.add_field(
                         name="Category Set",
                         value=f"Category set to {set_category.jump_url}",
-                        inline=False
+                        inline=False,
                     )
             else:
                 settings_embed.add_field(
                     name="Invalid Category",
                     value="You **must** select a Discord Category Channel.",
-                    inline=False
+                    inline=False,
                 )
 
         else:
@@ -186,16 +164,14 @@ class ModThread(commands.Cog):
                 settings_embed.add_field(
                     name="Current Category",
                     value=f"Category set to {primary_category.jump_url}",
-                    inline=False
+                    inline=False,
                 )
 
         await ctx.send(embed=settings_embed)
 
     @modthread.command(name="role")
     async def management_role(
-        self,
-        ctx: commands.Context,
-        role: discord.Role | str | None
+        self, ctx: commands.Context, role: discord.Role | str | None
     ) -> None:
         """View or change the management role."""
         settings_embed = discord.Embed(
@@ -205,29 +181,24 @@ class ModThread(commands.Cog):
         )
 
         if role is not None:
-            if role in ['delete', 'rm', 'del', 'clear', 'unset']:
+            if role in ["delete", "rm", "del", "clear", "unset"]:
                 role = role.lower()
                 await self._set_primary_category(ctx.guild, None)
                 settings_embed.add_field(
-                    name="Management Role Removed",
-                    value="Not Set",
-                    inline=False
+                    name="Management Role Removed", value="Not Set", inline=False
                 )
             elif isinstance(role, discord.Role):
-                set_role = await self._set_management_role(
-                    ctx.guild,
-                    role
-                )
+                set_role = await self._set_management_role(ctx.guild, role)
                 settings_embed.add_field(
                     name="Management Role Set",
                     value=f"Role set to {set_role.mention}",
-                    inline=False
+                    inline=False,
                 )
             else:
                 settings_embed.add_field(
                     name="Invalid Role",
                     value="You must provide a valid Discord Role",
-                    inline=False
+                    inline=False,
                 )
         else:
             management_role = await self._get_management_role(ctx.guild)
@@ -235,16 +206,13 @@ class ModThread(commands.Cog):
                 settings_embed.add_field(
                     name="Current Management Role",
                     value=f"Management Role set to {management_role.mention}",
-                    inline=False
+                    inline=False,
                 )
 
         await ctx.send(embed=settings_embed)
 
     @modthread.command(name="settings")
-    async def settings(
-        self,
-        ctx: commands.Context
-    ) -> None:
+    async def settings(self, ctx: commands.Context) -> None:
         """Settings command group"""
 
         primary_category = await self._get_primary_category(ctx.guild)
@@ -259,9 +227,7 @@ class ModThread(commands.Cog):
         # Check channel values before mention to avoid exception
         if primary_category:
             settings_embed.add_field(
-                name="Primary Category",
-                value=primary_category.jump_url,
-                inline=False
+                name="Primary Category", value=primary_category.jump_url, inline=False
             )
         else:
             settings_embed.add_field(
@@ -270,9 +236,7 @@ class ModThread(commands.Cog):
 
         if management_role:
             settings_embed.add_field(
-                name="Management Role",
-                value=management_role.mention,
-                inline=False
+                name="Management Role", value=management_role.mention, inline=False
             )
         else:
             settings_embed.add_field(
@@ -288,7 +252,7 @@ class ModThread(commands.Cog):
         action: str | None,
         group: str | None,
         category: discord.CategoryChannel | None,
-        role: discord.Role | None
+        role: discord.Role | None,
     ):
         """Groups command group"""
 
@@ -301,16 +265,14 @@ class ModThread(commands.Cog):
                 group = group.lower()
                 await self._set_group(ctx.guild, group, category, role)
                 show_syntax = False
-                await ctx.send('Ok!')
-            elif action in ['delete', 'rm', 'clear', 'unset']:
+                await ctx.send("Ok!")
+            elif action in ["delete", "rm", "clear", "unset"]:
                 group = group.lower()
                 show_syntax = False
                 await self._unset_group(ctx.guild, group)
-                await ctx.send('Group removed!')
+                await ctx.send("Group removed!")
             else:
-                await ctx.send(
-                    'Unrecognized command. [`add`, `update`, `delete`]'
-                )
+                await ctx.send("Unrecognized command. [`add`, `update`, `delete`]")
 
         groups = await self._get_groups(ctx.guild)
 
@@ -326,11 +288,7 @@ class ModThread(commands.Cog):
 
 Example: ?mt groups add mods 1116910419458662490 @Mods```
             """
-            groups_embed.add_field(
-                name="Syntax",
-                value=syntax_desc,
-                inline=False
-            )
+            groups_embed.add_field(name="Syntax", value=syntax_desc, inline=False)
 
             actions_desc = """
 - **add** - `?mt groups add <group> <#category> <@role>`
@@ -338,9 +296,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
 - **delete** - `?mt groups delete <group>`
             """
             groups_embed.add_field(
-                name="Group Actions",
-                value=actions_desc,
-                inline=False
+                name="Group Actions", value=actions_desc, inline=False
             )
 
         groups_list = "- *None*"
@@ -350,16 +306,13 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
                 group_obj = ctx.guild.get_role(groups[group_name]["role"])
                 groups_list += f"\n**{group_name}** - {group_obj.mention}"
 
-        groups_embed.add_field(
-            name="Defined Groups",
-            value=groups_list,
-            inline=False
-        )
+        groups_embed.add_field(name="Defined Groups", value=groups_list, inline=False)
 
         await ctx.send(embed=groups_embed)
-# endregion commands
 
-# region jsondb
+    # endregion commands
+
+    # region jsondb
     async def _unset_group(
         self,
         guild: discord.Guild,
@@ -368,50 +321,34 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
         groups = await self._get_groups(guild)
         groups.pop(group_name)
 
-        await self.config.guild(
-            guild
-        ).Groups.set(groups)
+        await self.config.guild(guild).Groups.set(groups)
 
     async def _set_group(
         self,
         guild: discord.Guild,
         group_name: str | None,
         category: discord.CategoryChannel | None,
-        role: discord.Role | None
+        role: discord.Role | None,
     ) -> None:
         groups = await self._get_groups(guild)
 
-        group = {
-            "category": category.id,
-            "role": role.id
-        }
+        group = {"category": category.id, "role": role.id}
 
         groups[group_name] = group
-        await self.config.guild(
-            guild
-        ).Groups.set(groups)
+        await self.config.guild(guild).Groups.set(groups)
 
     async def _get_primary_category(
-        self,
-        guild: discord.Guild
+        self, guild: discord.Guild
     ) -> discord.CategoryChannel | None:
         return discord.utils.get(
-            guild.categories,
-            id=await self.config.guild(guild).PrimaryCategory()
+            guild.categories, id=await self.config.guild(guild).PrimaryCategory()
         )
 
-    async def _get_management_role(
-        self,
-        guild: discord.Guild
-    ) -> discord.Role | None:
-        return guild.get_role(
-            await self.config.guild(guild).ManagementRole()
-        )
+    async def _get_management_role(self, guild: discord.Guild) -> discord.Role | None:
+        return guild.get_role(await self.config.guild(guild).ManagementRole())
 
     async def _set_primary_category(
-        self,
-        guild: discord.Guild,
-        primary_category: discord.CategoryChannel
+        self, guild: discord.Guild, primary_category: discord.CategoryChannel
     ) -> discord.CategoryChannel:
         set_cat = primary_category
         if set_cat is not None:
@@ -419,15 +356,11 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
                 set_cat = primary_category.id
             else:
                 set_cat = None
-        await self.config.guild(
-            guild
-        ).PrimaryCategory.set(set_cat)
+        await self.config.guild(guild).PrimaryCategory.set(set_cat)
         return primary_category
 
     async def _set_management_role(
-        self,
-        guild: discord.Guild,
-        management_role: discord.Role
+        self, guild: discord.Guild, management_role: discord.Role
     ) -> discord.Role:
         set_role = management_role
         if set_role is not None:
@@ -435,11 +368,11 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
                 set_role = management_role.id
             else:
                 set_role = None
-        await self.config.guild(
-            guild
-        ).ManagementRole.set(set_role)
+        await self.config.guild(guild).ManagementRole.set(set_role)
         return management_role
 
     async def _get_groups(self, guild: discord.Guild) -> dict:
         return await self.config.guild(guild).Groups()
+
+
 # endregion jsondb

@@ -1,9 +1,6 @@
 import discord
 from redbot.core import commands, Config, checks
-from redbot.core.utils.predicates import ReactionPredicate
-from redbot.core.utils.menus import start_adding_reactions
 
-from datetime import datetime
 import asyncio
 import logging
 
@@ -40,9 +37,7 @@ class DMHelper(commands.Cog):
         self.bot = bot
         self.message_queue: list = []
         self.priority_message_queue: list = []
-        self.errored_message_queue: list = (
-            []
-        )  # used to store DMs that were unable to be delivered
+        self.errored_message_queue: list = []  # used to store DMs that were unable to be delivered
         self.actively_sending = False
         self.auto_assign_dmbr = {}
         asyncio.create_task(self._pre_load_data())
@@ -134,7 +129,7 @@ class DMHelper(commands.Cog):
     async def dmRole(self, ctx: commands.Context, role: discord.Role, *, message: str):
         """Sends a DM to all members with the specified role by adding them to the message queue"""
         log.debug(f"Sending mass DM to {role.name}: {message}")
-        log.debug(f"{role.name} members: {[ x.name for x in role.members]}")
+        log.debug(f"{role.name} members: {[x.name for x in role.members]}")
         await self.add_message_players_to_dm_queue(
             members=role.members, content=message, ctx=ctx
         )

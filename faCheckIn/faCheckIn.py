@@ -6,6 +6,8 @@ from redbot.core import commands
 from redbot.core import checks
 
 from faCheckIn.views import AuthorOnlyView, ConfirmButton, DeclineButton
+from teamManager.teamManager import TeamManager
+from match.match import Match
 
 from typing import Optional, NoReturn
 
@@ -21,9 +23,17 @@ class FaCheckIn(commands.Cog):
             self, identifier=1234567894, force_registration=True
         )
         self.config.register_guild(**defaults)
-        self.team_manager_cog = bot.get_cog("TeamManager")
-        self.match_cog = bot.get_cog("Match")
         self.bot = bot
+
+    # properties
+
+    @property
+    def team_manager_cog(self) -> TeamManager:
+        return self.bot.get_cog("TeamManager")
+
+    @property
+    def match_cog(self) -> Match:
+        return self.bot.get_cog("Match")
 
     @commands.guild_only()
     @commands.command(aliases=["ci"])

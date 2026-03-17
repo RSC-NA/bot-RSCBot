@@ -3,7 +3,7 @@ import logging
 from redbot.core.commands import Context
 from teamManager.embeds import TimeoutEmbed, ErrorEmbed
 
-from typing import Callable, Union, List, TYPE_CHECKING, Sequence
+from typing import Union, List, TYPE_CHECKING, Sequence
 
 if TYPE_CHECKING:
     from teamManager.teamManager import TeamManager
@@ -93,7 +93,7 @@ class AddFranchiseView(discord.ui.View):
         """Cancel creating new franchise"""
         deny_embed = discord.Embed(
             title="Cancelled",
-            description=f"Add franchise action was cancelled by user.",
+            description="Add franchise action was cancelled by user.",
             color=discord.Color.red(),
         )
         await self.msg.edit(embed=deny_embed, view=None)
@@ -188,7 +188,7 @@ class RemoveFranchiseView(discord.ui.View):
         """Cancel creating new franchise"""
         deny_embed = discord.Embed(
             title="Cancelled",
-            description=f"Remove franchise action was cancelled by user.",
+            description="Remove franchise action was cancelled by user.",
             color=discord.Color.red(),
         )
         await self.msg.edit(embed=deny_embed, view=None)
@@ -292,7 +292,7 @@ class TransferFranchiseView(discord.ui.View):
         """Cancel transfer franchise ownership"""
         deny_embed = discord.Embed(
             title="Cancelled",
-            description=f"Transfer franchise action was cancelled by user.",
+            description="Transfer franchise action was cancelled by user.",
             color=discord.Color.red(),
         )
         await self.msg.edit(embed=deny_embed, view=None)
@@ -356,7 +356,7 @@ class RebrandFranchiseView(discord.ui.View):
         )
         add_embed.add_field(name="New Name", value=self.new_name, inline=True)
         add_embed.add_field(name="New Prefix", value=self.prefix, inline=True)
-        add_embed.add_field(name="\u200B", value="\u200B")  # newline
+        add_embed.add_field(name="\u200b", value="\u200b")  # newline
         add_embed.add_field(
             name="Tier",
             value="\n".join(tier.mention for tier in self.tier_roles),
@@ -443,7 +443,7 @@ class RebrandFranchiseView(discord.ui.View):
         """Cancel Franchise Rebrand"""
         deny_embed = discord.Embed(
             title="Cancelled",
-            description=f"Rebrand franchise action was cancelled by user.",
+            description="Rebrand franchise action was cancelled by user.",
             color=discord.Color.red(),
         )
         await self.msg.edit(embed=deny_embed, view=None)

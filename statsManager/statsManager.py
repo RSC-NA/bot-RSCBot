@@ -24,9 +24,14 @@ class StatsManager(commands.Cog):
             self, identifier=1234567892, force_registration=True
         )
         self.config.register_guild(**defaults)
-        self.team_manager: TeamManager = bot.get_cog("TeamManager")
 
         asyncio.create_task(self._pre_load_data())
+
+    # region properties
+
+    @property
+    def team_manager(self) -> TeamManager:
+        return self.bot.get_cog("TeamManager")
 
     # region Admin Commands
     @commands.command(aliases=["setStatsURL", "setstatsurl"])

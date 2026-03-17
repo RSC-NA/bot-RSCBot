@@ -15,7 +15,9 @@ def clean_date_time(date_time: str):
 
 def get_last_modified(cog_name: str):
     today = datetime.date(datetime.now())
-    last_modified = os.path.getmtime("{}/{}/{}.py".format(config.target_repo, cog_name, cog_name))
+    last_modified = os.path.getmtime(
+        "{}/{}/{}.py".format(config.target_repo, cog_name, cog_name)
+    )
     time_format = "%I:%M:%S %p" if config.am_pm_format else "%H:%M:%S"
     time_lm = time.strftime(time_format, time.localtime(last_modified))
     date_lm = time.strftime("%Y-%m-%d", time.localtime(last_modified))
@@ -44,15 +46,17 @@ def update_cog(cog_name: str, label: tk.Label):
     #         target = "{}/{}/{}".format(config.target_repo, cog_name, file_name)
     #         shutil.copyfile(source, target)
     for file_name in os.listdir(source_path):
-        if not os.path.isfile(os.path.join(source_path, file_name)) and ".py" in str(file_name):
+        if not os.path.isfile(os.path.join(source_path, file_name)) and ".py" in str(
+            file_name
+        ):
             continue
         source_file = "{}/{}/{}".format(config.source_repo, cog_name, file_name)
         target_file = "{}/{}/{}".format(config.target_repo, cog_name, file_name)
-        with open(source_file, 'r') as source, open(target_file, 'w') as target:
+        with open(source_file, "r") as source, open(target_file, "w") as target:
             shutil.copyfileobj(source, target)
 
     print("{} reloaded.".format(cog_name))
-    label['text'] = get_time()
+    label["text"] = get_time()
 
 
 def main():
@@ -65,7 +69,7 @@ def main():
             shared_cogs.append(cog_name)
 
     window = tk.Tk()
-    proj = config.source_repo[config.source_repo.rindex("/")+1:]
+    proj = config.source_repo[config.source_repo.rindex("/") + 1 :]
     window.title("{} Cog Reloader".format(proj))
     for i in range(0, len(shared_cogs)):
         cog_name = shared_cogs[i]
@@ -75,18 +79,22 @@ def main():
             text="Reload {}".format(cog_name),
             command=partial(update_cog, cog_name, cog_ts_label),
             height=config.button_height,
-            width=config.button_width
-            )
+            width=config.button_width,
+        )
 
-        button.grid(row=i+1, column=0, padx=config.padx, pady=config.pady)
-        cog_ts_label.grid(row=i+1, column=1, padx=config.padx, pady=config.pady)
+        button.grid(row=i + 1, column=0, padx=config.padx, pady=config.pady)
+        cog_ts_label.grid(row=i + 1, column=1, padx=config.padx, pady=config.pady)
 
-    tk.Label(window, text="{} Cogs".format(proj)).grid(row=0, column=0, padx=config.padx, pady=config.pady)
-    tk.Label(window, text="Last Updated").grid(row=0, column=1, padx=config.padx, pady=config.pady)
+    tk.Label(window, text="{} Cogs".format(proj)).grid(
+        row=0, column=0, padx=config.padx, pady=config.pady
+    )
+    tk.Label(window, text="Last Updated").grid(
+        row=0, column=1, padx=config.padx, pady=config.pady
+    )
 
     window.anchor("n")
     window.mainloop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
