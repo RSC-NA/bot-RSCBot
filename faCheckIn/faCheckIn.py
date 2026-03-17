@@ -6,10 +6,12 @@ from redbot.core import commands
 from redbot.core import checks
 
 from faCheckIn.views import AuthorOnlyView, ConfirmButton, DeclineButton
-from teamManager import TeamManager
-from match.match import Match
 
-from typing import Optional, NoReturn
+from typing import Optional, NoReturn, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from teamManager import TeamManager
+    from match.match import Match
 
 log = logging.getLogger("red.RSCBot.faCheckIn")
 
@@ -28,11 +30,11 @@ class FaCheckIn(commands.Cog):
     # properties
 
     @property
-    def team_manager_cog(self) -> TeamManager:
+    def team_manager_cog(self) -> "TeamManager":
         return self.bot.get_cog("TeamManager")
 
     @property
-    def match_cog(self) -> Match:
+    def match_cog(self) -> "Match":
         return self.bot.get_cog("Match")
 
     @commands.guild_only()
