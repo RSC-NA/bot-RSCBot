@@ -20,7 +20,6 @@ from teamManager.views import (
     TransferFranchiseView,
     RebrandFranchiseView,
 )
-from utilities import remove_prefix
 
 from typing import NoReturn
 
@@ -324,7 +323,7 @@ class TeamManager(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def addTeam(self, ctx, team_name: str, gm_name: discord.Member, tier: str):
         """Add a single team and it's corresponding roles to the file system to be used for transactions and match info"""
-        gm_no_prefix = await remove_prefix(gm_name)
+        gm_no_prefix = await self.remove_prefix(gm_name)
         teamAdded = await self._add_team(ctx, team_name, gm_no_prefix, tier)
         if teamAdded:
             await ctx.send("Done.")
@@ -1082,6 +1081,16 @@ class TeamManager(commands.Cog):
             embed.description = "No teams have been set up for this tier."
         embed.set_thumbnail(url=ctx.guild.icon.url)
         return embed
+
+    async def remove_prefix(self, member: discord.Member) -> str:
+        """Remove team prefix from guild members display name"""
+        result = member.display_name.split(" | ", maxsplit=1)
+        if not result:
+            raise ValueError(f"Unable to remove prefix from {member.display_name}")
+        elif len(result) == 1:
+            return result[0].strip()  # No prefix found
+        else:
+            return result[1].strip()
 
     async def tier_roles(self, ctx):
         tier_roles = [
