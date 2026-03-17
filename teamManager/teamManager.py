@@ -5,13 +5,14 @@ import ast
 import asyncio
 import difflib
 
+from typing import TYPE_CHECKING
+
 from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 from redbot.core.utils.predicates import ReactionPredicate
 from redbot.core.utils.menus import start_adding_reactions
 
-from prefixManager import PrefixManager
 from teamManager.embeds import ErrorEmbed
 from teamManager.views import (
     AddFranchiseView,
@@ -22,6 +23,9 @@ from teamManager.views import (
 from utilities import remove_prefix
 
 from typing import NoReturn
+
+if TYPE_CHECKING:
+    from prefixManager import PrefixManager
 
 log = logging.getLogger("red.RSCBot.teamManager")
 
@@ -51,7 +55,7 @@ class TeamManager(commands.Cog):
         self.config.register_guild(**defaults)
 
     @property
-    def prefix_cog(self) -> PrefixManager:
+    def prefix_cog(self) -> "PrefixManager":
         return self.bot.get_cog("PrefixManager")
 
     # Admin Commands
