@@ -6,7 +6,7 @@ from redbot.core import commands
 from redbot.core import checks
 
 from faCheckIn.views import AuthorOnlyView, ConfirmButton, DeclineButton
-from teamManager.teamManager import TeamManager
+from teamManager import TeamManager
 from match.match import Match
 
 from typing import Optional, NoReturn
