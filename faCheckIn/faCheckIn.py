@@ -182,7 +182,7 @@ class FaCheckIn(commands.Cog):
             )
             return None
 
-    async def _send_check_in_message(self, ctx, user, match_day, tier) -> NoReturn:
+    async def _send_check_in_message(self, ctx, user, match_day, tier):
         embed = discord.Embed(
             title="Check In",
             description="By checking in you are letting GMs know that you are available to play on the following match day in the following tier.",
@@ -221,7 +221,7 @@ class FaCheckIn(commands.Cog):
 
         checkView.message = await ctx.send(embed=embed, view=checkView)
 
-    async def _send_check_out_message(self, ctx, user, match_day, tier) -> NoReturn:
+    async def _send_check_out_message(self, ctx, user, match_day, tier):
         embed = discord.Embed(
             title="Check Out",
             description="You are currently checked in as available for the following match day and tier.\n\nDo you wish to take yourself off the availability list?",

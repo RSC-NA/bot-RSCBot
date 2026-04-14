@@ -114,6 +114,7 @@ class BulkRoleManager(commands.Cog):
     async def getAllWithRoles(self, ctx, *roles: discord.Role) -> None:
         """Displays a list of members with all of the roles provided"""
         log.debug(f"Getting all members with: {roles}")
+
         matches = list(set.intersection(*map(set, [r.members for r in roles])))
         log.debug(f"Matches: {matches}")
 
@@ -303,7 +304,9 @@ class BulkRoleManager(commands.Cog):
             )
             return
 
-        if not await self.check_perms_for_role(ctx.author, role):
+        if not await self.check_perms_for_role(
+            ctx.author, role
+        ) and not await ctx.bot.is_owner(ctx.author):
             await ctx.send(
                 embed=ErrorEmbed(
                     description=f"You do not have permission to assign the {role.name} role."
@@ -962,6 +965,9 @@ class BulkRoleManager(commands.Cog):
 
     # region Helper Functions
     async def check_perms_for_role(self, member: discord.Member, role: discord.Role):
+        if member.guild_permissions.manage_guild:
+            log.debug("Member has manage guild permission.")
+            return True
         if member.guild_permissions.manage_roles:
             log.debug("Member has manage roles permission.")
             log.debug(f"Member top role position: {member.top_role.position}")
