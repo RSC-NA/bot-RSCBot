@@ -31,7 +31,7 @@ class AuthorOnlyView(discord.ui.View):
 
 
 class ConfirmButton(discord.ui.Button):
-    def __init__(self, callback: Callable = None):
+    def __init__(self, callback: Callable | None = None):
         super().__init__()
         self.label = "Confirm"
         self.custom_id = "confirmed"
@@ -41,7 +41,7 @@ class ConfirmButton(discord.ui.Button):
 
 
 class DeclineButton(discord.ui.Button):
-    def __init__(self, callback: Callable = None):
+    def __init__(self, callback: Callable | None = None):
         super().__init__()
         self.label = "Decline"
         self.custom_id = "declined"

@@ -186,9 +186,9 @@ class DMHelper(commands.Cog):
     async def add_to_dm_queue(
         self,
         member: discord.Member,
-        content: str = None,
-        embed: discord.Embed = None,
-        ctx: commands.Context = None,
+        content: str | None = None,
+        embed: discord.Embed | None = None,
+        ctx: commands.Context | None = None,
         priority: bool = False,
     ):
         # Message Data:

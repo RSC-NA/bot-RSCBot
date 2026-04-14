@@ -702,7 +702,7 @@ class ModeratorLink(commands.Cog):
         return repeat_recent_name
 
     async def schedule_new_member_name_clear(
-        self, member: discord.Member, time_sec: int = None
+        self, member: discord.Member, time_sec: int | None = None
     ):
         if not time_sec:
             time_sec = NEW_MEMBER_JOIN_TIME

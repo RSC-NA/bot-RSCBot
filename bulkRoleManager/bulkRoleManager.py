@@ -175,7 +175,6 @@ class BulkRoleManager(commands.Cog):
     @checks.admin_or_permissions(manage_roles=True)
     async def removeRoleFromAll(self, ctx: Context, role: discord.Role) -> None:
         """Removes the role from every member who has it in the server"""
-        empty = True
 
         if not (ctx.author and isinstance(ctx.author, discord.Member)):
             await ctx.send(

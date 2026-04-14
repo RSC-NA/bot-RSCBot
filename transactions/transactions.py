@@ -208,8 +208,8 @@ class Transactions(commands.Cog):
         ctx,
         user: discord.Member,
         team_name: str,
-        round: int = None,
-        pick: int = None,
+        round: int | None = None,
+        pick: int | None = None,
     ):
         """Assigns the franchise, tier, and league role to a user when they are drafted and posts to the assigned channel"""
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(
@@ -342,7 +342,7 @@ class Transactions(commands.Cog):
         ctx,
         user: discord.Member,
         team_name: str,
-        tier_fa_role: discord.Role = None,
+        tier_fa_role: discord.Role | None = None,
     ) -> NoReturn:
         """Removes the team role and franchise role. Adds the free agent prefix and role to a user and posts to the assigned channel"""
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(
@@ -458,7 +458,7 @@ class Transactions(commands.Cog):
         ctx,
         user: discord.Member,
         team_name: str,
-        subbed_out_user: discord.Member = None,
+        subbed_out_user: discord.Member | None = None,
     ) -> NoReturn:
         """
         Adds the team roles to the user and posts to the assigned transaction channel
@@ -591,7 +591,7 @@ class Transactions(commands.Cog):
     async def leaguePlayersWithoutTier(self, ctx: commands.Context):
         # Perform Search
         guild: discord.Guild = ctx.guild
-        league_role: discord.Role = None
+        league_role: discord.Role | None = None
         for role in guild.roles:
             if role.name == self.LEAGUE_ROLE:
                 league_role = role

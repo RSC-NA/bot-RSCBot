@@ -214,7 +214,10 @@ class CombineRooms(commands.Cog):
         return await ctx.guild.create_category(name, overwrites=overwrites)
 
     async def _add_combines_voice(
-        self, guild: discord.Guild, tier: str, category: discord.CategoryChannel = None
+        self,
+        guild: discord.Guild,
+        tier: str,
+        category: discord.CategoryChannel | None = None,
     ):
         if not category:
             category = await self._get_tier_category(guild, tier)
@@ -246,7 +249,7 @@ class CombineRooms(commands.Cog):
         )
 
     async def _update_combine_rooms(
-        self, ctx, acronym: str = None, capacity: int = None
+        self, ctx, acronym: str | None = None, capacity: int | None = None
     ):
         categories = await self._combine_categories(ctx.guild)
         old_acronym = await self._get_acronym(ctx.guild)
@@ -265,7 +268,10 @@ class CombineRooms(commands.Cog):
                         await vc.edit(user_limit=capacity)
 
     async def _maybe_remove_combines_voice(
-        self, guild: discord.Guild, tier: str, category: discord.CategoryChannel = None
+        self,
+        guild: discord.Guild,
+        tier: str,
+        category: discord.CategoryChannel | None = None,
     ):
         acronym = await self._get_acronym(guild)
         empty_vcs = []

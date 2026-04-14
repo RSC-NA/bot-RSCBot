@@ -101,7 +101,9 @@ class FaCheckIn(commands.Cog):
 
     @commands.guild_only()
     @commands.command(aliases=["ca"])
-    async def checkAvailability(self, ctx, tier_name: str, match_day: str = None):
+    async def checkAvailability(
+        self, ctx, tier_name: str, match_day: str | None = None
+    ):
         """Check availability for Free Agents in a specific tier"""
         if not match_day:
             match_day = await self._get_match_day(ctx)
@@ -147,7 +149,9 @@ class FaCheckIn(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def clearAvailability(self, ctx, tier: str = None, match_day: str = None):
+    async def clearAvailability(
+        self, ctx, tier: str | None = None, match_day: str | None = None
+    ):
         """Clear Free Agent availability in a tier"""
         if not match_day:
             match_day = await self._get_match_day(ctx)

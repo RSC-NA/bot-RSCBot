@@ -97,7 +97,7 @@ class StatsManager(commands.Cog):
 
     @commands.command(aliases=["ps", "statsCard", "sc", "psc"])
     @commands.guild_only()
-    async def playerStats(self, ctx, *, player: discord.Member = None):
+    async def playerStats(self, ctx, *, player: discord.Member | None = None):
         """Retrieves Player Stats for the current season"""
         if not player:
             player = ctx.author

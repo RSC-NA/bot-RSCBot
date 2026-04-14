@@ -222,7 +222,7 @@ class BCManager(commands.Cog):
     async def getBCLogChannel(self, ctx):
         if not await self.has_perms(ctx.author):
             return
-        channel: discord.Channel = await self._get_log_channel(ctx.guild)
+        channel: discord.TextChannel = await self._get_log_channel(ctx.guild)
         if channel:
             await ctx.reply(channel.mention)
         else:
@@ -247,9 +247,12 @@ class BCManager(commands.Cog):
     @commands.command(aliases=["rtier"])
     @commands.guild_only()
     async def reportTier(
-        self, ctx: commands.Context, tier: discord.Role, match_day: int = None
+        self, ctx: commands.Context, tier: discord.Role, match_day: int | None = None
     ):
-        if not await self.has_perms(ctx.author):
+        if not ctx.guild:
+            return
+
+        if not isinstance(ctx.author, discord.Member):
             return
 
         # region setup
@@ -289,7 +292,7 @@ class BCManager(commands.Cog):
 
         # endregion
 
-        guild_emoji_url = ctx.guild.icon.url
+        guild_emoji_url = ctx.guild.icon.url if ctx.guild.icon else None
         channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
         # start_time = ctx.message.created_at
         start_time = datetime.now()
@@ -384,7 +387,14 @@ class BCManager(commands.Cog):
     @commands.max_concurrency(1, per=commands.BucketType.guild)
     @commands.command(aliases=["reportAllMatches", "ram"])
     @commands.guild_only()
-    async def reportMatches(self, ctx: commands.Context, match_day: int = None):
+    async def reportMatches(self, ctx: commands.Context, match_day: int | None = None):
+
+        if not ctx.guild:
+            return
+
+        if not isinstance(ctx.author, discord.Member):
+            return
+
         if not await self.has_perms(ctx.author):
             return
 
@@ -425,7 +435,7 @@ class BCManager(commands.Cog):
 
         # endregion
 
-        guild_emoji_url = ctx.guild.icon.url
+        guild_emoji_url = ctx.guild.icon.url if ctx.guild.icon else None
         channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
         # start_time = ctx.message.created_at
         start_time = datetime.now()
@@ -528,7 +538,9 @@ class BCManager(commands.Cog):
     @commands.max_concurrency(1, per=commands.BucketType.guild)
     @commands.command(aliases=["smm"])
     @commands.guild_only()
-    async def scanMissingMatches(self, ctx: commands.Context, match_day: int = None):
+    async def scanMissingMatches(
+        self, ctx: commands.Context, match_day: int | None = None
+    ):
         # For current match day
         # For each tier
         # For each unreported match
@@ -536,8 +548,16 @@ class BCManager(commands.Cog):
         # Update match results
         # OR
         # Add to missing match report
+
+        if not ctx.guild:
+            return
+
+        if not isinstance(ctx.author, discord.Member):
+            return
+
         if not await self.has_perms(ctx.author):
             return
+
         log.debug("Reporting all matches...")
         if not match_day:
             match_day = await self.match_cog._match_day(ctx)
@@ -570,7 +590,7 @@ class BCManager(commands.Cog):
             }
         # endregion
 
-        guild_emoji_url = ctx.guild.icon.url
+        guild_emoji_url = ctx.guild.icon.url if ctx.guild.icon else None
         channels = list(set([ctx.channel, (await self._get_log_channel(ctx.guild))]))
         # start_time = ctx.message.created_at
         start_time = datetime.now()
@@ -799,6 +819,7 @@ class BCManager(commands.Cog):
             await self.team_manager_cog._roles_for_team(ctx, teams[0])
         )[1]
 
+        home_goals, away_goals = 0, 0
         discovery_data = {
             "winner": None,
             "home_wins": 0,
@@ -852,7 +873,7 @@ class BCManager(commands.Cog):
     @commands.command(aliases=["bcr", "gg"])
     @commands.guild_only()
     async def bcreport(
-        self, ctx, match_day: int = None
+        self, ctx, match_day: int | None = None
     ):  # , team_name=None, match_day=None):
         """Finds match games from recent public uploads, and adds them to the correct Ballchasing subgroup"""
         await self.process_bcreport(ctx, match_day=match_day)
@@ -887,7 +908,7 @@ class BCManager(commands.Cog):
 
     @commands.command(aliases=["accs", "myAccounts", "registeredAccounts", "bcp"])
     @commands.guild_only()
-    async def accounts(self, ctx, *, player: discord.Member = None):
+    async def accounts(self, ctx, *, player: discord.Member | None = None):
         """View all accounts that have been registered to with your discord account in this guild."""
         if not player:
             player = ctx.author
@@ -1055,7 +1076,7 @@ class BCManager(commands.Cog):
             if bc_token:
                 self.ballchasing_api[guild] = ballchasing.Api(bc_token)
 
-    async def process_bcreport(self, ctx, force=False, match_day: int = None):
+    async def process_bcreport(self, ctx, force=False, match_day: int | None = None):
         # Step 1: Find Match
         player = ctx.author
         matches = await self.get_matches(ctx, player, match_day=match_day)
@@ -1073,8 +1094,8 @@ class BCManager(commands.Cog):
         self,
         ctx,
         match,
-        tier_md_group_code: str = None,
-        score_report_channel: discord.TextChannel = None,
+        tier_md_group_code: str | None = None,
+        score_report_channel: discord.TextChannel | None = None,
     ):
         log.debug(
             f"Processing BC report. Group: {tier_md_group_code} - Channel: {score_report_channel} - Match {match}"
@@ -1480,23 +1501,24 @@ class BCManager(commands.Cog):
         )
 
         # update thumbnail
+        guild_icon_url = guild.icon.url if guild and guild.icon else None
         if home_wins > away_wins:
             winner = match["home"]
             home_emoji = self.ffp[guild][message]["deep_match_report"]["home_emoji"]
             if home_emoji:
                 embed.set_thumbnail(url=home_emoji.url)
             else:
-                embed.set_thumbnail(url=guild.icon.url)
+                embed.set_thumbnail(url=guild_icon_url)
         elif home_wins < away_wins:
             winner = match["away"]
             away_emoji = self.ffp[guild][message]["deep_match_report"]["away_emoji"]
             if away_emoji:
                 embed.set_thumbnail(url=away_emoji.url)
             else:
-                embed.set_thumbnail(url=guild.icon.url)
+                embed.set_thumbnail(url=guild_icon_url)
         else:
             winner = None
-            embed.set_thumbnail(url=guild.icon.url)
+            embed.set_thumbnail(url=guild_icon_url)
 
         # update match info
         match["report"]["summary"] = (
@@ -2089,7 +2111,7 @@ class BCManager(commands.Cog):
     # TODO: UPDATE match summary (similar)
     # Note: if report_channel is NOT provided, then this is called from bcr
     async def send_match_summary(
-        self, ctx, match, score_report_channel: discord.TextChannel = None
+        self, ctx, match, score_report_channel: discord.TextChannel | None = None
     ):
         title = f"MD {match['matchDay']}: {match['home']} vs {match['away']}"
         if not match.get("report", False):
@@ -2130,7 +2152,7 @@ class BCManager(commands.Cog):
         report_summary_json: dict,
         emoji_url=None,
         complete=False,
-        start_time: datetime = None,
+        start_time: datetime | None = None,
     ):
         embed = discord.Embed(
             title=f"MD {match_day}: Replay Processing Report",
@@ -2207,7 +2229,7 @@ class BCManager(commands.Cog):
         self,
         match_day,
         bc_scan_summary,
-        start_time: datetime = None,
+        start_time: datetime | None = None,
         emoji_url=None,
         complete=False,
     ):
@@ -2451,7 +2473,7 @@ class BCManager(commands.Cog):
         CAT_NAME = "Score Reporting"
         tier_channel_name = f"{tier_role.name.lower()}-score-reporting"
 
-        match_cat: discord.CategoryChannel = None
+        match_cat: discord.CategoryChannel | None = None
         for cat in guild.categories:
             if cat.name == CAT_NAME:
                 match_cat = cat

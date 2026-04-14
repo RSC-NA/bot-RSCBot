@@ -594,7 +594,7 @@ class TeamManager(commands.Cog):
 
     @commands.command(aliases=["fa", "fas"])
     @commands.guild_only()
-    async def freeAgents(self, ctx, tier: str, filter: str = None):
+    async def freeAgents(self, ctx, tier: str, filter: str | None = None):
         """Gets a list of all free agents in a specific tier
         - Filters for PermFA: perm, permfa, restricted, p, r, rfa, permanent
         - Filters for signable FAs: non-perm, unrestricted, u, ufa, signable
