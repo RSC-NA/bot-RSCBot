@@ -71,7 +71,7 @@ class Match(commands.Cog):
         Each match should be separated by a space. Also, matchDate should be
         formatted with the full month name, day of month and 4-digit year.
         The room name and password are optional. They will be generated if
-        absent. Note that the placment of the double versus single quotes is
+        absent. Note that the placement of the double versus single quotes is
         important, as is the comma after the day of month.
 
         Examples:
@@ -445,8 +445,6 @@ class Match(commands.Cog):
             title=title, description=description, color=tier_role.color
         )
 
-        game_team_size = await self._get_game_team_size(ctx.guild)
-
         # 2s, 3s
         return await self._create_normal_match_embed(ctx, embed, match, user_team_name)
 
@@ -593,14 +591,14 @@ class Match(commands.Cog):
         game = await self._get_guild_game(member.guild)
 
         for activity in member.activities:
-            if type(activity) == discord.Game:
+            if isinstance(activity, discord.Game):
                 if activity.name == game:
                     playing = True
                     try:
                         playing = (
                             not activity.end or activity.end > discord.utils.utcnow()
                         )
-                    except:
+                    except Exception:
                         playing = not activity.end
                     return playing
 

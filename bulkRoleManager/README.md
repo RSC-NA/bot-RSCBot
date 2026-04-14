@@ -1,6 +1,6 @@
 # RSCBot: bulkRoleManager
 
-The `bulkRoleManager` cog is primarily responsible for monitoring and managing member roles in large quantities. This largely pertains to setting tier, draft eligible, or free agent roles to mutliple players at a time.
+The `bulkRoleManager` cog is primarily responsible for monitoring and managing member roles in large quantities. This largely pertains to setting tier, draft eligible, or free agent roles to multiple players at a time.
 
 ## Installation
 

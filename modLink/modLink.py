@@ -5,7 +5,7 @@ from redbot.core import Config
 from redbot.core import commands
 from redbot.core import checks
 
-from typing import Union, NoReturn, Optional, List
+from typing import Union, Optional, List
 
 log = logging.getLogger("red.RSCBot.modLink")
 
@@ -59,13 +59,15 @@ class ModeratorLink(commands.Cog):
     @commands.guild_only()
     @commands.group(name="modlink", aliases=["mlink"])
     @checks.admin_or_permissions(manage_guild=True)
-    async def _mod_link(self, ctx: commands.Context) -> NoReturn:
+    async def _mod_link(self, ctx: commands.Context) -> None:
         """Display or configure mod link cog settings"""
         pass
 
     @_mod_link.command(name="settings", aliases=["info"])
     async def _mod_link_settings(self, ctx: commands.Context):
         """Display the current Mod Link configuration."""
+        if not ctx.guild:
+            return
         mod_role = await self._mod_role(ctx.guild)
         bot_detect = await self._get_bot_detection(ctx.guild)
         event_channel = await self._event_log_channel(ctx.guild)
@@ -117,6 +119,8 @@ class ModeratorLink(commands.Cog):
     @_mod_link.command(name="modrole", aliases=["mrole"])
     async def _set_mod_role(self, ctx: commands.Context, role: discord.Role):
         """Configure the Moderator Role"""
+        if not ctx.guild:
+            return
         await self._save_mod_role(ctx.guild, role.id)
         await ctx.send(
             embed=discord.Embed(
@@ -129,6 +133,8 @@ class ModeratorLink(commands.Cog):
     @_mod_link.command(name="welcome", aliases=["welcomemsg"])
     async def _set_welcome_msg(self, ctx: commands.Context, *, message: str):
         """Configure the welcome message"""
+        if not ctx.guild:
+            return
         await self._save_welcome_message(ctx.guild, message)
         await ctx.send(
             embed=discord.Embed(
@@ -141,6 +147,8 @@ class ModeratorLink(commands.Cog):
     @_mod_link.command(name="botdetect", aliases=["bot"])
     async def _toggle_bot_detection(self, ctx: commands.Context):
         """Toggle bot detection on or off"""
+        if not ctx.guild:
+            return
         bd = await self._get_bot_detection(ctx.guild)
         bd ^= True  # Flip boolean with xor
         await self._save_bot_detection(ctx.guild, bd)
@@ -165,6 +173,8 @@ class ModeratorLink(commands.Cog):
         self, ctx: commands.Context, channel: discord.TextChannel
     ):
         """Configure the event channel"""
+        if not ctx.guild:
+            return
         await self._save_event_log_channel(ctx.guild, channel.id)
         await ctx.send(
             embed=discord.Embed(
@@ -177,6 +187,8 @@ class ModeratorLink(commands.Cog):
     @_mod_link.command(name="sharedroles", aliases=["sroles"])
     async def _set_shared_roles(self, ctx: commands.Context, *roles: discord.Role):
         """Configure the shared roles across guilds"""
+        if not ctx.guild:
+            return
         rnames = [r.name for r in roles]
         log.debug(rnames)
         await self._save_shared_roles(ctx.guild, rnames)
@@ -197,6 +209,8 @@ class ModeratorLink(commands.Cog):
     @_mod_link_unset.command(name="modrole", aliases=["mrole"])
     async def _clear_mod_role(self, ctx: commands.Context):
         """Remove the moderator role"""
+        if not ctx.guild:
+            return
         await self._save_mod_role(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -209,6 +223,8 @@ class ModeratorLink(commands.Cog):
     @_mod_link_unset.command(name="welcome", aliases=["welcomemsg"])
     async def _clear_welcome_msg(self, ctx: commands.Context):
         """Remove the welcome message"""
+        if not ctx.guild:
+            return
         await self._save_welcome_message(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -221,6 +237,8 @@ class ModeratorLink(commands.Cog):
     @_mod_link_unset.command(name="events", aliases=["eventchannel"])
     async def _clear_event_channel(self, ctx: commands.Context):
         """Remove the event channel"""
+        if not ctx.guild:
+            return
         await self._save_event_log_channel(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -233,6 +251,8 @@ class ModeratorLink(commands.Cog):
     @_mod_link_unset.command(name="sharedroles", aliases=["sroles"])
     async def _clear_shared_roles(self, ctx: commands.Context):
         """Remove shared roles"""
+        if not ctx.guild:
+            return
         await self._save_shared_roles(ctx.guild, [])
         await ctx.send(
             embed=discord.Embed(
@@ -392,7 +412,7 @@ class ModeratorLink(commands.Cog):
                 new_name = member.nick.replace(self.STAR_EMOJI, "")
                 await member.edit(nick=new_name)
                 successes.append(member)
-            except:
+            except Exception:
                 failures.append(member)
 
         msg = ""
@@ -450,11 +470,11 @@ class ModeratorLink(commands.Cog):
         # If nickname changed:
         try:
             before_name = before.nick
-        except:
+        except Exception:
             before_name = before.name
         try:
             after_name = after.nick
-        except:
+        except Exception:
             after_name = after.name
 
         seconds_in_server = (discord.utils.utcnow() - before.joined_at).seconds
@@ -566,7 +586,7 @@ class ModeratorLink(commands.Cog):
                 if guild_nick != member.name:
                     await member.edit(nick=guild_nick)
                     await event_log_channel.send(
-                        f"{member.mention} (**{member.name}**, id: {member.id}) has had thier nickname set to **{guild_nick}** upon joining the server [discovered from **{guild.name}**]"
+                        f"{member.mention} (**{member.name}**, id: {member.id}) has had their nickname set to **{guild_nick}** upon joining the server [discovered from **{guild.name}**]"
                     )
 
                 if shared_role_names:
@@ -715,7 +735,7 @@ class ModeratorLink(commands.Cog):
     ):
         guild = member.guild
         channel = guild.system_channel
-        owner = guild.owner
+        _owner = guild.owner
         if channel:
             invite = await self.create_invite(channel)
         else:
@@ -724,26 +744,27 @@ class ModeratorLink(commands.Cog):
         action = "banned" if ban else "kicked"
         message = (
             "You have been flagged as a bot account and **{}** from **{}**. "
-            + "\n\nIf this was a mistake or the issue persists, please send a message to **{}#{}**."
+            + "\n\nIf this was a mistake or the issue persists, please send a message to **{}**."
         )
-        message = message.format(action, guild.name, owner.name, owner.discriminator)
+        message = message.format(action, guild.name, "an administrator")
 
         # TODO: save invite as "trusted" invite
         if invite:
             message += f" Alternatively, you can wait 5 minutes, then [Click Here]({invite.url}) to rejoin the guild!"
-        message += "\n\nWe aplogize for the inconvenience."
+        message += "\n\nWe apologize for the inconvenience."
 
         embed = discord.Embed(
             title=f"Message from {guild.name}",
             color=discord.Color.red(),
             description=message,
         )
-        embed.set_thumbnail(url=guild.icon.url)
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
 
         # Send message to kicked/banned member
         try:
             await member.send(embed=embed)
-        except:
+        except Exception:
             pass
 
         reason_note = "suspected bot"
@@ -761,11 +782,10 @@ class ModeratorLink(commands.Cog):
                 await event_log_channel.send(
                     f"**{member.name}** (id: {member.id}) has been flagged as a bot account and **{action}** from the server (Reason: {reason})."
                 )
-        except:
+        except Exception:
             if event_log_channel:
-                current_action_word = "banning" if action == "banned" else "kicked"
                 await event_log_channel.send(
-                    f"**{member.name}** (id: {member.id}) has been flagged as a bot account, but an error ocurred when **{action}ing** from the server (Reason: {reason})."
+                    f"**{member.name}** (id: {member.id}) has been flagged as a bot account, but an error occurred when **{action}ing** from the server (Reason: {reason})."
                 )
 
     def cancel_all_tasks(self, guild=None):
@@ -779,7 +799,6 @@ class ModeratorLink(commands.Cog):
 
     # region general helpers
     async def _process_role_update(self, before: discord.Member, after: discord.Member):
-
         event_log_channel = await self._event_log_channel(before.guild)
 
         if not event_log_channel:
@@ -801,7 +820,6 @@ class ModeratorLink(commands.Cog):
     async def _process_role_addition(
         self, added_roles, other_guilds, before: discord.Member
     ):
-
         # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
         shared_role_names = await self._get_shared_role_names(before.guild)
 
@@ -835,7 +853,6 @@ class ModeratorLink(commands.Cog):
     async def _process_role_removal(
         self, removed_roles, other_guilds, before: discord.Member
     ):
-
         # # this will try to add a role from one guild to another. TODO: get matching role from each guild as well.
         shared_role_names = await self._get_shared_role_names(before.guild)
 
@@ -898,7 +915,7 @@ class ModeratorLink(commands.Cog):
                 member = await commands.MemberConverter().convert(ctx, user)
                 if member in ctx.guild.members:
                     found.append(member)
-            except:
+            except Exception:
                 notFound.append(user)
 
         for player in found:
@@ -908,7 +925,7 @@ class ModeratorLink(commands.Cog):
             try:
                 await player.edit(nick=new_name)
                 success_count += 1
-            except:
+            except Exception:
                 failed += 1
 
         message = ""
@@ -957,7 +974,7 @@ class ModeratorLink(commands.Cog):
                         await channel.send(
                             f"{guild_member.mention} has changed their name from **{guild_nick}** to **{a_nick}** [initiated from **{before.guild.name}**]"
                         )
-                except:
+                except Exception:
                     pass
 
     def _get_name_components(self, member: discord.Member):

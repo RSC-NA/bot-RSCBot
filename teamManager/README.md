@@ -1,10 +1,10 @@
 # RSCBot: teamManager
 
-The `teamManager` cog is primarily responsible for managing franchises, thier teams, and tiers.
+The `teamManager` cog is primarily responsible for managing franchises, their teams, and tiers.
 
 ## Installation
 
-The `teamManager` cog has no other cog dependancies.
+The `teamManager` cog has no other cog dependencies.
 
 ```
 <p>cog install RSCBot teamManager
@@ -56,7 +56,7 @@ Franchises and tiers must be created before any teams may be added. The `transac
 - `<p>removeTier <tier_name>`
   - Removes tier from the database, and its associated roles
 - `<p>listTiers` (aliases: `<p>tiers`, `<p>getTiers`)
-  - Displays all tiers registerd in the discord server
+  - Displays all tiers registered in the discord server
 - `<p>addTeam <team_name> <gm_name> <tier>`
   - Adds a team to a GM's franchise for the provided tier.
   - Adds the tier role to the GM

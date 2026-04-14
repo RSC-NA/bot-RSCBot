@@ -6,14 +6,14 @@ Every franchise must have both, a prefix and a discord role in the appropriate f
 
 ## Installation
 
-The `prefixManager` cog has no other cog dependancies.
+The `prefixManager` cog has no other cog dependencies.
 
 ```
 <p>cog install RSCBot prefixManager
 <p>load prefixManager
 ```
 
-## Imporant Note
+## Important Note
 
 With improvements made to the `teamManager` cog, many of these commands are unnecessary to use. With the `teamManager` cog, franchise management is simplified with commands such as `<p>addFranchise` and `<p>removeFranchise`. However, this cog **must** still be installed and loaded.
 
@@ -26,14 +26,14 @@ The following commands can be used to manage server prefixes:
   - Note: A franchise role must be manually added in the correct format for a GM and his franchise to be recognized.
   - Example: `<p>addPrefix Adammast OCE`
 - `<p>addPrefixes [prefixes_to_add]`
-  - This can be used to add mutliple prefixes at a time.
+  - This can be used to add multiple prefixes at a time.
   - `[prefixes_to_add]` must be in the following format: "['<gm_name>','<prefix>']"
   - Note: For each prefix added, a franchise role must be manually added in the correct format for a GM and his franchise to be recognized.
   - Examples:
     - `<p>addPrefixes "['Adammast','OCE']"`
     - `<p>addPrefixes [p]addPrefixes "['Adammast','OCE']" "['Shamu','STM']"`
   - `<p>getPrefixes` (aliases: `<p>prefixes`, `<p>listPrefixes`)
-    - displays all prefix assocations
+    - displays all prefix associations
   - `<p>removePrefix <gm_name>`
     - Removes the prefix association with the given GM.
   - `<p>clearPrefixes`

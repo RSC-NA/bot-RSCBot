@@ -11,6 +11,7 @@ class AuthorOnlyView(discord.ui.View):
         super().__init__()
         self.timeout = timeout
         self.author = author
+        self.message = None
 
     async def on_timeout(self):
         """Display time out message if we have reference to original"""

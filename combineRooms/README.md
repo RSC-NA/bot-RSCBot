@@ -4,7 +4,7 @@ The `combineRooms` cog is primarily responsible for managing combines for RSC. T
 
 ## Installation
 
-The `combineRooms` cog has no other cog dependancies.
+The `combineRooms` cog has no other cog dependencies.
 
 ```
 <p>cog install RSCBot combineRooms
@@ -30,7 +30,7 @@ The `combineRooms` cog has no other cog dependancies.
 - `<p>togglePublicity` (Default: Public)
   - Toggles the combines between a Public and Private status.
   - If combines are Public, any member may participate.
-  - If combines are Private, only members with the "League" role may particpate.
+  - If combines are Private, only members with the "League" role may participate.
 - `<p>setAcronym` (Default: RSC)
   - Sets the acronym used in the combines cog.
   - This is is relevant with the naming scheme for dynamically created voice channels.

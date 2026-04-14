@@ -27,7 +27,7 @@ DONE = "Done"
 class DMHelper(commands.Cog):
     """Controls Bot-to-member Direct Messages (DMs) with code to prevent rate limiting."""
 
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot) -> None:
         self.config = Config.get_conf(
             self, identifier=1234567895, force_registration=True
         )
@@ -62,7 +62,7 @@ class DMHelper(commands.Cog):
             await ctx.reply(
                 f"Needs to DM Bot channel set to: {(await self._get_needs_to_dm_channel(ctx.guild)).mention}"
             )
-        except:
+        except Exception:
             await ctx.reply(":x: Needs to DM Bot Channel not set.")
 
     @commands.guild_only()
@@ -90,7 +90,7 @@ class DMHelper(commands.Cog):
             await ctx.reply(
                 f"Needs to DM Bot role set to: {(await self._get_needs_to_dm_role(ctx.guild))}"
             )
-        except:
+        except Exception:
             await ctx.reply(":x: Needs to DM Bot role not set")
 
     @commands.guild_only()
@@ -208,7 +208,7 @@ class DMHelper(commands.Cog):
             await self._process_dm_queues()
 
     # region Automated Processes
-    async def _process_dm_queues(self):
+    async def _process_dm_queues(self) -> None:
         # Message Data:
         # {
         #   send_to: <member>,
@@ -257,7 +257,7 @@ class DMHelper(commands.Cog):
                         member: discord.Member = guild.get_member(recipient.id)
                         if dm_bot_role in member.roles:
                             await member.remove_roles(dm_bot_role)
-                    except:
+                    except Exception:
                         pass
                 except Exception as e:
                     message_data["exception"] = e
@@ -290,7 +290,7 @@ class DMHelper(commands.Cog):
         if failed_msg_buffer:
             await self._send_failed_msg_report(failed_msg_buffer)
 
-    async def _send_failed_msg_report(self, failed_msg_buffer):
+    async def _send_failed_msg_report(self, failed_msg_buffer: list[dict]) -> None:
         # organize reports based on shared channel, ping sender - Feedback
 
         fmbc = {}  # failed_messages_by_channel
@@ -395,7 +395,7 @@ class DMHelper(commands.Cog):
 
     # endregion
 
-    async def _ghost_ping_in_needs_dm_channel(self, member):
+    async def _ghost_ping_in_needs_dm_channel(self, member: discord.Member) -> None:
         channel = await self._get_needs_to_dm_channel(member.guild)
         ghost_msg: discord.Message = await channel.send(f"{member.mention}")
         await ghost_msg.delete()

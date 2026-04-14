@@ -23,3 +23,12 @@ python-ballchasing = ["aiohttp", "aiofiles"]
 
 [tool.uv.sources]
 python-ballchasing = { git = "https://github.com/xentrick/python-ballchasing.git" }
+
+[tool.codespell]
+ignore-words-list = "checkin,oce"
+
+[dependency-groups]
+dev = [
+    "types-pytz>=2026.1.1.20260408",
+    "types-requests>=2.33.0.20260408",
+]

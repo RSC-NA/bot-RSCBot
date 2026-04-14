@@ -4,7 +4,7 @@ The `faCheckIn` cog is primarily responsible for helping manage Free Agent subst
 
 ## Installation
 
-The `faCheckIn` cog has no other cog dependancies.
+The `faCheckIn` cog has no other cog dependencies.
 
 ```
 <p>cog install RSCBot faCheckIn
@@ -19,8 +19,7 @@ The `faCheckIn` cog has no other cog dependancies.
   - Sets the invoker as being unavailable for substitution
 - `<p>checkAvailability <tier_name> [match_day]` (alias: `<p>ca`)
   - Checks availability for a tier on a particular match day. If `match_day` is not provided, it will default to the current match day.
-- `<p>clearAvailaibility [tier] [match_day]`
-  - Removes availaibility for a given tier/match day.
+- `<p>clearAvailability [tier] [match_day]`
+  - Removes availability for a given tier/match day.
 - `<p>clearAllAvailability`
   - Clears the full log of match availability.
-  

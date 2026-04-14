@@ -4,7 +4,7 @@ The `dynamicRooms` cog is primarily responsible for enabling automatic voice cha
 
 ## Installation
 
-The `dynamicRooms` cog is independant from all other cogs. No prerequisites are required.
+The `dynamicRooms` cog is independent from all other cogs. No prerequisites are required.
 
 ```
 <p>cog install RSCBot dynamicRooms
@@ -27,7 +27,7 @@ The `dynamicRooms` cog is independant from all other cogs. No prerequisites are 
 - `<p>addDynamicRoom`
   Sets a voice channel to be dynamic. This is independent from a dynamic category.
 - `<p>getDynamicRooms`
-  View all individiual voice channels that are configured for dynamic room management.
+  View all individual voice channels that are configured for dynamic room management.
 - `<p>clearDynamicRooms`
   Disables dynamic room behavior of individual dynamic rooms.
 - `<p>addHideoutCategory`
@@ -37,7 +37,7 @@ The `dynamicRooms` cog is independant from all other cogs. No prerequisites are 
 - `<p>getHideoutCategories`
   View all categories that are configured for hideout room management.
 - `<p>getHiddenRooms`
-  View all individiual voice channels that are actively hidden.
+  View all individual voice channels that are actively hidden.
 - `<p>clearDynamicVCData`
   Clears all dynamic room data in the `dynamicRooms` cog
 - `<p>toggleHideoutVCs`

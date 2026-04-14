@@ -76,11 +76,14 @@ class BCManager(commands.Cog):
     @commands.command(aliases=["setBCAuthKey"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def setBCAuthToken(self, ctx, auth_token):
+    async def setBCAuthToken(self, ctx: commands.Context, auth_token: str):
         """Sets the Auth Key for Ballchasing API requests.
         Note: Auth Token must be generated from the Ballchasing group owner
         """
         await ctx.message.delete()
+
+        if not ctx.guild:
+            return
 
         tlg = await self._get_top_level_group(ctx.guild)
         if tlg:
@@ -114,8 +117,10 @@ class BCManager(commands.Cog):
     @commands.command(aliases=["tokencheck"])
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def tokenCheck(self, ctx):
-        guild: discord.Guild = ctx.guild
+    async def tokenCheck(self, ctx: commands.Context):
+        guild = ctx.guild
+        if not guild:
+            return
 
         # BC token check
         bc_token = await self._get_bc_auth_token(guild)
@@ -219,7 +224,9 @@ class BCManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def getBCLogChannel(self, ctx):
+    async def getBCLogChannel(self, ctx: commands.Context):
+        if not ctx.guild:
+            return
         if not await self.has_perms(ctx.author):
             return
         channel: discord.TextChannel = await self._get_log_channel(ctx.guild)
@@ -231,7 +238,9 @@ class BCManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def getStatsManagerRole(self, ctx):
+    async def getStatsManagerRole(self, ctx: commands.Context):
+        if not ctx.guild:
+            return
         if not await self.has_perms(ctx.author):
             return
         role: discord.Role = await self._get_stats_manager_role(ctx.guild)
@@ -388,7 +397,6 @@ class BCManager(commands.Cog):
     @commands.command(aliases=["reportAllMatches", "ram"])
     @commands.guild_only()
     async def reportMatches(self, ctx: commands.Context, match_day: int | None = None):
-
         if not ctx.guild:
             return
 
@@ -672,7 +680,7 @@ class BCManager(commands.Cog):
                         bc_scan_summary[tier_role]["active_match"] = (
                             f"{match['home']} vs {match['away']}"
                         )
-                    except:
+                    except Exception:
                         pass
 
             bc_scan_summary[tier_role]["status"] = "complete"
@@ -913,20 +921,23 @@ class BCManager(commands.Cog):
         if not player:
             player = ctx.author
 
-        log.debug(f"Fetching player accounts for {player.name}")
+        if not isinstance(player, discord.Member):
+            return await ctx.send(":x: Player not found.")
+
+        log.debug(f"Fetching player accounts for {player.display_name}")
         # Searching Embed Msg
         tier_role = await self.team_manager_cog.get_current_tier_role(ctx, player)
         franchise_role = self.team_manager_cog.get_current_franchise_role(player)
         log.debug(f"Tier Role: {tier_role} -- Franchise Role: {franchise_role}")
         accounts_embed = discord.Embed(
-            title=f"{player.nick if player.nick else player.name}'s Accounts",
+            title=f"{player.display_name}'s Accounts",
             color=discord.Color.blue(),
-            description=f"Searching [RSC Tracker Links](https://tinyurl.com/TrackerLinks) for accounts registered to `{player.display_name}`...",
+            description=f"Searching [RSC Tracker Links](https://tinyurl.com/TrackerLinks) for accounts registered to `{player.display_name if player.display_name else player.name}`...",
         )
         if tier_role:
             accounts_embed.color = tier_role.color
 
-        # Thumnail
+        # Thumbnail
         franchise_emoji_url = None
         if franchise_role:
             franchise_emoji_url = await self.team_manager_cog.get_franchise_emoji_url(
@@ -964,7 +975,7 @@ class BCManager(commands.Cog):
             log.error(f"Error connecting to RSC members API: {type(exc)} {exc}")
             error_embed = discord.Embed(
                 title=f"{player.nick if player.nick else player.name}'s Accounts",
-                description=f"Error connecting to RSC Members API.\n\n{url}",
+                description="Error connecting to RSC Members API.\n\n",
                 color=discord.Color.red(),
             )
             await msg.edit(embed=error_embed)
@@ -1033,7 +1044,7 @@ class BCManager(commands.Cog):
     def reaction_guild(self, reaction: discord.Reaction):
         try:
             return reaction.message.guild
-        except:
+        except Exception:
             return None
 
     def get_channel(self, message: discord.Message):
@@ -1044,13 +1055,11 @@ class BCManager(commands.Cog):
     ):
         try:
             message = reaction.message
-            member = message.author
             guild = message.guild
-            channel = message.channel
             ff_processing_data = self.ffp[guild][message]
             if user.id is not ff_processing_data["reporter"].id:
                 return
-        except:
+        except Exception:
             return
 
         ff_emojis = ff_processing_data["deep_match_report"]["ff_able_reacts"]
@@ -1058,8 +1067,7 @@ class BCManager(commands.Cog):
         if reaction.emoji not in ff_emojis:
             return await reaction.clear()
 
-        now = datetime.now()
-        if reaction.emoji in ff_emojis:  # and now <= ff_processing_data['timeout']:
+        if reaction.emoji in ff_emojis:
             await self.update_deep_summary_and_message_embed(reaction, added)
 
     async def process_rff_timeout(self):
@@ -1183,11 +1191,7 @@ class BCManager(commands.Cog):
         tmp_replay_files = await self.tmp_download_replays(
             ctx, discovery_data.get("match_replay_ids", [])
         )
-        uploaded_ids = await self.upload_replays(
-            ctx, match_subgroup_id, tmp_replay_files
-        )
-
-        # renamed = await self._rename_replays(ctx, uploaded_ids)
+        await self.upload_replays(ctx, match_subgroup_id, tmp_replay_files)
 
         # Step 5: Group created, Finalize embed
         score_report_embed.description = SUCCESS_EMBED.format(
@@ -1228,7 +1232,7 @@ class BCManager(commands.Cog):
 
         return match_subgroup_json
 
-    async def update_match_report_from_bc(self, ctx, match):
+    async def update_match_report_from_bc(self, ctx: commands.Context, match: dict):
         report = match.get("report", {})
         if not report.get("id"):
             report = await self.get_replay_destination(ctx, match)
@@ -1261,7 +1265,9 @@ class BCManager(commands.Cog):
 
         return report
 
-    async def get_init_score_deep_summary_and_embed(self, ctx, match):
+    async def get_init_score_deep_summary_and_embed(
+        self, ctx: commands.Context, match: dict
+    ):
         title = (
             f"MD {match['matchDay']}: {match['home']} vs {match['away']} [FF Report]"
         )
@@ -1528,7 +1534,7 @@ class BCManager(commands.Cog):
         if emoji == WHITE_CHECK_REACT:
             match["report"]["forfeits"] = (
                 forfeits + match_ffs_record
-            )  # WARNING: duplicate applied FF reports will override any preceeding ones
+            )  # WARNING: duplicate applied FF reports will override any preceding ones
             match["report"]["home_wins"] = home_wins
             match["report"]["away_wins"] = away_wins
             return await self.finalize_ff_report(guild, message, emoji)
@@ -1616,7 +1622,7 @@ class BCManager(commands.Cog):
 
         return matches
 
-    async def find_match_replays(self, ctx, match):
+    async def find_match_replays(self, ctx: commands.Context, match: dict):
         log.debug("Searching for match replays...")
         all_players = await self.get_all_match_players(ctx, match)
         log.debug(f"Players: {all_players}")
@@ -1740,7 +1746,9 @@ class BCManager(commands.Cog):
 
         return discovery_data
 
-    async def get_replay_destination(self, ctx, match, tier_md_group_code=None):
+    async def get_replay_destination(
+        self, ctx: commands.Context, match: dict, tier_md_group_code: str | None = None
+    ) -> dict:
         # Ballchasing subgroup structure:
         # RSC/<top level group>/<match type>/<tier num><tier>/Match Day <match day>/<Home> vs <Away>
 
@@ -1811,7 +1819,9 @@ class BCManager(commands.Cog):
             "link": f"{BALLCHASING_URL}/group/{next_subgroup_id}",
         }
 
-    async def upload_replays(self, ctx, subgroup_id, files_to_upload):
+    async def upload_replays(
+        self, ctx: commands.Context, subgroup_id: str, files_to_upload: list[bytes]
+    ) -> list[str]:
         """Upload replay bytes to ballchasing using random name."""
         replay_ids_in_group = []
         bapi: ballchasing.Api = self.ballchasing_api[ctx.guild]
@@ -1929,7 +1939,6 @@ class BCManager(commands.Cog):
         return False
 
     def is_valid_match_replay(self, match, replay_data):
-        match_day = match["matchDay"]  # match cog
         home_team = match["home"]  # match cog
         away_team = match["away"]  # match cog
 
@@ -1954,11 +1963,11 @@ class BCManager(commands.Cog):
     def get_replay_team_data(self, replay):
         try:
             blue_name = replay.get("blue", {}).get("name", "").title()
-        except:
+        except Exception:
             blue_name = "Blue"
         try:
             orange_name = replay.get("orange", {}).get("name", "").title()
-        except:
+        except Exception:
             orange_name = "Orange"
 
         blue_players = []
@@ -2381,7 +2390,7 @@ class BCManager(commands.Cog):
         epic_hashes = []
         for account in epic_accounts:
             player_data = await self.get_latest_player_data_by_platform_name(
-                ctx.guild, "epic", account["name"]
+                player.guild, "epic", account["name"]
             )
             log.debug(f"Player Data (plat_name): {player_data}")
             plat_id = player_data.get("id", {}).get("id")
@@ -2395,7 +2404,7 @@ class BCManager(commands.Cog):
         # - map
         # - blue, orange players
         # - blue, orange goals
-        # - blue, orange pts (X - unneccessary)
+        # - blue, orange pts (X - unnecessary)
 
         data = short_replay_json
         dt_from_replay = datetime.strptime(data.get("date"), "%Y-%m-%dT%H:%M:%S%z")
@@ -2492,15 +2501,16 @@ class BCManager(commands.Cog):
         CAT_NAME = "IMPORTANT INFORMATION"
         STATS_UPDATES_CHANNLE = "stats-updates"
 
-        important_info_cat = None
+        important_info_cat: discord.CategoryChannel | None = None
         for ii_cat in guild.categories:
             if ii_cat.name.lower() == CAT_NAME.lower():
                 important_info_cat = ii_cat
                 break
 
-        for channel in important_info_cat.channels:
-            if channel.name == STATS_UPDATES_CHANNLE:
-                return channel
+        if important_info_cat:
+            for channel in important_info_cat.channels:
+                if channel.name == STATS_UPDATES_CHANNLE:
+                    return channel
 
         return await ii_cat.create_text_channel(STATS_UPDATES_CHANNLE)
 
@@ -2526,13 +2536,13 @@ class BCManager(commands.Cog):
 
     def get_select_reaction(self, int_or_hex):
         try:
-            if type(int_or_hex) == int:
+            if isinstance(int_or_hex, int):
                 return struct.pack("<I", int_or_hex).decode("utf-32le")
-            if type(int_or_hex) == str:
+            if isinstance(int_or_hex, str):
                 return struct.pack("<I", int(int_or_hex, base=16)).decode(
                     "utf-32le"
                 )  # i == react_hex
-        except:
+        except Exception:
             return None
 
     def is_captain(self, player):
@@ -2541,7 +2551,9 @@ class BCManager(commands.Cog):
                 return True
         return False
 
-    async def get_latest_account_replay_by_plat_id(self, guild, platform, plat_id):
+    async def get_latest_account_replay_by_plat_id(
+        self, guild: discord.Guild, platform: str, plat_id: str
+    ) -> dict | None:
         """Get most recent replay by Platnium ID"""
         bapi: ballchasing.Api = self.ballchasing_api[guild]
         data = bapi.get_replays(
@@ -2567,7 +2579,9 @@ class BCManager(commands.Cog):
                     return player
         return {}
 
-    async def get_latest_player_data_by_platform_name(self, guild, platform, plat_name):
+    async def get_latest_player_data_by_platform_name(
+        self, guild: discord.Guild, platform: str, plat_name: str
+    ) -> dict:
         """Get latest player data by platform name"""
         bapi: ballchasing.Api = self.ballchasing_api[guild]
 

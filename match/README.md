@@ -31,9 +31,9 @@ The `match` cog depends on the `teamManager` cog. Install `teamManager` before i
     - Away Team, roster
     - Additional information
   - If no arguments are provided, the invoker's team will be found from their franchise and tier roles. If a team cannot be found, the command will fail.
-  - Arugment options: (order matters)
+  - Argument options: (order matters)
     - First Parameter: Match Day
-    - Additional Parameter: [team names] (teams with mutliple words must have quotation marks around them)
+    - Additional Parameter: [team names] (teams with multiple words must have quotation marks around them)
   - Examples:
     - `<p>match`
     - `<p>match 1 derechos "killer bees"`

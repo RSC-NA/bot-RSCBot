@@ -7,7 +7,7 @@ from redbot.core import checks
 
 from faCheckIn.views import AuthorOnlyView, ConfirmButton, DeclineButton
 
-from typing import Optional, NoReturn, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from teamManager import TeamManager
@@ -175,9 +175,6 @@ class FaCheckIn(commands.Cog):
 
     async def _get_match_day(self, ctx) -> Optional[str]:
         """Returns the current match day for a specific guild."""
-        if not self.match_cog:
-            self.match_cog = self.bot.get_cog("Match")
-
         try:
             return await self.match_cog._match_day(ctx)
         except Exception as exc:
@@ -186,7 +183,9 @@ class FaCheckIn(commands.Cog):
             )
             return None
 
-    async def _send_check_in_message(self, ctx, user, match_day, tier):
+    async def _send_check_in_message(
+        self, ctx: commands.Context, user: discord.Member, match_day: str, tier: str
+    ):
         embed = discord.Embed(
             title="Check In",
             description="By checking in you are letting GMs know that you are available to play on the following match day in the following tier.",
@@ -275,11 +274,7 @@ class FaCheckIn(commands.Cog):
         await self._save_tier_data(ctx, match_day, tier, tier_list)
 
     async def _find_tier_from_fa_role(self, ctx, user: discord.Member):
-        try:
-            tiers = await self.team_manager_cog.tiers(ctx)
-        except AttributeError:
-            self.team_manager_cog = self.bot.get_cog("TeamManager")
-            tiers = await self.team_manager_cog.tiers(ctx)
+        tiers = await self.team_manager_cog.tiers(ctx)
 
         for tier in tiers:
             fa_role = self.team_manager_cog._find_role_by_name(ctx, tier + "FA")

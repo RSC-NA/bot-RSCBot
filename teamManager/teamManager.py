@@ -21,7 +21,6 @@ from teamManager.views import (
     RebrandFranchiseView,
 )
 
-from typing import NoReturn
 
 if TYPE_CHECKING:
     from prefixManager import PrefixManager
@@ -83,7 +82,7 @@ class TeamManager(commands.Cog):
     @commands.command()
     @commands.guild_only()
     @checks.admin_or_permissions(manage_guild=True)
-    async def removeTier(self, ctx, tier_name: str) -> NoReturn:
+    async def removeTier(self, ctx, tier_name: str) -> None:
         """Remove a tier from the tier list and the tier's corresponding roles"""
         removed = await self._remove_tier(ctx, tier_name)
         if removed:
@@ -712,7 +711,7 @@ class TeamManager(commands.Cog):
 
         if not de_members:
             empty_embed = discord.Embed(
-                title="Draft Eligble Players",
+                title="Draft Eligible Players",
                 description="There are currently no Draft Eligible players.",
                 color=discord.Color.yellow(),
             )
@@ -903,7 +902,6 @@ class TeamManager(commands.Cog):
 
     async def _format_franchise_captains(self, ctx, franchise_role: discord.Role):
         teams = await self._find_teams_for_franchise(ctx, franchise_role)
-        captains_mentioned = []
         captains_username = []
         team_names = []
         team_tiers = []
@@ -1179,7 +1177,7 @@ class TeamManager(commands.Cog):
             team_data = team_roles.setdefault(team_name, {})
             team_data["Franchise Role"] = franchise_role.id
             team_data["Tier Role"] = tier_role.id
-        except:
+        except Exception:
             return False
         await self._save_teams(ctx, teams)
         await self._save_team_roles(ctx, team_roles)
@@ -1252,7 +1250,7 @@ class TeamManager(commands.Cog):
                 gmNameFromRole = re.findall(r"(?<=\().*(?=\))", role.name)[0]
                 if gmNameFromRole is not None:
                     franchise_roles.append(role)
-            except:
+            except IndexError:
                 continue
         return franchise_roles
 
@@ -1308,7 +1306,7 @@ class TeamManager(commands.Cog):
                 gmNameFromRole = re.findall(r"(?<=\().*(?=\))", role.name)[0]
                 if gmNameFromRole:
                     return role
-            except:
+            except IndexError:
                 continue
         return None
 
@@ -1350,7 +1348,7 @@ class TeamManager(commands.Cog):
                 matchedString = re.findall(r".+?(?= \()", role.name)[0]
                 if matchedString.lower() == franchise_name.lower():
                     return role
-            except:
+            except IndexError:
                 continue
 
     def get_franchise_name_from_role(self, franchise_role: discord.Role):
@@ -1412,7 +1410,7 @@ class TeamManager(commands.Cog):
     async def _get_gm_name(self, franchise_role: discord.Role):
         try:
             return re.findall(r"(?<=\().*(?=\))", franchise_role.name)[0]
-        except:
+        except IndexError:
             raise LookupError(
                 "GM name not found from role {0}".format(franchise_role.name)
             )

@@ -100,7 +100,7 @@ class CombineRooms(commands.Cog):
         """
         Gets the current status (public/private) of the combines.
         If combines are **Public**, any member may participate.
-        If combines are **Private**, only members with the "League" role may particpate.
+        If combines are **Private**, only members with the "League" role may participate.
         """
         public_str = "public" if await self._is_public_combine(ctx.guild) else "private"
         response = "Combines are currently **{0}**.".format(public_str)
@@ -148,7 +148,7 @@ class CombineRooms(commands.Cog):
         """
         Toggles the status (public/private) of the combines. (Default: Public)
         If combines are **Public**, any member may participate.
-        If combines are **Private**, only members with the "League" role may particpate.
+        If combines are **Private**, only members with the "League" role may participate.
         """
         is_public = await self._toggle_public_combine(ctx.guild)
 
@@ -369,7 +369,6 @@ class CombineRooms(commands.Cog):
         was_public = await self._is_public_combine(guild)
 
         # switch combine rooms publicity:
-        league_role = self._get_role_by_name(guild, "League")
         for category in await self._combine_categories(guild):
             await category.set_permissions(
                 guild.default_role,

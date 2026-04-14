@@ -75,7 +75,7 @@ class MMRFetcher(commands.Cog):
     def _createcsv(self):
         """Create CSV output file"""
         header = ["Name", "Tracker"]
-        if GamesPlayed == True:
+        if GamesPlayed is True:
             header.extend(
                 [
                     "1s_MMR",
@@ -107,7 +107,7 @@ class MMRFetcher(commands.Cog):
         # clienterrors = [400,401,402,403,404] #future proof
         # servererrors = [500,501,502,503,504,505,506,507,508,510,511] #future proof
         playerdata = {}  # define the playerdata dict
-        playerdata[gamertag] = {}  # definte the gamertag dict
+        playerdata[gamertag] = {}  # definite the gamertag dict
         playlistdict = {
             0: "Un-Ranked",
             10: "Ranked Duel 1v1",
@@ -128,7 +128,7 @@ class MMRFetcher(commands.Cog):
                     for numrank, playlist in playlistdict.items():
                         try:
                             soup.find("a", {"data-id": numrank}).find("span").text
-                        except:
+                        except Exception:
                             playerdata[gamertag][season][playlist] = None
                         else:
                             playerdata[gamertag][season][
@@ -175,7 +175,7 @@ class MMRFetcher(commands.Cog):
                                 .select("table > tbody")[0]
                                 .select("tr")[1:]
                             )
-                        except:
+                        except Exception:
                             playerdata[gamertag][season][playlist] = None
                         else:
                             playerdata[gamertag][season][
@@ -271,7 +271,7 @@ class MMRFetcher(commands.Cog):
                         newdict[season]["GamesPlayed_3s"] = pdata["Games Played"]
         newlist = []
         for season, v in newdict.items():
-            if GamesPlayed == True:
+            if GamesPlayed is True:
                 newlist.extend(
                     [
                         v["MMR_1s"],

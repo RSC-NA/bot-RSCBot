@@ -15,7 +15,7 @@ from teamManager import TeamManager
 
 from bulkRoleManager.embeds import ErrorEmbed
 
-from typing import NoReturn, Optional
+from typing import Optional
 
 log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
@@ -75,7 +75,6 @@ class BulkRoleManager(commands.Cog):
         # Debug data for message splitting.
         total_len_display = sum(len(i.display_name) for i in role.members)
         total_len_name = sum(len(i.name) for i in role.members)
-        total_len_id = sum(len(str(i.id)) for i in role.members)
 
         log.debug(
             f"role.members length. Display Name: {total_len_display} Username: {total_len_name} "
@@ -233,6 +232,8 @@ class BulkRoleManager(commands.Cog):
         added = 0
         had = 0
         failed = 0
+        if not ctx.guild:
+            return
 
         if not (ctx.author and isinstance(ctx.author, discord.Member)):
             await ctx.send(
@@ -288,12 +289,13 @@ class BulkRoleManager(commands.Cog):
     @checks.admin_or_permissions(manage_roles=True)
     async def addRole(self, ctx: Context, role: discord.Role, *userList):
         """Adds the role to every member that can be found from the userList"""
-        empty = True
         added = 0
         had = 0
         failed = 0
         not_found_list = []
         unknown_error_list = []
+        if not ctx.guild:
+            return
 
         if not (ctx.author and isinstance(ctx.author, discord.Member)):
             await ctx.send(
@@ -330,8 +332,7 @@ class BulkRoleManager(commands.Cog):
                         added += 1
                     else:
                         had += 1
-                    empty = False
-            except discord.ext.commands.errors.MemberNotFound:
+            except discord.ext.commands.MemberNotFound:
                 not_found_list.append(user)
                 failed += 1
             except Exception as exc:
@@ -370,6 +371,8 @@ class BulkRoleManager(commands.Cog):
         notHave = 0
         notFound = 0
         message = ""
+        if not ctx.guild:
+            return
 
         if not (ctx.author and isinstance(ctx.author, discord.Member)):
             await ctx.send(
@@ -397,7 +400,7 @@ class BulkRoleManager(commands.Cog):
                     else:
                         notHave += 1
                     empty = False
-            except:
+            except Exception:
                 if notFound == 0:
                     message += "Couldn't find:\n"
                 message += f"{user}\n"
@@ -428,7 +431,7 @@ class BulkRoleManager(commands.Cog):
                     found.append(
                         f"{nickname}:{member.name}#{member.discriminator}:{member.id}\n"
                     )
-            except:
+            except Exception:
                 notFound.append(user)
                 found.append(None)
 
@@ -589,13 +592,17 @@ class BulkRoleManager(commands.Cog):
     @commands.guild_only()
     @commands.group(name="bulkrolemanager", aliases=["brm"])
     @checks.admin_or_permissions(manage_guild=True)
-    async def _bulk_role_manager(self, ctx: commands.Context) -> NoReturn:
+    async def _bulk_role_manager(self, ctx: commands.Context) -> None:
         """Display or configure bulk role manager cog settings"""
         pass
 
     @_bulk_role_manager.command(name="settings", aliases=["info"])
     async def _show_brm_settings(self, ctx: commands.Context):
         """Display current settings"""
+
+        if not ctx.guild:
+            return
+
         de_msg = await self._draft_eligible_message(ctx.guild) or "None"
         permfa_msg = await self._perm_fa_message(ctx.guild) or "None"
         settings_embed = discord.Embed(
@@ -622,7 +629,10 @@ class BulkRoleManager(commands.Cog):
 
     @_bulk_role_manager.command(name="de")
     async def _set_de_msg(self, ctx: commands.Context, *, message: str):
-        """Set Draft Eligible message (4096 charactere max)"""
+        """Set Draft Eligible message (4096 character max)"""
+        if not ctx.guild:
+            return
+
         if len(message) > 4096:
             await ctx.send(
                 embed=ErrorEmbed(
@@ -643,6 +653,8 @@ class BulkRoleManager(commands.Cog):
     @_bulk_role_manager.command(name="permfa")
     async def _set_permfa_msg(self, ctx: commands.Context, *, message: str):
         """Set PermFA message (4096 character max)"""
+        if not ctx.guild:
+            return
         if len(message) > 4096:
             await ctx.send(
                 embed=ErrorEmbed(
@@ -665,6 +677,8 @@ class BulkRoleManager(commands.Cog):
     @_brm_unset.command(name="de")
     async def _unset_de_msg(self, ctx: commands.Context):
         """Clear Draft Eligible message"""
+        if not ctx.guild:
+            return
         await self._save_draft_eligible_message(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -677,6 +691,8 @@ class BulkRoleManager(commands.Cog):
     @_brm_unset.command(name="permfa")
     async def _unset_permfa_msg(self, ctx: commands.Context):
         """Clear PermFA message"""
+        if not ctx.guild:
+            return
         await self._save_perm_fa_message(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -733,7 +749,7 @@ class BulkRoleManager(commands.Cog):
             try:
                 # Convert to `discord.Member`
                 member = await commands.MemberConverter().convert(ctx, user)
-            except:
+            except Exception:
                 message += f"Couldn't find: {user}\n"
                 notFound += 1
                 continue
@@ -792,7 +808,6 @@ class BulkRoleManager(commands.Cog):
             f"{tier}FA",
         ]
         roles_to_add = []
-        tiers = await self.team_manager_cog.tiers(ctx)
         for role in ctx.guild.roles:
             if role.name in role_names_to_add:
                 roles_to_add.append(role)
@@ -817,7 +832,7 @@ class BulkRoleManager(commands.Cog):
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
-            except:
+            except Exception:
                 message += f"Couldn't find: {user}\n"
                 notFound += 1
                 continue
@@ -826,7 +841,7 @@ class BulkRoleManager(commands.Cog):
                 tier_changed = True
                 old_tier_role = None
                 if leagueRole in member.roles:
-                    old_tier_role = await self.team_manager_cog.get_current_tier_role(
+                    old_tier_role = await self.team_manager.get_current_tier_role(
                         ctx, member
                     )
                     if old_tier_role in member.roles and old_tier_role in roles_to_add:
@@ -837,7 +852,7 @@ class BulkRoleManager(commands.Cog):
                 if tier_changed:
                     action = "assigned"
                     if old_tier_role and old_tier_role not in roles_to_add:
-                        old_tier_fa_role = self.team_manager_cog._find_role_by_name(
+                        old_tier_fa_role = self.team_manager._find_role_by_name(
                             ctx, f"{old_tier_role.name}FA"
                         )
                         rm_roles = [old_tier_role, old_tier_fa_role]
@@ -886,35 +901,31 @@ class BulkRoleManager(commands.Cog):
         notFound = 0
         message = ""
         former_player_str = "Former Player"
-        former_player_role = self.team_manager_cog._find_role_by_name(
+        former_player_role = self.team_manager._find_role_by_name(
             ctx, former_player_str
         )
 
         if not former_player_role:
-            former_player_role = await self.team_manager_cog.create_role(
+            former_player_role = await self.team_manager._create_role(
                 ctx, former_player_str
             )
 
         roles_to_remove = [
-            self.team_manager_cog._find_role_by_name(ctx, "Draft Eligible"),
-            self.team_manager_cog._find_role_by_name(ctx, "League"),
-            self.team_manager_cog._find_role_by_name(ctx, "Free Agent"),
-            self.team_manager_cog._find_role_by_name(ctx, self.PERM_FA_ROLE),
+            self.team_manager._find_role_by_name(ctx, "Draft Eligible"),
+            self.team_manager._find_role_by_name(ctx, "League"),
+            self.team_manager._find_role_by_name(ctx, "Free Agent"),
+            self.team_manager._find_role_by_name(ctx, self.PERM_FA_ROLE),
         ]
         # remove dev league interest role if it exists in the server
-        dev_league_role = self.team_manager_cog._find_role_by_name(
-            ctx, self.PERM_FA_ROLE
-        )
+        dev_league_role = self.team_manager._find_role_by_name(ctx, self.PERM_FA_ROLE)
         if dev_league_role:
             roles_to_remove.append(dev_league_role)
 
-        tiers = await self.team_manager_cog.tiers(ctx)
+        tiers = await self.team_manager.tiers(ctx)
         for tier in tiers:
-            tier_role = self.team_manager_cog._get_tier_role(ctx, tier)
+            tier_role = self.team_manager._get_tier_role(ctx, tier)
             if tier_role:
-                tier_fa_role = self.team_manager_cog._find_role_by_name(
-                    ctx, f"{tier}FA"
-                )
+                tier_fa_role = self.team_manager._find_role_by_name(ctx, f"{tier}FA")
             roles_to_remove.append(tier_role)
             roles_to_remove.append(tier_fa_role)
 
@@ -923,7 +934,7 @@ class BulkRoleManager(commands.Cog):
                 member = await commands.MemberConverter().convert(ctx, user)
                 if member in ctx.guild.members:
                     roles_to_remove.append(
-                        self.team_manager_cog.get_current_franchise_role(member)
+                        self.team_manager.get_current_franchise_role(member)
                     )
                     removable_roles = []
                     for role in roles_to_remove:
@@ -932,10 +943,10 @@ class BulkRoleManager(commands.Cog):
                     await member.remove_roles(*removable_roles)
                     await member.add_roles(former_player_role)
                     await member.edit(
-                        nick=(self.team_manager_cog.get_player_nickname(member))
+                        nick=(self.team_manager.get_player_nickname(member))
                     )
                     empty = False
-            except:
+            except Exception:
                 if notFound == 0:
                     message += "Couldn't find:\n"
                 message += f"{user}\n"
@@ -983,22 +994,21 @@ class BulkRoleManager(commands.Cog):
         updated = 0
         notFound = 0
         message = ""
-        league_role = self.team_manager_cog._find_role_by_name(ctx, "League")
-        fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
+        fa_role = self.team_manager._find_role_by_name(ctx, "Free Agent")
 
         # get role groups
         roles_to_remove = []
-        tiers = await self.team_manager_cog.tiers(ctx)
-        tier_roles = [self.team_manager_cog._get_tier_role(ctx, tier) for tier in tiers]
+        tiers = await self.team_manager.tiers(ctx)
+        tier_roles = [self.team_manager._get_tier_role(ctx, tier) for tier in tiers]
         tiers_fa_roles = [
-            self.team_manager_cog._find_role_by_name(ctx, f"{tier}FA") for tier in tiers
+            self.team_manager._find_role_by_name(ctx, f"{tier}FA") for tier in tiers
         ]
 
         # validate tier
         if tier_assignment not in tier_roles:
             return await ctx.send(f":x: {tier_assignment} is not a valid tier.")
 
-        tier_assign_fa_role = self.team_manager_cog._find_role_by_name(
+        tier_assign_fa_role = self.team_manager._find_role_by_name(
             ctx, tier_assignment.name + "FA"
         )
 
@@ -1079,7 +1089,7 @@ class BulkRoleManager(commands.Cog):
         message = message.replace("[p]", command_prefix)
         message = message.replace("{p}", command_prefix)
         message = message_title + message
-        await self.dm_helper_cog.add_to_dm_queue(member, content=message)
+        await self.dm_helper.add_to_dm_queue(member, content=message)
 
     def _get_name_components(self, member: discord.Member):
         if member.nick:

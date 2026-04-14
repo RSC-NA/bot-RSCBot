@@ -106,7 +106,7 @@ class ModThread(commands.Cog):
 
         allowed_mentions = discord.AllowedMentions(roles=True)
         await ctx.send(
-            f"This ticket has been given back to {management_role.mention}",
+            f"This ticket has been given back to {management_role.mention if management_role else 'management'}.",
             allowed_mentions=allowed_mentions,
         )
 
@@ -130,6 +130,8 @@ class ModThread(commands.Cog):
         self, ctx: commands.Context, category: discord.CategoryChannel | str | None
     ) -> None:
         """View or change the primary category."""
+        if not ctx.guild:
+            return
         settings_embed = discord.Embed(
             title="ModThread Primary Category Settings",
             description="Primary Category configuration for modThread.",
@@ -174,6 +176,8 @@ class ModThread(commands.Cog):
         self, ctx: commands.Context, role: discord.Role | str | None
     ) -> None:
         """View or change the management role."""
+        if not ctx.guild:
+            return
         settings_embed = discord.Embed(
             title="ModThread Management Role Settings",
             description="Current Management Role configuration for modThread.",
@@ -214,6 +218,8 @@ class ModThread(commands.Cog):
     @modthread.command(name="settings")
     async def settings(self, ctx: commands.Context) -> None:
         """Settings command group"""
+        if not ctx.guild:
+            return
 
         primary_category = await self._get_primary_category(ctx.guild)
         management_role = await self._get_management_role(ctx.guild)
@@ -255,6 +261,8 @@ class ModThread(commands.Cog):
         role: discord.Role | None,
     ):
         """Groups command group"""
+        if not ctx.guild:
+            return
 
         # Only show the "help" if we haven't just successfully
         # performed an action.

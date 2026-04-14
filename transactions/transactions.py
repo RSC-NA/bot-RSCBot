@@ -80,6 +80,8 @@ class Transactions(commands.Cog):
     @checks.admin_or_permissions(manage_roles=True)
     async def expireContracts(self, ctx: commands.Context, *userList):
         """Displays each member that can be found from the userList a Free Agent in their respective tier"""
+        if not ctx.guild:
+            return
         empty = True
         fa_role = self.team_manager_cog._find_role_by_name(ctx, "Free Agent")
         league_role = self.team_manager_cog._find_role_by_name(ctx, "League")
@@ -166,7 +168,7 @@ class Transactions(commands.Cog):
                 if member.nick != new_name:
                     try:
                         await member.edit(nick=new_name)
-                    except:
+                    except Exception:
                         pass
 
                 transaction_msg = f"Contract with {member.mention} and {team} has expired ({gm.mention} - {tier_role.name})"
@@ -459,7 +461,7 @@ class Transactions(commands.Cog):
         user: discord.Member,
         team_name: str,
         subbed_out_user: discord.Member | None = None,
-    ) -> NoReturn:
+    ) -> None:
         """
         Adds the team roles to the user and posts to the assigned transaction channel
 
@@ -590,7 +592,9 @@ class Transactions(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def leaguePlayersWithoutTier(self, ctx: commands.Context):
         # Perform Search
-        guild: discord.Guild = ctx.guild
+        guild = ctx.guild
+        if not guild:
+            return
         league_role: discord.Role | None = None
         for role in guild.roles:
             if role.name == self.LEAGUE_ROLE:
@@ -660,7 +664,7 @@ class Transactions(commands.Cog):
 
     @commands.Cog.listener("on_member_remove")
     async def fa_server_leave(self, member: discord.Member):
-        """Check if a rostered player has left the server and report to tranasction log channel"""
+        """Check if a rostered player has left the server and report to transaction log channel"""
         guild = member.guild
         log.debug(f"Member left guild. Member: {member.display_name} Guild: {guild}")
 
@@ -674,7 +678,7 @@ class Transactions(commands.Cog):
             if not log_channel:
                 log.warning("Transaction log channel is not configured.")
                 return
-        except:
+        except Exception:
             log.error("Error fetching transaction log channel.")
             return
 
@@ -727,7 +731,7 @@ class Transactions(commands.Cog):
 
     @commands.Cog.listener("on_member_remove")
     async def rostered_server_leave(self, member: discord.Member):
-        """Check if a rostered player has left the server and report to tranasction log channel"""
+        """Check if a rostered player has left the server and report to transaction log channel"""
         log.debug(
             f"Member left guild. Member: {member.display_name} Guild: {member.guild} "
         )
@@ -742,7 +746,7 @@ class Transactions(commands.Cog):
             if not log_channel:
                 log.warning("Transaction log channel is not configured.")
                 return
-        except:
+        except Exception:
             log.error("Error fetching transaction log channel.")
             return
 
@@ -819,6 +823,8 @@ class Transactions(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def findAGM(self, ctx: commands.Context, franchise_role: discord.Role):
         """Return the AGMs for a provided franchise role"""
+        if not ctx.guild:
+            return
         franchise_name = franchise_role.name.split(" (")
         if not franchise_name:
             await ctx.send(
@@ -847,6 +853,8 @@ class Transactions(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def findGM(self, ctx: commands.Context, franchise_role: discord.Role):
         """Return the GM for a provided franchise role"""
+        if not ctx.guild:
+            return
         franchise_name = franchise_role.name.split(" (")
         if not franchise_name:
             await ctx.send(
@@ -896,7 +904,9 @@ class Transactions(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def validateTransactionChannels(self, ctx: commands.Context):
         """Validate all transaction channels exist and are properly formatted"""
-        errors: List(Tuple(discord.Role, str)) = []
+        if not ctx.guild:
+            return
+        errors: list[tuple[discord.Role, str]] = []
         for role in ctx.guild.roles:
             found = re.match(r"^\w.*?\x28.*?\x29$", role.name)
             if not found:
@@ -969,7 +979,7 @@ class Transactions(commands.Cog):
     @commands.guild_only()
     @commands.group(name="transactions", aliases=["trans"])
     @checks.admin_or_permissions(manage_guild=True)
-    async def _transactions(self, ctx: commands.Context) -> NoReturn:
+    async def _transactions(self, ctx: commands.Context) -> None:
         """Display or configure transaction cog settings"""
         pass
 
@@ -1026,7 +1036,7 @@ class Transactions(commands.Cog):
         else:
             settings_embed.add_field(name="Committee Role", value="None", inline=False)
 
-        # Discord embed field max length is 1024. Send a seperate embed for cut message if greater.
+        # Discord embed field max length is 1024. Send a separate embed for cut message if greater.
         if len(cut_msg) <= 1024:
             settings_embed.add_field(name="Cut Message", value=cut_msg, inline=False)
             await ctx.send(embed=settings_embed)
@@ -1040,6 +1050,9 @@ class Transactions(commands.Cog):
     @_transactions.command(name="notifications")
     async def _toggle_notifications(self, ctx: commands.Context):
         """Toggle channel notifications on or off"""
+        if not ctx.guild:
+            return
+
         status = await self._notifications_enabled(ctx.guild)
         log.debug(f"Current Notifications: {status}")
         status ^= True  # Flip boolean with xor
@@ -1080,6 +1093,9 @@ class Transactions(commands.Cog):
         self, ctx: commands.Context, trans_channel: discord.TextChannel
     ):
         """Set transaction channel"""
+        if not ctx.guild:
+            return
+
         await self._save_trans_channel(ctx.guild, trans_channel.id)
         await ctx.send(
             embed=discord.Embed(
@@ -1094,6 +1110,9 @@ class Transactions(commands.Cog):
         self, ctx: commands.Context, log_channel: discord.TextChannel
     ):
         """Set transactions log channel"""
+        if not ctx.guild:
+            return
+
         await self._save_trans_log_channel(ctx.guild, log_channel.id)
         await ctx.send(
             embed=discord.Embed(
@@ -1108,6 +1127,9 @@ class Transactions(commands.Cog):
         self, ctx: commands.Context, trans_role: discord.Role
     ):
         """Set transactions log channel"""
+        if not ctx.guild:
+            return
+
         await self._save_trans_role(ctx.guild, trans_role.id)
         await ctx.send(
             embed=discord.Embed(
@@ -1120,6 +1142,9 @@ class Transactions(commands.Cog):
     @_transactions.command(name="cutmsg")
     async def _set_cut_msg(self, ctx: commands.Context, *, msg: str):
         """Set cut message (4096 characters max)"""
+        if not ctx.guild:
+            return
+
         if len(msg) > 4096:
             await ctx.send(
                 embed=ErrorEmbed(
@@ -1136,7 +1161,7 @@ class Transactions(commands.Cog):
         await ctx.send(embed=cut_embed)
 
     @_transactions.group(name="unset")
-    async def _transactions_unset(self, ctx: commands.Context) -> NoReturn:
+    async def _transactions_unset(self, ctx: commands.Context) -> None:
         """Command group for removing configuration options"""
         pass
 
@@ -1155,6 +1180,9 @@ class Transactions(commands.Cog):
     @_transactions_unset.command(name="role")
     async def _unset_trans_role(self, ctx: commands.Context):
         """Remove configured transaction channel."""
+        if not ctx.guild:
+            return
+
         await self._save_trans_role(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -1167,6 +1195,9 @@ class Transactions(commands.Cog):
     @_transactions_unset.command(name="log")
     async def _unset_trans_log_channel(self, ctx: commands.Context):
         """Remove configured log channel."""
+        if not ctx.guild:
+            return
+
         await self._save_trans_log_channel(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -1178,6 +1209,9 @@ class Transactions(commands.Cog):
 
     @_transactions_unset.command(name="cutmsg")
     async def _unset_cut_msg(self, ctx: commands.Context):
+        if not ctx.guild:
+            return
+
         await self._save_cut_message(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -1219,7 +1253,7 @@ class Transactions(commands.Cog):
 
         try:
             embed.set_thumbnail(url=ctx.guild.icon.url)
-        except:
+        except Exception:
             pass
 
         return embed

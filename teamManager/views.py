@@ -262,9 +262,6 @@ class TransferFranchiseView(discord.ui.View):
         await self.cog._set_user_nickname_prefix(self.ctx, self.prefix, self.new_gm)
 
         # Reassign roles for gm/franchise
-        franchise_tier_roles = await self.cog._find_franchise_tier_roles(
-            self.ctx, self.role
-        )
         gm_role = self.cog._find_role_by_name(self.ctx, self.cog.GM_ROLE)
         transfer_roles = [gm_role, self.role]
         await self.new_gm.add_roles(*transfer_roles)

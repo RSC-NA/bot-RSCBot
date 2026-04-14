@@ -106,7 +106,7 @@ class PrefixManager(commands.Cog):
             await ctx.send(
                 ":white_check_mark: All prefixes have been removed from dictionary"
             )
-        except:
+        except Exception:
             await ctx.send(
                 ":x: Something went wrong when trying to clear the prefix dictionary"
             )
@@ -190,7 +190,7 @@ class PrefixManager(commands.Cog):
                     await member.edit(nick=None)
                     removed += 1
                     empty = False
-            except:
+            except Exception:
                 if notFound == 0:
                     message += "Couldn't find:\n"
                 message += "{0}\n".format(user)
@@ -226,7 +226,7 @@ class PrefixManager(commands.Cog):
 
         try:
             prefixes[proper_gm_name] = prefix
-        except:
+        except Exception:
             return False
         await self._save_prefixes(ctx, prefixes)
         return True
@@ -263,14 +263,14 @@ class PrefixManager(commands.Cog):
                 gmNameFromRole = re.findall(r"(?<=\().*(?=\))", role.name)[0]
                 if gmNameFromRole.lower() == gm_name.lower():
                     return gmNameFromRole
-            except:
+            except IndexError:
                 continue
 
     async def _get_gm_prefix(self, ctx, gm_name):
         prefixes = await self._prefixes(ctx)
         try:
             return prefixes[self._get_proper_gm_name(ctx, gm_name)]
-        except:
+        except Exception:
             return None
 
     async def _get_franchise_prefix(self, ctx, franchise_role):

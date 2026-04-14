@@ -43,6 +43,8 @@ class StatsManager(commands.Cog):
         Example:
         [p]setStatsUrl api.rscstream.com
         """
+        if not ctx.guild:
+            return
         if base_url[:8] == "https://":
             base_url = base_url[8:]
         await self._save_url(ctx.guild, base_url)
@@ -58,6 +60,8 @@ class StatsManager(commands.Cog):
         Example:
         [p]setLeagueHeader twos
         """
+        if not ctx.guild:
+            return
         await self._save_league_header(ctx.guild, league_header)
         await ctx.send(sr.DONE)
 
@@ -87,7 +91,6 @@ class StatsManager(commands.Cog):
             await ctx.send(embed=embed)
         else:
             possible_teams = team
-            all_teams = await self.team_manager._teams(ctx)
             message = "No team with name: {0}".format(team_name)
             if possible_teams:
                 message += "\nDo you mean one of these teams:"
