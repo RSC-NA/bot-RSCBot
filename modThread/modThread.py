@@ -269,6 +269,10 @@ class ModThread(commands.Cog):
         show_syntax = True
         if action:
             action = action.lower()
+            if not group:
+                await ctx.send("You must specify a group.")
+                return
+
             if action in ["add", "update"]:
                 group = group.lower()
                 await self._set_group(ctx.guild, group, category, role)
