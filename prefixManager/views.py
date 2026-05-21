@@ -18,12 +18,14 @@ class ClearPlayerPrefixView(discord.ui.View):
         self,
         ctx: Context,
         timeout: float = 30.0,
+        role: discord.Role | None = None,
     ):
         super().__init__(timeout=timeout)
         self.ctx = ctx
         self.author = ctx.author
         self.msg: discord.Message | None = None
         self.guild = ctx.guild
+        self.role = role
         self.result = False
 
     async def on_timeout(self):
@@ -39,10 +41,15 @@ class ClearPlayerPrefixView(discord.ui.View):
             )
             raise RuntimeError("Unable to run this command outside of a guild.")
 
+        if self.role:
+            num_members = len(self.role.members)
+        else:
+            num_members = len(self.guild.members)
+
         confirm_embed = discord.Embed(
             title="Clear Player Prefixes",
             description=(
-                f"You are about to remove the franchise prefix from **{len(self.guild.members)}** players."
+                f"You are about to remove the franchise prefix from **{num_members}** players."
                 "\n\nAre you sure you want to do this?"
             ),
             color=discord.Color.blue(),

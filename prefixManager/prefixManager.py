@@ -116,20 +116,11 @@ class PrefixManager(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def clearAllPlayerPrefixes(self, ctx):
         """Clear the all player prefixes. CAUTION"""
-        clear_view = ClearPlayerPrefixView(ctx)
-        await clear_view.prompt()
-        await clear_view.wait()
-
-        log.debug(f"Clear Result: {clear_view.result}")
 
         league_role = discord.utils.get(ctx.guild.roles, name="League")
 
-        if not clear_view.result:
-            log.debug(f"[{ctx.guild.name}] Clear player prefixes cancelled.")
-            return
-
         if not league_role:
-            await clear_view.msg.edit(
+            await ctx.send(
                 embed=discord.Embed(
                     title="Error",
                     description="Unable to find **League** role.",
@@ -137,6 +128,16 @@ class PrefixManager(commands.Cog):
                 ),
                 view=None,
             )
+            return
+
+        clear_view = ClearPlayerPrefixView(ctx, role=league_role)
+        await clear_view.prompt()
+        await clear_view.wait()
+
+        log.debug(f"Clear Result: {clear_view.result}")
+
+        if not clear_view.result:
+            log.debug(f"[{ctx.guild.name}] Clear player prefixes cancelled.")
             return
 
         log.info(
