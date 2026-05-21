@@ -143,19 +143,37 @@ class PrefixManager(commands.Cog):
         log.info(
             f"[{ctx.guild.name}] Clearing prefix from {len(league_role.members)} players"
         )
+        cleared = 0
+        forbidden = 0
         for member in league_role.members:
             player_name = self.get_player_nickname(member)
-            await member.edit(nick=player_name)
+            try:
+                await member.edit(nick=player_name)
+                cleared += 1
+            except discord.Forbidden:
+                forbidden += 1
+                log.warning(
+                    f"[{ctx.guild.name}] Missing permissions to clear prefix for user {member} ({member.id})"
+                )
 
         log.info(
             f"[{ctx.guild.name}] Finished removing prefixes from {len(league_role.members)} players"
         )
         done_embed = discord.Embed(
             title="Player Prefixes Cleared",
-            description=f"Successfully cleared the franchise prefix from **{len(league_role.members)}** players.",
+            description=f"Successfully cleared the franchise prefix from **{cleared}** players.",
             color=discord.Color.blue(),
         )
-        await clear_view.msg.edit(embed=done_embed, view=None)
+        if forbidden:
+            done_embed.add_field(
+                name="Skipped",
+                value=f"Unable to edit **{forbidden}** player(s) due to missing permissions (403 Forbidden).",
+                inline=False,
+            )
+        if clear_view.msg:
+            await clear_view.msg.edit(embed=done_embed, view=None)
+        else:
+            await ctx.send(embed=done_embed)
 
     @commands.command()
     @commands.guild_only()
@@ -183,19 +201,25 @@ class PrefixManager(commands.Cog):
         empty = True
         removed = 0
         notFound = 0
+        forbidden = 0
         message = ""
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
-                if member in ctx.guild.members:
-                    await member.edit(nick=None)
-                    removed += 1
-                    empty = False
-            except Exception:
+            except commands.BadArgument:
                 if notFound == 0:
                     message += "Couldn't find:\n"
                 message += "{0}\n".format(user)
                 notFound += 1
+                continue
+
+            if member in ctx.guild.members:
+                try:
+                    await member.edit(nick=None)
+                    removed += 1
+                    empty = False
+                except discord.Forbidden:
+                    forbidden += 1
         if empty:
             message += ":x: Nobody found from list"
         else:
@@ -204,6 +228,10 @@ class PrefixManager(commands.Cog):
             message += ". {0} user(s) were not found".format(notFound)
         if removed > 0:
             message += ". {0} user(s) had their nickname removed".format(removed)
+        if forbidden > 0:
+            message += ". {0} user(s) could not be edited due to missing permissions (403 Forbidden)".format(
+                forbidden
+            )
         await ctx.send(message)
 
     async def add_prefix(self, ctx, gm_name: str, prefix: str):
