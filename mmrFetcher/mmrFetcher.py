@@ -1,17 +1,16 @@
-import gspread
-import requests
+import asyncio
 import csv
 import datetime
-import asyncio
-import os
+import io
 
-from redbot.core import commands
-from redbot.core import checks
-from oauth2client.service_account import ServiceAccountCredentials
+import gspread
+import requests
 from bs4 import BeautifulSoup, Tag
 from discord import File
+from oauth2client.service_account import ServiceAccountCredentials
+from redbot.core import checks, commands
 
-now = datetime.datetime.now()
+now = datetime.datetime.now().astimezone()
 readibletime = now.strftime("%Y-%m-%d_%H-%M-%S")
 
 scope = [
@@ -23,7 +22,7 @@ credentials = ServiceAccountCredentials.from_json_keyfile_name(
 )
 gc = gspread.authorize(credentials)
 
-Outputcsv = "%s.csv" % (readibletime)
+Outputcsv = f"{readibletime}.csv"
 CurrentSeason = 11
 Seasons = [11]
 GamesPlayed = True
@@ -42,36 +41,35 @@ class MMRFetcher(commands.Cog):
     @checks.is_owner()
     async def fetch(self, ctx):
         await ctx.send("Fetching MMR data...")
-        w = self._createcsv()
+        csvwrite = io.StringIO(newline="")
+        w = self._createcsv(csvwrite)
 
         names, links = self._readTrackerList()
         total = len(names)
         tenPercent = total // 10
 
         i = 0  # count of each row in the Tracker Links
-        for i in range(0, total):
+        for i in range(total):
             try:
                 name, link = names[i], links[i]
                 linksplit = link.split("profile/")
                 unpack = [x for x in linksplit[1].split("/") if x]
                 if "mmr" in unpack:
-                    mmr, platform, gamertag = unpack
+                    _mmr, platform, gamertag = unpack
                 else:
                     platform, gamertag = unpack
                 data = self._rlscrape(gamertag, platform)
                 self._writefetch(w, data, name, link)
                 i += 1
                 if i % tenPercent == 0:
-                    await ctx.send(
-                        "Fetch Progress: {}0% Complete".format(i // tenPercent)
-                    )
+                    await ctx.send(f"Fetch Progress: {i // tenPercent}0% Complete")
             except Exception as e:
                 i += 1
-                await ctx.send("Error on line {0}: {1}".format(i, e))
+                await ctx.send(f"Error on line {i}: {e}")
             await asyncio.sleep(0.001)
 
-        await ctx.send("Done", file=File(Outputcsv))
-        os.remove(Outputcsv)
+        csv_bytes = io.BytesIO(csvwrite.getvalue().encode("utf-8"))
+        await ctx.send("Done", file=File(csv_bytes, filename=Outputcsv))
 
     def _readTrackerList(self):
         wks = gc.open("Tracker Links").sheet1
@@ -79,7 +77,7 @@ class MMRFetcher(commands.Cog):
         links = wks.col_values(2)
         return names, links
 
-    def _createcsv(self):
+    def _createcsv(self, csvwrite: io.StringIO):
         """Create CSV output file"""
         header = ["Name", "Tracker"]
         if GamesPlayed is True:
@@ -97,7 +95,6 @@ class MMRFetcher(commands.Cog):
             )
         else:
             header.extend(["1s_MMR", "_2s_MMR", "Solo_3s_MMR", "3s_MMR"])
-        csvwrite = open(Outputcsv, "w", newline="")
         w = csv.writer(csvwrite, delimiter=",")
         w.writerow(header)
         return w
@@ -125,9 +122,11 @@ class MMRFetcher(commands.Cog):
         webpath = "https://rocketleague.tracker.network"
         for season in Seasons:
             playerdata[gamertag][season] = {}  # define the season dict
-            seasonid = "season-%s" % (season)
+            seasonid = f"season-{season}"
             if CurrentSeason == season:
-                tracker = "%s/%s/%s/%s" % (webpath, "profile/mmr", platform, gamertag)
+                tracker = "{}/{}/{}/{}".format(
+                    webpath, "profile/mmr", platform, gamertag
+                )
                 page = requests.get(tracker)
                 if page.status_code == 200:
                     content = page.content
@@ -163,7 +162,7 @@ class MMRFetcher(commands.Cog):
                                 division  # futureproof
                             )
             else:
-                tracker = "%s/%s/%s/%s" % (webpath, "profile", platform, gamertag)
+                tracker = "{}/{}/{}/{}".format(webpath, "profile", platform, gamertag)
                 page = requests.get(tracker)
                 if page.status_code == 200:
                     content = page.content
@@ -181,8 +180,8 @@ class MMRFetcher(commands.Cog):
                             playerdata[gamertag][season][
                                 playlist
                             ] = {}  # define the playlist dict
-                            i = 0  # use a count to sort through the souptable for each playlist's data
-                            for soupdata in souptable:
+                            # use a count to sort through the souptable for each playlist's data
+                            for i, _soupdata in enumerate(souptable):
                                 soupplaylist = (
                                     season_tbody.select("tr")[i]
                                     .select("td")[1]
@@ -212,12 +211,11 @@ class MMRFetcher(commands.Cog):
                                         playerdata[gamertag][season][playlist][
                                             "Games Played"
                                         ] = None
-                                i += 1
         return playerdata
 
     def _dicttolist(self, data):
         newdict = {}
-        for gamertag, gdata in data.items():
+        for gdata in data.values():
             for season, sdata in gdata.items():
                 newdict[season] = {
                     "MMR_1s": None,

@@ -1,7 +1,5 @@
 import discord
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
+from redbot.core import Config, checks, commands
 
 defaults = {
     "DynamicCategories": [],
@@ -143,9 +141,12 @@ class DynamicRooms(commands.Cog):
         if not hidden_vc_ids:
             return await ctx.send(":x: There are currently no hiding rooms.")
 
-        message = "The following rooms are currently hidden ({}):\n - ".format(
-            len(hidden_vc_ids)
-        ) + "\n - ".join(self._get_channel_name(ctx.guild, vc) for vc in hidden_vc_ids)
+        message = (
+            f"The following rooms are currently hidden ({len(hidden_vc_ids)}):\n - "
+            + "\n - ".join(
+                self._get_channel_name(ctx.guild, vc) for vc in hidden_vc_ids
+            )
+        )
         await ctx.send(message)
 
     @commands.command()
@@ -172,7 +173,7 @@ class DynamicRooms(commands.Cog):
             await self._enable_hide_vcs(ctx.guild)
             action = "enabled"
 
-        await ctx.send("The `{}hide` command is **{}**.".format(ctx.prefix, action))
+        await ctx.send(f"The `{ctx.prefix}hide` command is **{action}**.")
 
     @commands.command(aliases=["hideme", "hideus"])
     @commands.guild_only()
@@ -185,9 +186,7 @@ class DynamicRooms(commands.Cog):
         member = ctx.message.author
         if not member.voice:
             await ctx.send(
-                "{}, you must be connected to a voice channel for that command to work.".format(
-                    member.mention
-                )
+                f"{member.mention}, you must be connected to a voice channel for that command to work."
             )
             return
 
@@ -287,21 +286,18 @@ class DynamicRooms(commands.Cog):
     def _get_category_name(self, ctx, category_id):
         for category in ctx.guild.categories:
             if category.id == category_id:
-                return "**{}** [{}]".format(category.name, category.id)
-        return "*Unknown or deleted category* [{}]".format(category_id)
+                return f"**{category.name}** [{category.id}]"
+        return f"*Unknown or deleted category* [{category_id}]"
 
     def _get_channel_name(self, guild, channel_id):
         for channel in guild.channels:
             if channel.id == channel_id:
-                return "**{}** [{}]".format(channel.name, channel.id)
-        return "*Unknown or deleted channel* [{}]".format(channel_id)
+                return f"**{channel.name}** [{channel.id}]"
+        return f"*Unknown or deleted channel* [{channel_id}]"
 
     async def _is_hideout_vc(self, voice_channel: discord.VoiceChannel):
         hideout_categories = await self._get_hideout_categories(voice_channel.guild)
-        try:
-            voice_channel.category_id in hideout_categories
-        except Exception:
-            return False
+        return voice_channel.category_id in hideout_categories
 
     async def _is_hiding(self, voice_channel: discord.VoiceChannel):
         return voice_channel.id in await self._get_hiding(voice_channel.guild)
@@ -329,10 +325,10 @@ class DynamicRooms(commands.Cog):
 
         cant_view_overwrite = discord.PermissionOverwrite(view_channel=False)
         voice_overwrites = {vc.guild.default_role: cant_view_overwrite}
-        for role in vc.overwrites.keys():
+        for role in vc.overwrites:
             voice_overwrites[role] = cant_view_overwrite
 
-        await vc.edit(name="{} (hidden)".format(vc.name), overwrites=voice_overwrites)
+        await vc.edit(name=f"{vc.name} (hidden)", overwrites=voice_overwrites)
 
         # update hiding vc list
         hiding_rooms = await self._get_hiding(vc.guild)
@@ -344,8 +340,7 @@ class DynamicRooms(commands.Cog):
             return
         last_index = voice_channel.position
         for vc in voice_channel.category.channels:
-            if vc.position > last_index:
-                last_index = vc.position
+            last_index = max(last_index, vc.position)
 
         if last_index > voice_channel.position:
             await voice_channel.edit(

@@ -1,15 +1,15 @@
 import ast
-import random
-from datetime import datetime
 import json
-import discord
 import logging
-from .config import config
+import random
+from datetime import UTC, datetime
 
-from redbot.core import Config, commands, checks
+import discord
+from redbot.core import Config, checks, commands
 
 from teamManager import TeamManager
 
+from .config import config
 
 log = logging.getLogger("red.RSCBot.match")
 
@@ -90,7 +90,7 @@ class Match(commands.Cog):
         except Exception as e:
             await ctx.send(e)
         finally:
-            await ctx.send("Added {0} match(es).".format(addedCount))
+            await ctx.send(f"Added {addedCount} match(es).")
 
     @commands.command()
     @commands.guild_only()
@@ -145,9 +145,7 @@ class Match(commands.Cog):
         dump = json.dumps(schedule, indent=4, sort_keys=True)
         try:
             await ctx.send(
-                "Here is all of the schedule data in JSON format.\n```json\n{0}\n```".format(
-                    dump
-                )
+                f"Here is all of the schedule data in JSON format.\n```json\n{dump}\n```"
             )
         except discord.errors.HTTPException as exc:
             httpErrorEmbed = discord.Embed(
@@ -173,7 +171,7 @@ class Match(commands.Cog):
         elif game.upper() == "CSGO" or game.title() == "Counter-Strike":
             await self._save_guild_game(ctx.guild, "CSGO")
         else:
-            msg = "**{}** is not a supported game, but it has been saved.".format(game)
+            msg = f"**{game}** is not a supported game, but it has been saved."
             await self._save_guild_game(ctx.guild, game)
         await ctx.send(msg)
 
@@ -194,7 +192,7 @@ class Match(commands.Cog):
         """Gets the currently active match day."""
         match_day = await self._match_day(ctx)
         if match_day:
-            await ctx.send("Current match day is: {0}".format(match_day))
+            await ctx.send(f"Current match day is: {match_day}")
         else:
             await ctx.send(":x: Match day not set. Set with setMatchDay command.")
 
@@ -322,11 +320,9 @@ class Match(commands.Cog):
 
         if not opposing_roster:
             await ctx.message.add_reaction("\U0000274c")
-            await ctx.send(":x: No roster found for the **{}**".format(opposing_team))
+            await ctx.send(f":x: No roster found for the **{opposing_team}**")
 
-        message = "Please join your match against the **{}** with the following lobby information:".format(
-            opposing_team
-        )
+        message = f"Please join your match against the **{opposing_team}** with the following lobby information:"
         message += "\n\n**Name:** {}".format(match_data["roomName"])
         message += "\n**Password:** {}".format(match_data["roomPass"])
 
@@ -350,9 +346,9 @@ class Match(commands.Cog):
         # Process inputs to normalize the data (e.g. convert team names to roles)
         match_date_error = None
         try:
-            datetime.strptime(match_date, "%B %d, %Y").date()
+            datetime.strptime(match_date, "%B %d, %Y").replace(tzinfo=UTC)
         except Exception as err:
-            match_date_error = "Date not valid: {0}".format(err)
+            match_date_error = f"Date not valid: {err}"
         homeRoles = await self.team_manager._roles_for_team(ctx, home)
         awayRoles = await self.team_manager._roles_for_team(ctx, away)
 
@@ -382,16 +378,16 @@ class Match(commands.Cog):
                 "Date provided is not valid. (Make sure to use the right format.)"
             )
         if not homeRoles:
-            errors.append("Home team roles not found ({}).".format(home))
+            errors.append(f"Home team roles not found ({home}).")
         if not awayRoles:
-            errors.append("Away team roles not found ({}).".format(away))
+            errors.append(f"Away team roles not found ({away}).")
         if homeRoles[1] != awayRoles[1]:
             errors.append(
-                "Home and Away teams are in different tiers ({}, {})".format(home, away)
+                f"Home and Away teams are in different tiers ({home}, {away})"
             )
         if errors:
             await ctx.send(
-                ":x: Errors with input:\n\n  * {0}\n".format("\n  * ".join(errors))
+                ":x: Errors with input:\n\n  * {}\n".format("\n  * ".join(errors))
             )
             return
 
@@ -409,7 +405,7 @@ class Match(commands.Cog):
         }
 
         # Adds match to correct location within Schedules hierarchy
-        franchise_role, tier_role = homeRoles
+        _franchise_role, tier_role = homeRoles
         tier_schedule = schedule.setdefault(tier_role.name, {})
         tier_matches = tier_schedule.setdefault(str(match_day), [])
         tier_matches.append(match_data)
@@ -436,8 +432,8 @@ class Match(commands.Cog):
         # }
         tier_role = (await self.team_manager._roles_for_team(ctx, match["home"]))[1]
 
-        title = "__Match Day {0}: {1}__\n".format(match["matchDay"], match["matchDate"])
-        description = "**{0}**\n    versus\n**{1}**\n\n".format(
+        title = "__Match Day {}: {}__\n".format(match["matchDay"], match["matchDate"])
+        description = "**{}**\n    versus\n**{}**\n\n".format(
             match["home"], match["away"]
         )
 
@@ -449,7 +445,7 @@ class Match(commands.Cog):
         return await self._create_normal_match_embed(ctx, embed, match, user_team_name)
 
     async def get_team_matches(self, ctx, team_name, match_day=None):
-        franchise_role, tier_role = await self.team_manager._roles_for_team(
+        _franchise_role, tier_role = await self.team_manager._roles_for_team(
             ctx, team_name
         )
         schedule = await self._schedule(ctx)
@@ -460,7 +456,7 @@ class Match(commands.Cog):
             tier_matches = tier_schedule.setdefault(str(match_day), [])
         else:
             tier_matches = []
-            for match_day, matches in tier_schedule.items():
+            for matches in tier_schedule.values():
                 tier_matches += matches
 
         team_matches = []
@@ -523,7 +519,7 @@ class Match(commands.Cog):
     ):
         embed.add_field(
             name="Lobby Info",
-            value="Name: **{0}**\nPassword: **{1}**".format(
+            value="Name: **{}**\nPassword: **{}**".format(
                 match["roomName"], match["roomPass"]
             ),
             inline=False,
@@ -591,16 +587,13 @@ class Match(commands.Cog):
         game = await self._get_guild_game(member.guild)
 
         for activity in member.activities:
-            if isinstance(activity, discord.Game):
-                if activity.name == game:
-                    playing = True
-                    try:
-                        playing = (
-                            not activity.end or activity.end > discord.utils.utcnow()
-                        )
-                    except Exception:
-                        playing = not activity.end
-                    return playing
+            if isinstance(activity, discord.Game) and activity.name == game:
+                playing = True
+                try:
+                    playing = not activity.end or activity.end > discord.utils.utcnow()
+                except Exception:
+                    playing = not activity.end
+                return playing
 
     def parse_matchup_type(self, matchup_code):
         format_components = matchup_code.lower().split("-")
@@ -674,7 +667,7 @@ class Match(commands.Cog):
         schedule = await self._schedule(ctx)
         missing_matches = {}
         for tier, match_day_matches in schedule.items():
-            for match_day, matches in match_day_matches.items():
+            for matches in match_day_matches.values():
                 for match in matches:
                     if not match.get("report"):
                         missing_tier_matches = missing_matches.setdefault(tier, [])

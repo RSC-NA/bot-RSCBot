@@ -1,9 +1,5 @@
 import discord
-
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
-
+from redbot.core import Config, checks, commands
 
 settings = {
     "PrimaryCategory": None,
@@ -34,9 +30,11 @@ class ModThread(commands.Cog):
 
         isThread = False
         for group_name in groups:
-            if currentCategory.id == groups[group_name]["category"]:
-                isThread = True
-            elif primary_category and currentCategory.id == primary_category.id:
+            if (
+                currentCategory.id == groups[group_name]["category"]
+                or primary_category
+                and currentCategory.id == primary_category.id
+            ):
                 isThread = True
 
         if isThread is False:
@@ -53,11 +51,11 @@ class ModThread(commands.Cog):
             if role:
                 allowed_mentions = discord.AllowedMentions(roles=True)
                 await ctx.send(
-                    "This ticket has been assigned to {0}".format(role.mention),
+                    f"This ticket has been assigned to {role.mention}",
                     allowed_mentions=allowed_mentions,
                 )
             else:
-                await ctx.send("This ticket has been assigned to {0}".format(role))
+                await ctx.send(f"This ticket has been assigned to {role}")
         else:
             assign_embed = discord.Embed(
                 title="ModThread Assignment",
@@ -90,9 +88,11 @@ class ModThread(commands.Cog):
         isThread = False
         if currentCategory is not None:
             for group_name in groups:
-                if currentCategory.id == groups[group_name]["category"]:
-                    isThread = True
-                elif primary_category and currentCategory.id == primary_category.id:
+                if (
+                    currentCategory.id == groups[group_name]["category"]
+                    or primary_category
+                    and currentCategory.id == primary_category.id
+                ):
                     isThread = True
 
         if isThread is False:
@@ -124,7 +124,6 @@ class ModThread(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def modthread(self, ctx: commands.Context) -> None:
         """Display or configure modthread cog settings"""
-        pass
 
     @modthread.command(name="category")
     async def primary_category(

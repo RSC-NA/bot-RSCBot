@@ -1,20 +1,17 @@
-import discord
-import logging
 import datetime
+import logging
 import re
+from typing import ClassVar
 
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
+import discord
+from redbot.core import Config, checks, commands
 
-from .transStringTemplates import TransactionsStringsTemplates as stringTemplates
-from teamManager import TeamManager
-from prefixManager import PrefixManager
 from dmHelper import DMHelper
-
+from prefixManager import PrefixManager
+from teamManager import TeamManager
 from transactions.embeds import ErrorEmbed
 
-from typing import Optional, Tuple, Union, List
+from .transStringTemplates import TransactionsStringsTemplates as stringTemplates
 
 log = logging.getLogger("red.RSCBot.transactions")
 
@@ -40,7 +37,12 @@ class Transactions(commands.Cog):
     GOLD_MEDAL_EMOJI = "\U0001f3c5"  # gold medal
     FIRST_PLACE_EMOJI = "\U0001f947"  # first place medal
     STAR_EMOJI = "\U00002b50"  # :star:
-    LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
+    LEAGUE_AWARDS: ClassVar[list[str]] = [
+        TROPHY_EMOJI,
+        GOLD_MEDAL_EMOJI,
+        FIRST_PLACE_EMOJI,
+        STAR_EMOJI,
+    ]
 
     def __init__(self, bot):
         self.bot = bot
@@ -165,14 +167,16 @@ class Transactions(commands.Cog):
                 await member.add_roles(*add_roles)
 
                 # Updates Name
-                prefix, name, awards = self._get_name_components(member)
+                _prefix, name, awards = self._get_name_components(member)
                 new_name = self._generate_new_name("FA", name, awards)
 
                 if member.nick != new_name:
                     try:
                         await member.edit(nick=new_name)
                     except Exception:
-                        pass
+                        log.debug(
+                            f"Unable to update nickname for {member}", exc_info=True
+                        )
 
                 transaction_msg = f"Contract with {member.mention} and {team} has expired ({gm.mention if gm else 'No GM'} - {tier_role.name})"
 
@@ -222,13 +226,9 @@ class Transactions(commands.Cog):
         )
         gm_name = await self._get_gm_name(franchise_role)
         if franchise_role in user.roles:
-            message = "Round {0} Pick {1}: {2} was kept by {3} ({4} - {5})".format(
-                round, pick, user.mention, team_name, gm_name, tier_role.name
-            )
+            message = f"Round {round} Pick {pick}: {user.mention} was kept by {team_name} ({gm_name} - {tier_role.name})"
         else:
-            message = "Round {0} Pick {1}: {2} was drafted by {3} ({4} - {5})".format(
-                round, pick, user.mention, team_name, gm_name, tier_role.name
-            )
+            message = f"Round {round} Pick {pick}: {user.mention} was drafted by {team_name} ({gm_name} - {tier_role.name})"
 
         trans_channel = await self._trans_channel(ctx.guild)
         if trans_channel is not None:
@@ -289,9 +289,7 @@ class Transactions(commands.Cog):
                     for role in free_agent_roles:
                         await user.remove_roles(role)
                 gm_name = await self._get_gm_name(franchise_role)
-                message = "{0} was signed by {1} ({2} - {3})".format(
-                    user.mention, team_name, gm_name, tier_role.name
-                )
+                message = f"{user.mention} was signed by {team_name} ({gm_name} - {tier_role.name})"
                 await trans_channel.send(message)
                 await ctx.send("Done")
             except Exception as e:
@@ -313,13 +311,11 @@ class Transactions(commands.Cog):
                 colour=discord.Colour.red(),
             )
             await ctx.send(embed=errorEmbed)
-            return None
+            return
 
         trans_channel = await self._trans_channel(ctx.guild)
         gm_name = await self._get_gm_name(franchise_role)
-        message = "{0} was re-signed by {1} ({2} - {3})".format(
-            user.mention, team_name, gm_name, tier_role.name
-        )
+        message = f"{user.mention} was re-signed by {team_name} ({gm_name} - {tier_role.name})"
 
         if franchise_role not in user.roles or tier_role not in user.roles:
             try:
@@ -363,7 +359,7 @@ class Transactions(commands.Cog):
             # Add FA role is user is not a GM.
             if not self.team_manager_cog.is_gm(user):
                 if tier_fa_role is None:
-                    role_name = "{0}FA".format(
+                    role_name = "{}FA".format(
                         (
                             await self.team_manager_cog.get_current_tier_role(ctx, user)
                         ).name
@@ -424,14 +420,10 @@ class Transactions(commands.Cog):
         gm_name_1 = await self._get_gm_name(franchise_role_1)
         gm_name_2 = await self._get_gm_name(franchise_role_2)
         if franchise_role_1 in user.roles and tier_role_1 in user.roles:
-            await ctx.send(
-                ":x: {0} is already on the {1}".format(user.mention, new_team_name)
-            )
+            await ctx.send(f":x: {user.mention} is already on the {new_team_name}")
             return
         if franchise_role_2 in user_2.roles and tier_role_2 in user_2.roles:
-            await ctx.send(
-                ":x: {0} is already on the {1}".format(user_2.mention, new_team_name_2)
-            )
+            await ctx.send(f":x: {user_2.mention} is already on the {new_team_name_2}")
             return
 
         trans_channel = await self._trans_channel(ctx.guild)
@@ -440,18 +432,7 @@ class Transactions(commands.Cog):
             await self.remove_player_from_team(ctx, user_2, new_team_name)
             await self.add_player_to_team(ctx, user, new_team_name)
             await self.add_player_to_team(ctx, user_2, new_team_name_2)
-            message = (
-                "{0} was traded by {1} ({4} - {5}) to {2} ({6} - {7}) for {3}".format(
-                    user.mention,
-                    new_team_name_2,
-                    new_team_name,
-                    user_2.mention,
-                    gm_name_2,
-                    tier_role_2.name,
-                    gm_name_1,
-                    tier_role_1.name,
-                )
-            )
+            message = f"{user.mention} was traded by {new_team_name_2} ({gm_name_2} - {tier_role_2.name}) to {new_team_name} ({gm_name_1} - {tier_role_1.name}) for {user_2.mention}"
             await trans_channel.send(message)
             await ctx.send("Done")
 
@@ -494,10 +475,10 @@ class Transactions(commands.Cog):
         )
         # End Substitution
         if franchise_role in user.roles and team_tier_role in user.roles:
-            if list(set([free_agent_role, perm_fa_role]) & set(user.roles)):
+            if list({free_agent_role, perm_fa_role} & set(user.roles)):
                 await user.remove_roles(franchise_role)
                 team_tier_fa_role = self.team_manager_cog._find_role_by_name(
-                    ctx, "{0}FA".format(team_tier_role)
+                    ctx, f"{team_tier_role}FA"
                 )
                 if team_tier_fa_role not in user.roles:
                     player_tier = await self.get_tier_role_for_fa(ctx, user)
@@ -524,7 +505,7 @@ class Transactions(commands.Cog):
 
         # Begin Substitution:
         else:
-            if list(set([free_agent_role, perm_fa_role]) & set(user.roles)):
+            if list({free_agent_role, perm_fa_role} & set(user.roles)):
                 player_tier = await self.get_tier_role_for_fa(ctx, user)
                 await user.remove_roles(player_tier)
             await user.add_roles(franchise_role, team_tier_role, leagueRole)
@@ -564,9 +545,7 @@ class Transactions(commands.Cog):
                 await self.team_manager_cog._roles_for_team(ctx, team_name)
             )[0]:
                 await ctx.send(
-                    ":x: {0} is not in the same franchise as {1}'s current team, the {2}".format(
-                        team_name, user.name, old_team_name
-                    )
+                    f":x: {team_name} is not in the same franchise as {user.name}'s current team, the {old_team_name}"
                 )
                 return
 
@@ -578,16 +557,12 @@ class Transactions(commands.Cog):
                     ctx, team_name
                 )
                 gm_name = await self._get_gm_name(franchise_role)
-                message = "{0} was promoted to the {1} ({2} - {3})".format(
-                    user.mention, team_name, gm_name, tier_role.name
-                )
+                message = f"{user.mention} was promoted to the {team_name} ({gm_name} - {tier_role.name})"
                 await trans_channel.send(message)
                 await ctx.send("Done")
         else:
             await ctx.send(
-                "Either {0} isn't on a team right now or his current team can't be found".format(
-                    user.name
-                )
+                f"Either {user.name} isn't on a team right now or his current team can't be found"
             )
 
     @commands.command(aliases=["lpwt"])
@@ -710,7 +685,7 @@ class Transactions(commands.Cog):
         log_embed = discord.Embed(
             description="Free agent has left the server.",
             color=discord.Color.orange(),
-            timestamp=datetime.datetime.now(datetime.timezone.utc),
+            timestamp=datetime.datetime.now(datetime.UTC),
         )
 
         log_embed.add_field(name="Member", value=member.mention, inline=True)
@@ -771,7 +746,7 @@ class Transactions(commands.Cog):
         log_embed = discord.Embed(
             description=f"Player left server while rostered on {on_team.mention}",
             color=discord.Color.orange(),
-            timestamp=datetime.datetime.now(datetime.timezone.utc),
+            timestamp=datetime.datetime.now(datetime.UTC),
         )
 
         log_embed.add_field(name="Member", value=member.mention, inline=True)
@@ -883,7 +858,7 @@ class Transactions(commands.Cog):
 
     async def _get_franchise_agms(
         self, guild: discord.Guild, franchise_role: discord.Role
-    ) -> List[discord.Member]:
+    ) -> list[discord.Member]:
         """Return a list of AGMs in a franchise"""
         agm_role = discord.utils.get(guild.roles, name="Assistant GM")
         agms = []
@@ -894,7 +869,7 @@ class Transactions(commands.Cog):
 
     async def _get_franchise_gm(
         self, guild: discord.Guild, franchise_role: discord.Role
-    ) -> Optional[discord.Member]:
+    ) -> discord.Member | None:
         """Return GM from franchise role"""
         gm_role = discord.utils.get(guild.roles, name="General Manager")
         for member in franchise_role.members:
@@ -956,9 +931,9 @@ class Transactions(commands.Cog):
     async def get_audit_log_reason(
         self,
         guild: discord.Guild,
-        target: Union[discord.abc.GuildChannel, discord.Member, discord.Role, int],
+        target: discord.abc.GuildChannel | discord.Member | discord.Role | int,
         action: discord.AuditLogAction,
-    ) -> Tuple[discord.User | discord.Member | None, Optional[str]]:
+    ) -> tuple[discord.User | discord.Member | None, str | None]:
         """Retrieve audit log reason for `discord.AuditLogAction`"""
         perp = None
         reason = None
@@ -984,7 +959,6 @@ class Transactions(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def _transactions(self, ctx: commands.Context) -> None:
         """Display or configure transaction cog settings"""
-        pass
 
     @_transactions.command(name="settings")
     async def _show_transactions_settings(self, ctx: commands.Context):
@@ -1166,7 +1140,6 @@ class Transactions(commands.Cog):
     @_transactions.group(name="unset")
     async def _transactions_unset(self, ctx: commands.Context) -> None:
         """Command group for removing configuration options"""
-        pass
 
     @_transactions_unset.command(name="channel")
     async def _unset_trans_channel(self, ctx: commands.Context):
@@ -1312,7 +1285,7 @@ class Transactions(commands.Cog):
         free_agent_roles = []
         tiers = await self.team_manager_cog.tiers(ctx)
         for tier in tiers:
-            role = self.team_manager_cog._find_role_by_name(ctx, "{0}FA".format(tier))
+            role = self.team_manager_cog._find_role_by_name(ctx, f"{tier}FA")
             if role is not None:
                 free_agent_roles.append(role)
         free_agent_roles.append(
@@ -1348,7 +1321,7 @@ class Transactions(commands.Cog):
     async def _send_member_message(self, ctx, member, message):
         if not message:
             return False
-        message_title = "**Message from {0}:**\n\n".format(ctx.guild.name)
+        message_title = f"**Message from {ctx.guild.name}:**\n\n"
         command_prefix = ctx.prefix
         message = message.replace("[p]", command_prefix)
         message = message_title + message
@@ -1408,50 +1381,46 @@ class Transactions(commands.Cog):
         return prefix.strip(), player_name.strip(), awards.strip()
 
     def _generate_new_name(self, prefix, name, awards):
-        new_name = "{} | {}".format(prefix, name) if prefix else name
+        new_name = f"{prefix} | {name}" if prefix else name
         if awards:
             awards = "".join(sorted(awards))
-            new_name += " {}".format(awards)
+            new_name += f" {awards}"
         return new_name
 
     # endregion
 
     # region json db
 
-    async def _trans_role(self, guild: discord.Guild) -> Optional[discord.Role]:
+    async def _trans_role(self, guild: discord.Guild) -> discord.Role | None:
         trans_role_id = await self.config.guild(guild).TransRole()
         return guild.get_role(trans_role_id)
 
-    async def _save_trans_role(
-        self, guild: discord.Guild, trans_role_id: Optional[int]
-    ):
+    async def _save_trans_role(self, guild: discord.Guild, trans_role_id: int | None):
         await self.config.guild(guild).TransRole.set(trans_role_id)
 
-    async def _trans_channel(
-        self, guild: discord.Guild
-    ) -> Optional[discord.TextChannel]:
+    async def _trans_channel(self, guild: discord.Guild) -> discord.TextChannel | None:
         trans_channel_id = await self.config.guild(guild).TransChannel()
         channel = guild.get_channel(trans_channel_id)
         return channel if isinstance(channel, discord.TextChannel) else None
 
     async def _save_trans_channel(
-        self, guild: discord.Guild, trans_channel: Optional[int]
+        self, guild: discord.Guild, trans_channel: int | None
     ):
         await self.config.guild(guild).TransChannel.set(trans_channel)
 
     async def _trans_log_channel(
         self, guild: discord.Guild
-    ) -> Optional[discord.TextChannel]:
+    ) -> discord.TextChannel | None:
         log_channel_id = await self.config.guild(guild).TransLogChannel()
         channel = guild.get_channel(log_channel_id)
         return channel if isinstance(channel, discord.TextChannel) else None
 
     async def _save_trans_log_channel(
-        self, guild: discord.Guild, trans_log_channel: Optional[int]
+        self, guild: discord.Guild, trans_log_channel: int | None
     ):
         await self.config.guild(guild).TransLogChannel.set(trans_log_channel)
 
-    async def _get_cut_message(self, guild: discord.Guild) -> Optional[str]:
+    async def _get_cut_message(self, guild: discord.Guild) -> str | None:
         return await self.config.guild(guild).CutMessage()
 
     async def _save_cut_message(self, guild: discord.Guild, message):

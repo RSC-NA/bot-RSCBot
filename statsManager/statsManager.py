@@ -1,14 +1,13 @@
-import discord
 import asyncio
-
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
-from discord.ext.commands import Context
-
-import requests
 from urllib.parse import quote as encodeurl
+
+import discord
+import requests
+from discord.ext.commands import Context
+from redbot.core import Config, checks, commands
+
 from teamManager import TeamManager
+
 from .statsReference import StatsReference as sr
 
 defaults = {"BaseUrl": None, "LeagueHeader": None}
@@ -91,11 +90,11 @@ class StatsManager(commands.Cog):
             await ctx.send(embed=embed)
         else:
             possible_teams = team
-            message = "No team with name: {0}".format(team_name)
+            message = f"No team with name: {team_name}"
             if possible_teams:
                 message += "\nDo you mean one of these teams:"
                 for possible_team in possible_teams:
-                    message += " `{0}`".format(possible_team)
+                    message += f" `{possible_team}`"
             await ctx.send(message)
 
     @commands.command(aliases=["ps", "statsCard", "sc", "psc"])

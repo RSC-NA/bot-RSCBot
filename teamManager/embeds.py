@@ -1,7 +1,5 @@
 import discord
 
-from typing import Union
-
 
 class ErrorEmbed(discord.Embed):
     """Generic Error Embed"""
@@ -13,7 +11,7 @@ class ErrorEmbed(discord.Embed):
 class TimeoutEmbed(discord.Embed):
     """Timeout Embed for Views"""
 
-    def __init__(self, author: Union[discord.Member, discord.User], **kwargs):
+    def __init__(self, author: discord.Member | discord.User, **kwargs):
         super().__init__(
             title="Timed out",
             description=f"{author.mention} Sorry, you didn't respond quick enough. Please try again.",

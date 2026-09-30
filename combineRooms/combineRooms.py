@@ -1,7 +1,5 @@
 import discord
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
+from redbot.core import Config, checks, commands
 
 from teamManager.teamManager import TeamManager
 
@@ -79,10 +77,7 @@ class CombineRooms(commands.Cog):
         This capacity is for all members, players and scouts combined.
         """
         cap = await self._room_capacity(ctx.guild)
-        await ctx.send(
-            "Combines currently have a maximum size of {0} members.".format(cap)
-        )
-        return
+        await ctx.send(f"Combines currently have a maximum size of {cap} members.")
 
     @commands.command(
         aliases=[
@@ -103,7 +98,7 @@ class CombineRooms(commands.Cog):
         If combines are **Private**, only members with the "League" role may participate.
         """
         public_str = "public" if await self._is_public_combine(ctx.guild) else "private"
-        response = "Combines are currently **{0}**.".format(public_str)
+        response = f"Combines are currently **{public_str}**."
         await ctx.send(response)
 
     @commands.command(aliases=["acronym"])
@@ -114,9 +109,7 @@ class CombineRooms(commands.Cog):
         Gets the acronym registered for combines. (Default: RSC)
         """
         acronym = await self._get_acronym(ctx.guild)
-        await ctx.send(
-            "The acronym registered for the combines cog is **{0}**.".format(acronym)
-        )
+        await ctx.send(f"The acronym registered for the combines cog is **{acronym}**.")
 
     @commands.command()
     @commands.guild_only()
@@ -128,9 +121,7 @@ class CombineRooms(commands.Cog):
         """
         await self._update_combine_rooms(ctx, acronym=new_acronym)
         await self._save_acronym(ctx.guild, new_acronym)
-        await ctx.send(
-            "The acronym has been registered as **{0}**.".format(new_acronym)
-        )
+        await ctx.send(f"The acronym has been registered as **{new_acronym}**.")
 
     @commands.command(
         aliases=[
@@ -153,7 +144,7 @@ class CombineRooms(commands.Cog):
         is_public = await self._toggle_public_combine(ctx.guild)
 
         public_str = "public" if is_public else "private"
-        response = "Combines are now **{0}**.".format(public_str)
+        response = f"Combines are now **{public_str}**."
         await ctx.send(response)
 
     @commands.Cog.listener("on_voice_state_update")
@@ -178,7 +169,7 @@ class CombineRooms(commands.Cog):
         tier_roles.sort(key=lambda role: role.position, reverse=True)
         for tier_role in tier_roles:
             tier_category = await self._add_combines_category(
-                ctx, "{0} Combines".format(tier_role.name)
+                ctx, f"{tier_role.name} Combines"
             )
             await self._add_combines_voice(ctx.guild, tier_role.name, tier_category)
             categories.append(tier_category.id)
@@ -231,7 +222,7 @@ class CombineRooms(commands.Cog):
         capacity = await self._room_capacity(guild)
 
         for vc in category.voice_channels:
-            vc_name_substring = "{0} // {1}".format(tier, acronym.lower())
+            vc_name_substring = f"{tier} // {acronym.lower()}"
             if vc_name_substring in vc.name:
                 this_number = int(vc.name[len(vc_name_substring) :])
                 if this_number == previous_number + 1:
@@ -242,7 +233,7 @@ class CombineRooms(commands.Cog):
 
         new_position = previous_position + 1
         new_room_number = previous_number + 1
-        new_room_name = "{0} // {1}{2}".format(tier, acronym.lower(), new_room_number)
+        new_room_name = f"{tier} // {acronym.lower()}{new_room_number}"
 
         await category.create_voice_channel(
             new_room_name, user_limit=capacity, position=new_position
@@ -256,13 +247,11 @@ class CombineRooms(commands.Cog):
         for tier_cat in categories:
             for vc in tier_cat.voice_channels:
                 tier = self._get_category_tier(tier_cat)
-                vc_name_substring = "{0} // {1}".format(tier, old_acronym.lower())
+                vc_name_substring = f"{tier} // {old_acronym.lower()}"
                 if vc_name_substring in vc.name:
                     if acronym:
                         room_num = int(vc.name[len(vc_name_substring) :])
-                        new_room_name = "{0} // {1}{2}".format(
-                            tier, acronym.lower(), room_num
-                        )
+                        new_room_name = f"{tier} // {acronym.lower()}{room_num}"
                         await vc.edit(name=new_room_name)
                     if capacity:
                         await vc.edit(user_limit=capacity)
@@ -276,10 +265,7 @@ class CombineRooms(commands.Cog):
         acronym = await self._get_acronym(guild)
         empty_vcs = []
         for vc in category.voice_channels:
-            if (
-                len(vc.members) == 0
-                and "{0} // {1}".format(tier, acronym.lower()) in vc.name
-            ):
+            if len(vc.members) == 0 and f"{tier} // {acronym.lower()}" in vc.name:
                 empty_vcs.append(vc)
 
         for vc in empty_vcs[1:]:

@@ -1,12 +1,9 @@
-import discord
 import logging
+
+import discord
 from redbot.core.commands import Context
+
 from teamManager.embeds import TimeoutEmbed
-
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    pass
 
 log = logging.getLogger("red.RSCBot.prefixManager.views")
 

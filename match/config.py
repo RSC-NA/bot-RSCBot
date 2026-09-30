@@ -1,3 +1,6 @@
+from typing import ClassVar
+
+
 class config:
     home_info = (
         "You are the **home** team. You will create the "
@@ -53,7 +56,7 @@ class config:
         "playoff matches but you will need to report the scores in #score-reporting.\n\n"
     )
 
-    room_pass = [
+    room_pass: ClassVar[list[str]] = [
         "octane",
         "takumi",
         "dominus",

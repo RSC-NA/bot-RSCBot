@@ -1,11 +1,7 @@
 import discord
-import asyncio
-
-from redbot.core import commands
-from redbot.core import checks
-from redbot.core.utils.predicates import MessagePredicate
-from redbot.core.utils.predicates import ReactionPredicate
+from redbot.core import checks, commands
 from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.utils.predicates import MessagePredicate, ReactionPredicate
 
 verify_timeout = 30
 
@@ -30,15 +26,13 @@ class Notice(commands.Cog):
 
         try:
             await ctx.send(
-                "**Which channel do you want to post the notice in?**\nYou have {} seconds to respond before this times out".format(
-                    verify_timeout
-                )
+                f"**Which channel do you want to post the notice in?**\nYou have {verify_timeout} seconds to respond before this times out"
             )
             pred = MessagePredicate.valid_text_channel(ctx)
             await ctx.bot.wait_for("message", check=pred, timeout=verify_timeout)
             channel = pred.result
 
-            formatted_message = "```@{0}\n\n{1}```".format(
+            formatted_message = "```@{}\n\n{}```".format(
                 " @".join([role.name for role in pingRole]), message
             )
             notice_check = await ctx.send(formatted_message)
@@ -55,20 +49,18 @@ class Notice(commands.Cog):
                     if not role.mentionable:
                         await role.edit(mentionable=True)
 
-                final_notice = "{0}\n\n{1}".format(
+                final_notice = "{}\n\n{}".format(
                     " ".join([role.mention for role in pingRole]), message
                 )
                 await channel.send(final_notice)
                 await ctx.channel.delete_messages([notice_check, react_msg])
 
                 # reset roles back to their original state
-                index = 0
-                for role in pingRole:
+                for index, role in enumerate(pingRole):
                     await role.edit(mentionable=mentionable[index])
-                    index += 1
 
                 await ctx.send("Done")
             else:
                 await ctx.send("Notice not sent")
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await ctx.send("Response timed out. Notice not sent.")

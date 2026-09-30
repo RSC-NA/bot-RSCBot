@@ -18,11 +18,13 @@ dependencies = [
 ]
 
 [tool.ruff.lint]
-# ruff's pre-0.10 default rule set; widen deliberately rather than via version bumps
-select = ["E4", "E7", "E9", "F"]
+ignore = [
+    # Cog package names (e.g. teamManager) are Red cog names; renaming breaks loading
+    "N999",
+]
 
 [tool.codespell]
-ignore-words-list = "checkin,oce"
+ignore-words-list = "checkin,oce,shepard"
 
 [dependency-groups]
 dev = [

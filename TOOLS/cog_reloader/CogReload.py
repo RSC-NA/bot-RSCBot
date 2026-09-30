@@ -1,10 +1,11 @@
-import config
-import tkinter as tk
 import os
-from functools import partial
-from datetime import datetime
-import time
 import shutil
+import time
+import tkinter as tk
+from datetime import datetime
+from functools import partial
+
+import config
 
 
 def clean_date_time(date_time: str):
@@ -14,10 +15,8 @@ def clean_date_time(date_time: str):
 
 
 def get_last_modified(cog_name: str):
-    today = datetime.date(datetime.now())
-    last_modified = os.path.getmtime(
-        "{}/{}/{}.py".format(config.target_repo, cog_name, cog_name)
-    )
+    today = datetime.now().astimezone().date()
+    last_modified = os.path.getmtime(f"{config.target_repo}/{cog_name}/{cog_name}.py")
     time_format = "%I:%M:%S %p" if config.am_pm_format else "%H:%M:%S"
     time_lm = time.strftime(time_format, time.localtime(last_modified))
     date_lm = time.strftime("%Y-%m-%d", time.localtime(last_modified))
@@ -39,7 +38,7 @@ def get_cogs_in_folder(folder_path):
 
 
 def update_cog(cog_name: str, label: tk.Label):
-    source_path = "{}/{}".format(config.source_repo, cog_name)
+    source_path = f"{config.source_repo}/{cog_name}"
     # for file_name in os.listdir(source_path):
     #     if os.path.isfile(os.path.join(source_path, file_name)) and ".py" in str(file_name):
     #         source = "{}/{}/{}".format(config.source_repo, cog_name, file_name)
@@ -50,12 +49,12 @@ def update_cog(cog_name: str, label: tk.Label):
             file_name
         ):
             continue
-        source_file = "{}/{}/{}".format(config.source_repo, cog_name, file_name)
-        target_file = "{}/{}/{}".format(config.target_repo, cog_name, file_name)
+        source_file = f"{config.source_repo}/{cog_name}/{file_name}"
+        target_file = f"{config.target_repo}/{cog_name}/{file_name}"
         with open(source_file, "r") as source, open(target_file, "w") as target:
             shutil.copyfileobj(source, target)
 
-    print("{} reloaded.".format(cog_name))
+    print(f"{cog_name} reloaded.")
     label["text"] = get_time()
 
 
@@ -70,13 +69,13 @@ def main():
 
     window = tk.Tk()
     proj = config.source_repo[config.source_repo.rindex("/") + 1 :]
-    window.title("{} Cog Reloader".format(proj))
-    for i in range(0, len(shared_cogs)):
+    window.title(f"{proj} Cog Reloader")
+    for i in range(len(shared_cogs)):
         cog_name = shared_cogs[i]
         cog_ts_label = tk.Label(window, text=get_last_modified(cog_name))
         button = tk.Button(
             window,
-            text="Reload {}".format(cog_name),
+            text=f"Reload {cog_name}",
             command=partial(update_cog, cog_name, cog_ts_label),
             height=config.button_height,
             width=config.button_width,
@@ -85,7 +84,7 @@ def main():
         button.grid(row=i + 1, column=0, padx=config.padx, pady=config.pady)
         cog_ts_label.grid(row=i + 1, column=1, padx=config.padx, pady=config.pady)
 
-    tk.Label(window, text="{} Cogs".format(proj)).grid(
+    tk.Label(window, text=f"{proj} Cogs").grid(
         row=0, column=0, padx=config.padx, pady=config.pady
     )
     tk.Label(window, text="Last Updated").grid(

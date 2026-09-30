@@ -1,21 +1,18 @@
-import discord
-import csv
-import os
 import asyncio
+import csv
+import io
 import logging
 
-from redbot.core import commands, Config, checks
+import discord
 from discord import File
 from discord.ext.commands import Context
-from redbot.core.utils.predicates import ReactionPredicate
+from redbot.core import Config, checks, commands
 from redbot.core.utils.menus import start_adding_reactions
-
-from dmHelper import DMHelper
-from teamManager import TeamManager
+from redbot.core.utils.predicates import ReactionPredicate
 
 from bulkRoleManager.embeds import ErrorEmbed
-
-from typing import Optional
+from dmHelper import DMHelper
+from teamManager import TeamManager
 
 log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
@@ -95,14 +92,12 @@ class BulkRoleManager(commands.Cog):
             messages.append(message)
 
         await ctx.send(f"Players with **{role.name}** role:\n")
-        c = 0
-        for msg in messages:
+        for c, msg in enumerate(messages):
             if c > 5:
                 await ctx.send("Too many users to display... stopping.")
                 break
 
             await ctx.send(f"```\n{msg}\n```")
-            c += 1
 
         await ctx.send(
             f":white_check_mark: {count} player(s) have the {role.name} role"
@@ -557,9 +552,8 @@ class BulkRoleManager(commands.Cog):
         messages = []
         message = ""
         if spreadsheet:
-            Outputcsv = "./tmp/Ids.csv"
             header = ["Nickname", "Name", "Id"]
-            csvwrite = open(Outputcsv, "w", newline="", encoding="utf-8")
+            csvwrite = io.StringIO(newline="")
             w = csv.writer(csvwrite, delimiter=",")
             w.writerow(header)
             for member in role.members:
@@ -570,9 +564,8 @@ class BulkRoleManager(commands.Cog):
                     f"{member.id}",
                 ]
                 w.writerow(newrow)
-            csvwrite.close()
-            await ctx.send("Done", file=File(Outputcsv))
-            os.remove(Outputcsv)
+            csv_bytes = io.BytesIO(csvwrite.getvalue().encode("utf-8"))
+            await ctx.send("Done", file=File(csv_bytes, filename="Ids.csv"))
         else:
             for member in role.members:
                 nickname = self.get_player_nickname(member)
@@ -596,7 +589,6 @@ class BulkRoleManager(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def _bulk_role_manager(self, ctx: commands.Context) -> None:
         """Display or configure bulk role manager cog settings"""
-        pass
 
     @_bulk_role_manager.command(name="settings", aliases=["info"])
     async def _show_brm_settings(self, ctx: commands.Context):
@@ -1073,7 +1065,7 @@ class BulkRoleManager(commands.Cog):
 
         return user.name
 
-    async def _draft_eligible_message(self, guild: discord.Guild) -> Optional[str]:
+    async def _draft_eligible_message(self, guild: discord.Guild) -> str | None:
         return await self.config.guild(guild).DraftEligibleMessage()
 
     async def _save_draft_eligible_message(
@@ -1081,7 +1073,7 @@ class BulkRoleManager(commands.Cog):
     ):
         await self.config.guild(guild).DraftEligibleMessage.set(message)
 
-    async def _perm_fa_message(self, guild: discord.Guild) -> Optional[str]:
+    async def _perm_fa_message(self, guild: discord.Guild) -> str | None:
         return await self.config.guild(guild).PermFAMessage()
 
     async def _save_perm_fa_message(self, guild: discord.Guild, message: str | None):

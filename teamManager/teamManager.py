@@ -1,26 +1,21 @@
-import logging
-import discord
-import re
 import ast
-import asyncio
 import difflib
-
+import logging
+import re
 from typing import TYPE_CHECKING
 
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
-from redbot.core.utils.predicates import ReactionPredicate
+import discord
+from redbot.core import Config, checks, commands
 from redbot.core.utils.menus import start_adding_reactions
+from redbot.core.utils.predicates import ReactionPredicate
 
 from teamManager.embeds import ErrorEmbed
 from teamManager.views import (
     AddFranchiseView,
+    RebrandFranchiseView,
     RemoveFranchiseView,
     TransferFranchiseView,
-    RebrandFranchiseView,
 )
-
 
 if TYPE_CHECKING:
     from prefixManager import PrefixManager
@@ -106,16 +101,16 @@ class TeamManager(commands.Cog):
 
         if not_removed:
             message = (
-                ":white_check_mark: The following tiers have been removed: {0}".format(
+                ":white_check_mark: The following tiers have been removed: {}".format(
                     ", ".join(removed)
                 )
             )
-            message += "\n:x: The following tiers could not be removed: {0}".format(
+            message += "\n:x: The following tiers could not be removed: {}".format(
                 ", ".join(not_removed)
             )
             await ctx.send(message)
         else:
-            await ctx.send("Removed {} tiers.".format(len(removed)))
+            await ctx.send(f"Removed {len(removed)} tiers.")
 
     @commands.command()
     @commands.guild_only()
@@ -201,7 +196,7 @@ class TeamManager(commands.Cog):
             )
             return
 
-        franchise_role, old_gm_name, franchise_prefix, franchise_name = franchise_data
+        franchise_role, _old_gm_name, franchise_prefix, franchise_name = franchise_data
         # Convert GM name to discord.Member
         old_gm = await self._get_gm(franchise_role)
 
@@ -369,7 +364,7 @@ class TeamManager(commands.Cog):
 
         for role in franchise_roles:
             (
-                franchise_role,
+                _franchise_role,
                 gm_name,
                 franchise_prefix,
                 franchise_name,
@@ -416,9 +411,9 @@ class TeamManager(commands.Cog):
             try:
                 (
                     franchise_role,
-                    gm_name,
-                    franchise_prefix,
-                    franchise_name,
+                    _gm_name,
+                    _franchise_prefix,
+                    _franchise_name,
                 ) = franchise_data
                 await ctx.send(
                     embed=await self._format_teams_for_franchise(ctx, franchise_role)
@@ -475,7 +470,7 @@ class TeamManager(commands.Cog):
             if len(team) > 0:
                 message += "\n\nDo you mean one of these teams?"
                 for possible_team in team:
-                    message += " `{0}`".format(possible_team)
+                    message += f" `{possible_team}`"
             await ctx.send(embed=ErrorEmbed(description=message))
 
     @commands.command(aliases=["tiers", "getTiers"])
@@ -556,7 +551,7 @@ class TeamManager(commands.Cog):
             messages = []
             message = "Teams set up in this server:\n"
             for team in teams:
-                message += "\n{0}".format(team)
+                message += f"\n{team}"
                 if len(message) > 1900:
                     messages.append(message)
                     message = ""
@@ -652,12 +647,12 @@ class TeamManager(commands.Cog):
                     if filter in perm_fa_filters:
                         if perm_fa_role is not None and perm_fa_role in member.roles:
                             fa_Dictionary["PermFA"].append(member.display_name)
-                    elif filter in signable_fa_filters:
-                        if (
-                            perm_fa_role is not None
-                            and perm_fa_role not in member.roles
-                        ):
-                            fa_Dictionary["FA"].append(member.display_name)
+                    elif (
+                        filter in signable_fa_filters
+                        and perm_fa_role is not None
+                        and perm_fa_role not in member.roles
+                    ):
+                        fa_Dictionary["FA"].append(member.display_name)
                 else:
                     if perm_fa_role is not None and perm_fa_role in member.roles:
                         fa_Dictionary["PermFA"].append(member.display_name)
@@ -669,9 +664,9 @@ class TeamManager(commands.Cog):
         else:
             message = "```"
             for fa in sorted(fa_Dictionary["FA"], key=str.casefold):
-                message += "\n{0}".format(fa)
+                message += f"\n{fa}"
             for permFA in sorted(fa_Dictionary["PermFA"], key=str.casefold):
-                message += "\n{0} {1}".format(permFA, "(Permanent FA)")
+                message += "\n{} {}".format(permFA, "(Permanent FA)")
             message += "```"
 
         color = discord.Colour.blue()
@@ -679,7 +674,7 @@ class TeamManager(commands.Cog):
             if role.name.lower() == tier_name.lower():
                 color = role.color
         embed = discord.Embed(
-            title="{0} Free Agents".format(tier_name), color=color, description=message
+            title=f"{tier_name} Free Agents", color=color, description=message
         )
         embed.set_thumbnail(url=ctx.guild.icon)
 
@@ -723,18 +718,18 @@ class TeamManager(commands.Cog):
         output_segment = "```"
         for member in de_members:
             if len(output_segment) + len(member.display_name) <= 1900:
-                output_segment += "\n{}".format(member.display_name)
+                output_segment += f"\n{member.display_name}"
             else:
                 output_blocks.append(output_segment)
                 output_segment += "\n```"
-                output_segment += "\n{}".format(member.display_name)
+                output_segment += f"\n{member.display_name}"
 
         output_segment += "\n```"
         output_blocks.append(output_segment)
 
         for i in range(len(output_blocks)):
             title = (
-                "Draft Eligible Players ({}/{})".format(i + 1, len(output_blocks))
+                f"Draft Eligible Players ({i + 1}/{len(output_blocks)})"
                 if len(output_blocks) > 1
                 else "Draft Eligible Players"
             )
@@ -756,17 +751,15 @@ class TeamManager(commands.Cog):
             if if_not_msg:
                 await ctx.send(if_not_msg)
             return False
-        except asyncio.TimeoutError:
+        except TimeoutError:
             await ctx.send(
-                "Sorry {}, you didn't react quick enough. Please try again.".format(
-                    user.mention
-                )
+                f"Sorry {user.mention}, you didn't react quick enough. Please try again."
             )
             return False
 
     async def _add_tier(self, ctx, tier_name):
         await self._create_role(ctx, tier_name)
-        await self._create_role(ctx, "{0}FA".format(tier_name))
+        await self._create_role(ctx, f"{tier_name}FA")
         tiers = await self.tiers(ctx)
         tiers.append(tier_name)
         await self._save_tiers(ctx, tiers)
@@ -878,9 +871,7 @@ class TeamManager(commands.Cog):
         team_members = await self.members_from_team(franchise_role, tier_role)
         captain = await self._get_team_captain(ctx, franchise_role, tier_role)
 
-        message = "```\n{0} - {1} - {2}:\n".format(
-            team_name, franchise_role.name, tier_role.name
-        )
+        message = f"```\n{team_name} - {franchise_role.name} - {tier_role.name}:\n"
         subbed_out_message = ""
 
         for member in team_members:
@@ -889,14 +880,14 @@ class TeamManager(commands.Cog):
                 ctx, member, *role_tags
             )
             if self.is_subbed_out(member):
-                subbed_out_message += "  {0}\n".format(user_message)
+                subbed_out_message += f"  {user_message}\n"
             else:
-                message += "  {0}\n".format(user_message)
+                message += f"  {user_message}\n"
 
         if not team_members:
             message += "\nNo members found."
-        if not subbed_out_message == "":
-            message += "\nSubbed Out:\n{0}".format(subbed_out_message)
+        if subbed_out_message != "":
+            message += f"\nSubbed Out:\n{subbed_out_message}"
         message += "```"
         return message
 
@@ -907,12 +898,12 @@ class TeamManager(commands.Cog):
         team_tiers = []
 
         gm = await self._get_gm(franchise_role)
-        message = "**General Manager:** {0}".format(gm.mention if gm else "(No GM)")
+        message = "**General Manager:** {}".format(gm.mention if gm else "(No GM)")
         if teams:
             for team in teams:
-                f_role, tier_role = await self._roles_for_team(ctx, team)
+                _f_role, tier_role = await self._roles_for_team(ctx, team)
                 captain = await self._get_team_captain(ctx, franchise_role, tier_role)
-                team_names.append("{0} ({1})".format(team, tier_role.name))
+                team_names.append(f"{team} ({tier_role.name})")
                 team_tiers.append(tier_role.name)
 
                 if captain:
@@ -927,7 +918,7 @@ class TeamManager(commands.Cog):
 
         franchise_name = self._extract_franchise_name_from_role(franchise_role)
         embed = discord.Embed(
-            title="{0} Captains:".format(franchise_name),
+            title=f"{franchise_name} Captains:",
             color=discord.Colour.blue(),
             description=message,
         )
@@ -968,7 +959,7 @@ class TeamManager(commands.Cog):
         captainless_teams.sort(key=lambda gm_team: gm_team[1].casefold())
 
         embed = discord.Embed(
-            title="{0} Captains:".format(tier_role.name), color=tier_role.color
+            title=f"{tier_role.name} Captains:", color=tier_role.color
         )
 
         captains_formatted = []
@@ -1011,9 +1002,7 @@ class TeamManager(commands.Cog):
         """Creates and returns a new Guild Role"""
         for role in ctx.guild.roles:
             if role.name == role_name:
-                await ctx.send(
-                    'The role "{0}" already exists in the server.'.format(role_name)
-                )
+                await ctx.send(f'The role "{role_name}" already exists in the server.')
                 return None
         return await ctx.guild.create_role(name=role_name)
 
@@ -1025,14 +1014,14 @@ class TeamManager(commands.Cog):
             extraRoles.append("IR")
         roleString = ""
         if extraRoles:
-            roleString = " ({0})".format("|".join(extraRoles))
-        return "{0}{1}".format(member.display_name, roleString)
+            roleString = " ({})".format("|".join(extraRoles))
+        return f"{member.display_name}{roleString}"
 
     async def _format_teams_for_franchise(self, ctx, franchise_role):
         teams = await self._find_teams_for_franchise(ctx, franchise_role)
         tiers = [(await self._roles_for_team(ctx, team))[1].name for team in teams]
         embed = discord.Embed(
-            title="{0}".format(franchise_role.name), color=discord.Colour.blue()
+            title=f"{franchise_role.name}", color=discord.Colour.blue()
         )
 
         embed.add_field(name="Tier", value="{}\n".format("\n".join(tiers)), inline=True)
@@ -1057,14 +1046,14 @@ class TeamManager(commands.Cog):
         for team in teams:
             franchise_role = (await self._roles_for_team(ctx, team))[0]
             gmNameFromRole = re.findall(r"(?<=\().*(?=\))", franchise_role.name)[0]
-            teams_message += "\n\t{0} ({1})".format(team, gmNameFromRole)
+            teams_message += f"\n\t{team} ({gmNameFromRole})"
 
         color = discord.Colour.blue()
         for role in ctx.guild.roles:
             if role.name.lower() == tier.lower():
                 color = role.color
 
-        embed = discord.Embed(title="{0} Tier Teams".format(tier), color=color)
+        embed = discord.Embed(title=f"{tier} Tier Teams", color=color)
 
         if teams and franchises:
             embed.add_field(
@@ -1106,7 +1095,7 @@ class TeamManager(commands.Cog):
             return False
         else:
             tier_role = self._get_tier_role(ctx, tier_name)
-            tier_fa_role = self._find_role_by_name(ctx, "{0}FA".format(tier_name))
+            tier_fa_role = self._find_role_by_name(ctx, f"{tier_name}FA")
             if tier_role:
                 await tier_role.delete()
             if tier_fa_role:
@@ -1185,7 +1174,7 @@ class TeamManager(commands.Cog):
 
     async def _remove_team(self, ctx, team_name: str) -> bool:
         try:
-            franchise_role, tier_role = await self._roles_for_team(ctx, team_name)
+            _franchise_role, _tier_role = await self._roles_for_team(ctx, team_name)
             teams = await self._teams(ctx)
             team_roles = await self._team_roles(ctx)
             teams.remove(team_name)
@@ -1219,7 +1208,7 @@ class TeamManager(commands.Cog):
         for role in ctx.guild.roles:
             if role.id == role_id:
                 return role
-        raise LookupError("No role with id: {0} found in server roles".format(role_id))
+        raise LookupError(f"No role with id: {role_id} found in server roles")
 
     def _find_role_by_name(self, ctx, role_name):
         for role in ctx.message.guild.roles:
@@ -1239,8 +1228,8 @@ class TeamManager(commands.Cog):
                 gmNameFromRole = re.findall(r"(?<=\().*(?=\))", role.name)
                 if gmNameFromRole and gmNameFromRole[0] == gm_name:
                     return role
-            except Exception as exc:
-                log.exception(exc)
+            except Exception:
+                log.exception(f"Unable to parse GM name from role {role.name}")
                 continue
 
     def _get_all_franchise_roles(self, ctx):
@@ -1265,7 +1254,7 @@ class TeamManager(commands.Cog):
             tier_role = self._find_role(ctx, tier_role_id)
             return (franchise_role, tier_role)
         else:
-            raise LookupError("No team with name: {0}".format(team_name))
+            raise LookupError(f"No team with name: {team_name}")
 
     async def _find_team_name(self, ctx, franchise_role, tier_role):
         teams = await self._teams(ctx)
@@ -1410,9 +1399,7 @@ class TeamManager(commands.Cog):
         try:
             return re.findall(r"(?<=\().*(?=\))", franchise_role.name)[0]
         except IndexError:
-            raise LookupError(
-                "GM name not found from role {0}".format(franchise_role.name)
-            )
+            raise LookupError(f"GM name not found from role {franchise_role.name}")
 
     async def _get_user_tier_roles(self, ctx, user: discord.Member):
         user_tier_roles = []

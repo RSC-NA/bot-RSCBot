@@ -1,8 +1,8 @@
-import discord
-from redbot.core import commands, Config, checks
-
 import asyncio
 import logging
+
+import discord
+from redbot.core import Config, checks, commands
 
 log: logging.Logger = logging.getLogger("red.RSCBot.dmHelper")
 
@@ -258,7 +258,7 @@ class DMHelper(commands.Cog):
                         if member and dm_bot_role in member.roles:
                             await member.remove_roles(dm_bot_role)
                     except Exception:
-                        pass
+                        log.debug("Unable to remove needs-to-DM role", exc_info=True)
                 except Exception as e:
                     message_data["exception"] = e
                     failed_msg_buffer.append(message_data)
@@ -367,7 +367,7 @@ class DMHelper(commands.Cog):
                 was_locked = True
 
         if not was_locked:
-            return None
+            return
 
         # Sends old failed messages
         unlock_msg = (

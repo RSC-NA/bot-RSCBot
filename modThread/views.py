@@ -1,14 +1,10 @@
 import discord
 
-from typing import Union
-
 
 class AssignView(discord.ui.View):
     """View class designed to only interact with the interaction author"""
 
-    def __init__(
-        self, author: Union[discord.Member, discord.User], timeout: float = 20.0
-    ):
+    def __init__(self, author: discord.Member | discord.User, timeout: float = 20.0):
         super().__init__()
         self.timeout = timeout
         self.author = author
@@ -27,6 +23,4 @@ class AssignView(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         """Check if the interaction user is the author. Allow or deny callbacks"""
-        if interaction.user != self.author:
-            return False
-        return True
+        return interaction.user == self.author

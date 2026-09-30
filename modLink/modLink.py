@@ -1,11 +1,8 @@
 import asyncio
-import discord
 import logging
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
 
-from typing import Union, Optional, List
+import discord
+from redbot.core import Config, checks, commands
 
 log = logging.getLogger("red.RSCBot.modLink")
 
@@ -61,7 +58,6 @@ class ModeratorLink(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def _mod_link(self, ctx: commands.Context) -> None:
         """Display or configure mod link cog settings"""
-        pass
 
     @_mod_link.command(name="settings", aliases=["info"])
     async def _mod_link_settings(self, ctx: commands.Context):
@@ -204,7 +200,6 @@ class ModeratorLink(commands.Cog):
     @_mod_link.group(name="unset")
     async def _mod_link_unset(self, ctx: commands.Context):
         """Remove a mod link configuration option"""
-        pass
 
     @_mod_link_unset.command(name="modrole", aliases=["mrole"])
     async def _clear_mod_role(self, ctx: commands.Context):
@@ -403,9 +398,8 @@ class ModeratorLink(commands.Cog):
         """Removes the Star Emoji from all discord members who have it."""
         all_stars = []
         for member in ctx.guild.members:
-            if member.nick:
-                if self.STAR_EMOJI in member.nick:
-                    all_stars.append(member)
+            if member.nick and self.STAR_EMOJI in member.nick:
+                all_stars.append(member)
 
         successes = []
         failures = []
@@ -488,7 +482,7 @@ class ModeratorLink(commands.Cog):
 
     @commands.Cog.listener("on_member_ban")
     async def on_member_ban(
-        self, guild: discord.Guild, user: Union[discord.Member, discord.User]
+        self, guild: discord.Guild, user: discord.Member | discord.User
     ):
         """Upon a member ban, members in the guild network will be banned automatically."""
         if not await self._event_log_channel(guild):
@@ -525,7 +519,7 @@ class ModeratorLink(commands.Cog):
 
     @commands.Cog.listener("on_member_unban")
     async def on_member_unban(
-        self, guild: discord.Guild, user: Union[discord.Member, discord.User]
+        self, guild: discord.Guild, user: discord.Member | discord.User
     ):
         """Upon a member unban, members in the guild network will be unbanned automatically."""
         if not await self._event_log_channel(guild):
@@ -562,10 +556,9 @@ class ModeratorLink(commands.Cog):
         nickname standardization, and bot purging."""
 
         # Run bot detection if enabled
-        if self.bot_detection[member.guild]:
-            # Do not process member standardization if member has been detected as a bot
-            if await self.run_bot_detection(member):
-                return
+        # Do not process member standardization if member has been detected as a bot
+        if self.bot_detection[member.guild] and await self.run_bot_detection(member):
+            return
 
         event_log_channel = await self._event_log_channel(member.guild)
         if event_log_channel:
@@ -586,7 +579,7 @@ class ModeratorLink(commands.Cog):
             guild_event_log_channel = await self._event_log_channel(guild)
             if guild_event_log_channel:
                 guild_member = await self._guild_member_from_id(guild, member.id)
-                guild_prefix, guild_nick, guild_awards = self._get_name_components(
+                _guild_prefix, guild_nick, _guild_awards = self._get_name_components(
                     guild_member
                 )
 
@@ -711,9 +704,7 @@ class ModeratorLink(commands.Cog):
         # cover case where member leaves, rejoins
         repeat_member = member.id in [m.id for m in member_join_data["members"]]
         if repeat_member:
-            if len(member_join_data["members"]) == 1:
-                return False
-            return True
+            return len(member_join_data["members"]) != 1
 
         # add member to recent joins
         member_join_data["members"].append(member)
@@ -772,7 +763,7 @@ class ModeratorLink(commands.Cog):
         try:
             await member.send(embed=embed)
         except Exception:
-            pass
+            log.debug(f"Unable to DM {member} before removal", exc_info=True)
 
         reason_note = "suspected bot"
         if reason:
@@ -797,10 +788,10 @@ class ModeratorLink(commands.Cog):
 
     def cancel_all_tasks(self, guild=None):
         guilds = [guild] if guild else self.bot.guilds
-        for guild in guilds:
-            for name, join_data in self.recently_joined_members[guild].items():
+        for target_guild in guilds:
+            for join_data in self.recently_joined_members[target_guild].values():
                 join_data["timeout"].cancel()
-            self.recently_joined_members[guild] = {}
+            self.recently_joined_members[target_guild] = {}
 
     # endregion bot detection
 
@@ -953,8 +944,8 @@ class ModeratorLink(commands.Cog):
         await ctx.send(message)
 
     async def _process_nickname_update(self, before, after):
-        b_prefix, b_nick, b_awards = self._get_name_components(before)
-        a_prefix, a_nick, a_awards = self._get_name_components(after)
+        _b_prefix, b_nick, _b_awards = self._get_name_components(before)
+        _a_prefix, a_nick, _a_awards = self._get_name_components(after)
         event_log_channel = await self._event_log_channel(before.guild)
 
         if b_nick == a_nick or not event_log_channel:
@@ -982,7 +973,10 @@ class ModeratorLink(commands.Cog):
                             f"{guild_member.mention} has changed their name from **{guild_nick}** to **{a_nick}** [initiated from **{before.guild.name}**]"
                         )
                 except Exception:
-                    pass
+                    log.debug(
+                        f"Unable to propagate nickname change to {guild.name}",
+                        exc_info=True,
+                    )
 
     def _get_name_components(self, member: discord.Member):
         if member.nick:
@@ -1019,7 +1013,7 @@ class ModeratorLink(commands.Cog):
     async def _save_bot_detection(self, guild: discord.Guild, bot_detection: bool):
         await self.config.guild(guild).BotDetection.set(bot_detection)
 
-    async def _get_welcome_message(self, guild: discord.Guild) -> Optional[str]:
+    async def _get_welcome_message(self, guild: discord.Guild) -> str | None:
         return await self.config.guild(guild).WelcomeMessage()
 
     async def _save_welcome_message(self, guild: discord.Guild, message: str | None):
@@ -1039,7 +1033,7 @@ class ModeratorLink(commands.Cog):
 
     async def _event_log_channel(
         self, guild: discord.Guild
-    ) -> Optional[discord.TextChannel]:
+    ) -> discord.TextChannel | None:
         channel = guild.get_channel(await self.config.guild(guild).EventLogChannel())
         if isinstance(channel, discord.TextChannel):
             return channel
@@ -1048,15 +1042,15 @@ class ModeratorLink(commands.Cog):
     async def _save_mod_role(self, guild: discord.Guild, mod_role: int | None):
         await self.config.guild(guild).ModeratorRole.set(mod_role)
 
-    async def _mod_role(self, guild: discord.Guild) -> Optional[discord.Role]:
+    async def _mod_role(self, guild: discord.Guild) -> discord.Role | None:
         return guild.get_role(await self.config.guild(guild).ModeratorRole())
 
     async def _save_shared_roles(
-        self, guild: discord.Guild, shared_role_names: List[str]
+        self, guild: discord.Guild, shared_role_names: list[str]
     ):
         await self.config.guild(guild).SharedRoles.set(shared_role_names)
 
-    async def _get_shared_role_names(self, guild: discord.Guild) -> List[str]:
+    async def _get_shared_role_names(self, guild: discord.Guild) -> list[str]:
         return await self.config.guild(guild).SharedRoles()
 
     # endregion json data

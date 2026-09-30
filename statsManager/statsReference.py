@@ -1,3 +1,6 @@
+from typing import ClassVar
+
+
 class StatsReference:
     # General
     PERM_FA_ROLE_NAME = "permFA"
@@ -5,7 +8,7 @@ class StatsReference:
 
     DONE = "Done"
     NO_FA_STATS_MSG = "Unfortunately player stats can only be\nretrieved for rostered players at this time."
-    NO_STATS_FOUND_MSG = """We couldn't find any stats for this player. This 
+    NO_STATS_FOUND_MSG = """We couldn't find any stats for this player. This
     is likely because of a recent name change. """
 
     # Awards
@@ -13,11 +16,21 @@ class StatsReference:
     GOLD_MEDAL_EMOJI = "\U0001f3c5"  # gold medal
     FIRST_PLACE_EMOJI = "\U0001f947"  # first place medal
     STAR_EMOJI = "\U00002b50"  # :star:
-    LEAGUE_AWARDS = [TROPHY_EMOJI, GOLD_MEDAL_EMOJI, FIRST_PLACE_EMOJI, STAR_EMOJI]
+    LEAGUE_AWARDS: ClassVar[list[str]] = [
+        TROPHY_EMOJI,
+        GOLD_MEDAL_EMOJI,
+        FIRST_PLACE_EMOJI,
+        STAR_EMOJI,
+    ]
 
     # Stats Specific
-    TEAM_LEAGUE_INFO = ["franchise", "gm", "conference", "division"]
-    INCLUDE_TEAM_STATS = [
+    TEAM_LEAGUE_INFO: ClassVar[list[str]] = [
+        "franchise",
+        "gm",
+        "conference",
+        "division",
+    ]
+    INCLUDE_TEAM_STATS: ClassVar[list[str]] = [
         "gamesPlayed",
         "wins",
         "loss",
@@ -37,7 +50,7 @@ class StatsReference:
         "oppShots",
         "oppPoints",
     ]
-    INCLUDE_PLAYER_STATS = [
+    INCLUDE_PLAYER_STATS: ClassVar[list[str]] = [
         "gp",
         "gw",
         "gl",
@@ -54,7 +67,7 @@ class StatsReference:
         "playmakers",
         "saviors",
     ]
-    DATA_CODE_NAME_MAP = {
+    DATA_CODE_NAME_MAP: ClassVar[dict[str, str]] = {
         # General
         "gm": "GM",
         # Player

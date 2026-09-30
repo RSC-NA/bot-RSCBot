@@ -1,17 +1,14 @@
-import discord
 import logging
+from typing import TYPE_CHECKING
 
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
+import discord
+from redbot.core import Config, checks, commands
 
 from faCheckIn.views import AuthorOnlyView, ConfirmButton, DeclineButton
 
-from typing import Optional, TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from teamManager import TeamManager
     from match.match import Match
+    from teamManager import TeamManager
 
 log = logging.getLogger("red.RSCBot.faCheckIn")
 
@@ -58,9 +55,7 @@ class FaCheckIn(commands.Cog):
                 await self._send_check_in_message(ctx, user, match_day, tier)
             else:
                 await ctx.send(
-                    "You've already checked in. If you want to check out, use the `{0}checkOut` command.".format(
-                        ctx.prefix
-                    )
+                    f"You've already checked in. If you want to check out, use the `{ctx.prefix}checkOut` command."
                 )
         else:
             await ctx.send(
@@ -90,9 +85,7 @@ class FaCheckIn(commands.Cog):
                 await self._send_check_out_message(ctx, user, match_day, tier)
             else:
                 await ctx.send(
-                    "You aren't currently checked in. If you want to check in, use the `{0}checkIn` command.".format(
-                        ctx.prefix
-                    )
+                    f"You aren't currently checked in. If you want to check in, use the `{ctx.prefix}checkIn` command."
                 )
         else:
             await ctx.send(
@@ -114,7 +107,7 @@ class FaCheckIn(commands.Cog):
 
         tier = await self.team_manager_cog._match_tier_name(ctx, tier_name)
         if tier is None:
-            await ctx.send("No tier with name: `{0}`".format(tier_name))
+            await ctx.send(f"No tier with name: `{tier_name}`")
             return
 
         tier_list = await self._tier_data(ctx, match_day, tier)
@@ -129,7 +122,7 @@ class FaCheckIn(commands.Cog):
                 member is not None
                 and await self._find_tier_from_fa_role(ctx, member) is not None
             ):
-                message += "\n{0}".format(member.display_name)
+                message += f"\n{member.display_name}"
                 if perm_fa_role is not None and perm_fa_role in member.roles:
                     message += " (Permanent FA)"
 
@@ -138,7 +131,7 @@ class FaCheckIn(commands.Cog):
             if role.name.lower() == tier_name.lower():
                 color = role.color
         embed = discord.Embed(
-            title="Availability for {0} tier on match day {1}:".format(tier, match_day),
+            title=f"Availability for {tier} tier on match day {match_day}:",
             color=color,
             description=message,
         )
@@ -173,7 +166,7 @@ class FaCheckIn(commands.Cog):
         await self._save_check_ins(ctx, {})
         await ctx.send("Done.")
 
-    async def _get_match_day(self, ctx) -> Optional[str]:
+    async def _get_match_day(self, ctx) -> str | None:
         """Returns the current match day for a specific guild."""
         try:
             return await self.match_cog._match_day(ctx)

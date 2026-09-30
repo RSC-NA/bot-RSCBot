@@ -1,12 +1,9 @@
-import re
-import logging
 import ast
+import logging
+import re
 
 import discord
-
-from redbot.core import Config
-from redbot.core import commands
-from redbot.core import checks
+from redbot.core import Config, checks, commands
 
 from prefixManager.views import ClearPlayerPrefixView
 
@@ -48,12 +45,12 @@ class PrefixManager(commands.Cog):
         try:
             for prefixStr in prefixes_to_add:
                 prefix = ast.literal_eval(prefixStr)
-                await ctx.send("Adding prefix: {0}".format(repr(prefix)))
+                await ctx.send(f"Adding prefix: {prefix!r}")
                 prefixAdded = await self.add_prefix(ctx, *prefix)
                 if prefixAdded:
                     addedCount += 1
         finally:
-            await ctx.send("Added {0} prefixes(s).".format(addedCount))
+            await ctx.send(f"Added {addedCount} prefixes(s).")
         await ctx.send("Done.")
 
     @commands.command()
@@ -65,7 +62,7 @@ class PrefixManager(commands.Cog):
         if prefixAdded:
             await ctx.send("Done.")
         else:
-            await ctx.send("Error adding prefix: {0}".format(prefix))
+            await ctx.send(f"Error adding prefix: {prefix}")
 
     @commands.command(aliases=["listPrefixes", "prefixes"])
     @commands.guild_only()
@@ -76,7 +73,7 @@ class PrefixManager(commands.Cog):
         if len(prefixes.items()) > 0:
             message = "```Prefixes:"
             for key, value in prefixes.items():
-                message += "\n\t{0} = {1}".format(key, value)
+                message += f"\n\t{key} = {value}"
             message += "```"
             await ctx.send(message)
         else:
@@ -91,7 +88,7 @@ class PrefixManager(commands.Cog):
         if prefixRemoved:
             await ctx.send("Done.")
         else:
-            await ctx.send("Error removing prefix for {0}".format(gm_name))
+            await ctx.send(f"Error removing prefix for {gm_name}")
 
     @commands.command()
     @commands.guild_only()
@@ -181,9 +178,9 @@ class PrefixManager(commands.Cog):
         """Gets the prefix corresponding to the GM's franchise"""
         prefix = await self._get_gm_prefix(ctx, gm_name)
         if prefix:
-            await ctx.send("Prefix for {0} = {1}".format(gm_name, prefix))
+            await ctx.send(f"Prefix for {gm_name} = {prefix}")
             return
-        await ctx.send(":x: Prefix not found for {0}".format(gm_name))
+        await ctx.send(f":x: Prefix not found for {gm_name}")
 
     def _find_role(self, ctx, role_id):
         guild = ctx.message.guild
@@ -191,7 +188,7 @@ class PrefixManager(commands.Cog):
         for role in roles:
             if role.id == role_id:
                 return role
-        raise LookupError("No role with id: {0} found in server roles".format(role_id))
+        raise LookupError(f"No role with id: {role_id} found in server roles")
 
     @commands.command()
     @commands.guild_only()
@@ -209,7 +206,7 @@ class PrefixManager(commands.Cog):
             except commands.BadArgument:
                 if notFound == 0:
                     message += "Couldn't find:\n"
-                message += "{0}\n".format(user)
+                message += f"{user}\n"
                 notFound += 1
                 continue
 
@@ -225,13 +222,11 @@ class PrefixManager(commands.Cog):
         else:
             message += ":white_check_mark: Removed nicknames from everyone that was found from list"
         if notFound > 0:
-            message += ". {0} user(s) were not found".format(notFound)
+            message += f". {notFound} user(s) were not found"
         if removed > 0:
-            message += ". {0} user(s) had their nickname removed".format(removed)
+            message += f". {removed} user(s) had their nickname removed"
         if forbidden > 0:
-            message += ". {0} user(s) could not be edited due to missing permissions (403 Forbidden)".format(
-                forbidden
-            )
+            message += f". {forbidden} user(s) could not be edited due to missing permissions (403 Forbidden)"
         await ctx.send(message)
 
     async def add_prefix(self, ctx, gm_name: str, prefix: str):
@@ -244,12 +239,12 @@ class PrefixManager(commands.Cog):
         #     - that there aren't extra args
         errors = []
         if not proper_gm_name:
-            errors.append("GM not found with name {0}.".format(gm_name))
+            errors.append(f"GM not found with name {gm_name}.")
         if not prefix:
-            errors.append("Prefix not found from input for GM {0}.".format(gm_name))
+            errors.append(f"Prefix not found from input for GM {gm_name}.")
         if errors:
             await ctx.send(
-                ":x: Errors with input:\n\n  * {0}\n".format("\n  * ".join(errors))
+                ":x: Errors with input:\n\n  * {}\n".format("\n  * ".join(errors))
             )
             return
 
@@ -279,7 +274,7 @@ class PrefixManager(commands.Cog):
         try:
             del prefixes[gm_name]
         except KeyError:
-            await ctx.send("{0} does not have a prefix.".format(gm_name))
+            await ctx.send(f"{gm_name} does not have a prefix.")
             return False
         await self._save_prefixes(ctx, prefixes)
         return True
@@ -309,7 +304,7 @@ class PrefixManager(commands.Cog):
             return prefixes[gm_name]
         except Exception:
             return prefixes[gm_name.lower()]
-            raise LookupError("GM name not found from {0}".format(franchise_role.name))
+            raise LookupError(f"GM name not found from {franchise_role.name}")
 
     async def _prefixes(self, ctx):
         return await self.config.guild(ctx.guild).Prefixes()
