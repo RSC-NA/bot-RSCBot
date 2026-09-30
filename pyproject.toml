@@ -7,10 +7,6 @@ license = "MIT"
 requires-python = ">=3.11.15"
 dependencies = [
     "Red-DiscordBot>=3.5.23",
-    "aiohttp>=3.8.5",
-    "fuzzywuzzy>=0.18.0",
-    "pytz>=2023.3",
-    "rapidfuzz>=3.3.0",
     "requests>=2.30.0",
 ]
 
@@ -26,7 +22,6 @@ ignore-words-list = "checkin,oce,shepard"
 [dependency-groups]
 dev = [
     "ty>=0.0.84",
-    "types-pytz>=2026.1.1.20260408",
     "types-requests>=2.33.0.20260408",
 ]
 
