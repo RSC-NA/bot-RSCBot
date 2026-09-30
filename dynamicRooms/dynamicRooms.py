@@ -28,7 +28,7 @@ class DynamicRooms(commands.Cog):
     async def addDynamicCategory(self, ctx, category: discord.CategoryChannel):
         """Sets existing category where each contained voice channel will become a dynamic voice channel."""
         categories = await self._get_dynamic_categories(ctx.guild)
-        if category not in categories:
+        if category.id not in categories:
             categories.append(category.id)
             await self._save_dynamic_categories(ctx.guild, categories)
             await ctx.send("Done")
@@ -103,10 +103,12 @@ class DynamicRooms(commands.Cog):
     async def addHideoutCategory(self, ctx, category: discord.CategoryChannel):
         """Sets existing category where each contained voice channel will be cloned and hidden when it reaches its capacity."""
         categories = await self._get_hideout_categories(ctx.guild)
-        categories.append(category.id)
-        await self._save_hideout_categories(ctx.guild, categories)
-
-        await ctx.send("Done")
+        if category.id not in categories:
+            categories.append(category.id)
+            await self._save_hideout_categories(ctx.guild, categories)
+            await ctx.send("Done")
+        else:
+            await ctx.send("This category is already a hideout category.")
 
     @commands.command()
     @commands.guild_only()
@@ -196,6 +198,18 @@ class DynamicRooms(commands.Cog):
     @commands.Cog.listener("on_guild_channel_delete")
     async def on_guild_channel_delete(self, channel):
         """Removes channel from db if a channel is deleted."""
+        if isinstance(channel, discord.CategoryChannel):
+            dynamic_categories = await self._get_dynamic_categories(channel.guild)
+            if channel.id in dynamic_categories:
+                dynamic_categories.remove(channel.id)
+                await self._save_dynamic_categories(channel.guild, dynamic_categories)
+
+            hideout_categories = await self._get_hideout_categories(channel.guild)
+            if channel.id in hideout_categories:
+                hideout_categories.remove(channel.id)
+                await self._save_hideout_categories(channel.guild, hideout_categories)
+            return
+
         if not isinstance(channel, discord.VoiceChannel):
             return
         vc = channel
@@ -274,13 +288,13 @@ class DynamicRooms(commands.Cog):
         for category in ctx.guild.categories:
             if category.id == category_id:
                 return "**{}** [{}]".format(category.name, category.id)
-        return None
+        return "*Unknown or deleted category* [{}]".format(category_id)
 
     def _get_channel_name(self, guild, channel_id):
         for channel in guild.channels:
             if channel.id == channel_id:
                 return "**{}** [{}]".format(channel.name, channel.id)
-        return None
+        return "*Unknown or deleted channel* [{}]".format(channel_id)
 
     async def _is_hideout_vc(self, voice_channel: discord.VoiceChannel):
         hideout_categories = await self._get_hideout_categories(voice_channel.guild)
