@@ -2,17 +2,21 @@
 
 This set of instructions informs developers how to configure their dev environment for Red in VS Code. This process will enable devs to run redbot instances from their shell and should resolve any redbot import references.
 
-1. Install virtual Environment:
+1. Install [uv](https://docs.astral.sh/uv/getting-started/installation/):
 
-     `$ pip install virtualenv`
+     `$ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"`
 
-    - virtual environment version can be viewed with:
+    - uv version can be viewed with:
 
-         `$ virtualenv --version`
+         `$ uv --version`
 
-1. Create virtual Environment:
-    
-    `$ python -m venv .venv`
+1. Create the virtual environment and install dependencies (including Red-DiscordBot) from the project root:
+
+    `$ uv sync`
+
+    - This creates `.venv` using the Python version pinned in `.python-version` (uv downloads it if needed) and installs everything locked in `uv.lock`, including the `dev` dependency group.
+    - Re-run `uv sync` whenever `pyproject.toml` or `uv.lock` changes. If running the code in debug mode is failing, this is the first thing to try.
+
 1. At the bottom right of the IDE, a prompt may appear:
 
 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;![](https://i.stack.imgur.com/HzSHk.png)
@@ -20,31 +24,16 @@ This set of instructions informs developers how to configure their dev environme
 - _"We noticed a new virtual environment has been created. Do you want to select it for the workspace folder?"_
 - Select **Yes**.
 
-1. Install the project using: `pip install -e .[style]`
-
-    - Notes:
-        - `.[style]` is a literal value
-        - `.[dev]` or `.[style]` may be used
-
 <br>
 
-1. Follow the "Installing Red" section Redbot's [official documentation](https://docs.discord.red/en/stable/install_guides/windows.html#installing-red):
-
-    ```
-    python -m pip install -U pip setuptools wheel
-    python -m pip install -U Red-DiscordBot
-    ```
-
-    If running the code in debug mode is failing, you may need to re-execute these installation steps.
-
-1. Enter Virtual Environment with:
+1. (Optional) Enter Virtual Environment with the command below. Alternatively, skip activation and prefix commands with `uv run` (e.g. `uv run redbot <instance>`).
 
      `$ & c:/Users/<path_to_project>/.venv/Scripts/Activate.ps1`
 
      or
 
      `$ ./.venv/Scripts/Activate.ps1` (using local path)
-1. Use the hotkey (`Ctrl+Shift+P`) and click "Python: Select Interpreter" 
+1. Use the hotkey (`Ctrl+Shift+P`) and click "Python: Select Interpreter"
     - Select the virtual environment you just created: `('.venv': venv) ./.venv/Scripts.python.exe`
 
 # Installing Cogs for Development
@@ -63,7 +52,7 @@ Example:
 
 # Debugging
 1. Open the debug window in VSC (`Ctrl+Shift+D`) and click the cog.
-1. Update `.venv/launch.json` to include the following as a configuration:
+1. Update `.vscode/launch.json` to include the following as a configuration:
 ```json
 {
     "name": "Python: RedBot",
@@ -82,25 +71,18 @@ Example:
 1. Click the Run and Debug dropdown to select your newly created configuration, and the Green Play button to run it.
 
 # More Shell Commands
-- `redbot --list` lists all redbot instances
-- `redbot <instance>` launches a redbot instance
+- `uv run redbot --list` lists all redbot instances
+- `uv run redbot <instance>` launches a redbot instance
+- `uv run redbot-setup` creates a new redbot instance
 
 # Normal Use
-
-1. Enter Virtual Environment:
-
-    `$ & c:/Users/<path_to_project>/.venv/Scripts/Activate.ps1`
-
-    or if you're already in your project path, then you can just run
-
-    `$ & .venv/Scripts/Activate.ps1`
 
 1. Run Bot Instance:
 
     - From Terminal:
-    
-        `$ redbot <instance>` (+ optional flag: `--dev`)
-    
+
+        `$ uv run redbot <instance>` (+ optional flag: `--dev`)
+
     or
 
     - From Debug Console:
@@ -119,7 +101,7 @@ The `core` folder doesn't contain anything truly significant. It stores informat
 
 **This is likely the most helpful thing to know for manual debugging/bug fixing:**
 
-\*\*The `cogs` folder has a greater quantity and quality of files within it. Most notably, each cog folder contains the `settings.json` file for the information saved for that cog respectively. 
+\*\*The `cogs` folder has a greater quantity and quality of files within it. Most notably, each cog folder contains the `settings.json` file for the information saved for that cog respectively.
 
 ## Extra Info
 It is worth identifying that there are two important cogs loaded by default: `CogManager` and `RepoManager`. In some edge cases, its helpful to dig into these repositories, particularly the `CogManager` as it stores the executable python files that are imported from a remote GitHub repository.

@@ -16,12 +16,14 @@ Follow the Red Discord Bot installation guide for [Windows](https://docs.discord
 Certain cogs depend on another cog being loaded first in order to work correctly. You can see a visualization of the cog dependencies [here](https://docs.google.com/drawings/d/1Ivi3vwgZ8KbZJ1d_BVMI0b2TTO98nMtoj62Iw-oTVQs/edit?usp=sharing). Any cog that isn't shown in that chart is a stand-alone cog that can be loaded whenever and will work on its own.
 
 ## Dev Installation
-If installing locally for development, a requirements file is provided. In a virtual environment, run the following:
+Development dependencies are managed with [uv](https://docs.astral.sh/uv/). After [installing uv](https://docs.astral.sh/uv/getting-started/installation/), run the following from the project root:
 ```
-pip install -r requirements.txt
+uv sync
 ```
 
-Then follow the guide in DevSetup-VSCode.
+This creates a `.venv` using the Python version pinned in `.python-version` and installs all dependencies (including Red-DiscordBot and the `dev` group) from `uv.lock`. Run commands inside the environment with `uv run`, e.g. `uv run redbot <instance>`.
+
+Then follow the guide in [DevSetup-VSCode](DevSetup-VSCode.md).
 
 ## Usage
 
