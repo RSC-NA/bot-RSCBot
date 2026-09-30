@@ -262,10 +262,8 @@ class BulkRoleManager(commands.Cog):
                 else:
                     await member.add_roles(role)
                     added += 1
-            except Exception as exc:
-                log.error(
-                    f"Failed to add {role.name} to {member.id}: {type(exc)} {exc}"
-                )
+            except Exception:
+                log.exception(f"Failed to add {role.name} to {member.id}")
                 failed += 1
 
         # Edit "loading" message in place with result.
@@ -330,10 +328,8 @@ class BulkRoleManager(commands.Cog):
             except commands.MemberNotFound:
                 not_found_list.append(user)
                 failed += 1
-            except Exception as exc:
-                log.error(
-                    f"Failed to add {role.name} to {member.id}: {type(exc)} {exc}"
-                )
+            except Exception:
+                log.exception(f"Failed to add {role.name} to {user}")
                 unknown_error_list.append(user)
                 failed += 1
 
@@ -365,6 +361,7 @@ class BulkRoleManager(commands.Cog):
         removed = 0
         notHave = 0
         notFound = 0
+        failed: list[str] = []
         message = ""
         if not ctx.guild:
             return
@@ -388,18 +385,25 @@ class BulkRoleManager(commands.Cog):
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
-                if member in ctx.guild.members:
+            except (commands.BadArgument, TimeoutError):
+                if notFound == 0:
+                    message += "Couldn't find:\n"
+                message += f"{user}\n"
+                notFound += 1
+                continue
+            if member in ctx.guild.members:
+                try:
                     if role in member.roles:
                         await member.remove_roles(role)
                         removed += 1
                     else:
                         notHave += 1
                     empty = False
-            except Exception:
-                if notFound == 0:
-                    message += "Couldn't find:\n"
-                message += f"{user}\n"
-                notFound += 1
+                except Exception:
+                    log.exception(f"Failed to remove {role.name} from {member}")
+                    failed.append(user)
+        if failed:
+            message += "Failed to update:\n" + "".join(f"{u}\n" for u in failed)
         if empty:
             message += f":x: Nobody had the {role.name} role removed"
         else:
@@ -410,6 +414,8 @@ class BulkRoleManager(commands.Cog):
             message += f". {notHave} user(s) didn't have the role"
         if removed > 0:
             message += f". {removed} user(s) had the role removed"
+        if failed:
+            message += f". {len(failed)} user(s) could not be updated"
         await ctx.send(message)
 
     @commands.command()
@@ -426,7 +432,7 @@ class BulkRoleManager(commands.Cog):
                     found.append(
                         f"{nickname}:{member.name}#{member.discriminator}:{member.id}\n"
                     )
-            except Exception:
+            except (commands.BadArgument, TimeoutError):
                 notFound.append(user)
                 found.append(None)
 
@@ -743,7 +749,7 @@ class BulkRoleManager(commands.Cog):
             try:
                 # Convert to `discord.Member`
                 member = await commands.MemberConverter().convert(ctx, user)
-            except Exception:
+            except (commands.BadArgument, TimeoutError):
                 message += f"Couldn't find: {user}\n"
                 notFound += 1
                 continue
@@ -826,7 +832,7 @@ class BulkRoleManager(commands.Cog):
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
-            except Exception:
+            except (commands.BadArgument, TimeoutError):
                 message += f"Couldn't find: {user}\n"
                 notFound += 1
                 continue
@@ -893,6 +899,7 @@ class BulkRoleManager(commands.Cog):
         empty = True
         retired = 0
         notFound = 0
+        failed: list[str] = []
         message = ""
         former_player_str = "Former Player"
         former_player_role = self.team_manager._find_role_by_name(
@@ -926,7 +933,14 @@ class BulkRoleManager(commands.Cog):
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
-                if member in ctx.guild.members:
+            except (commands.BadArgument, TimeoutError):
+                if notFound == 0:
+                    message += "Couldn't find:\n"
+                message += f"{user}\n"
+                notFound += 1
+                continue
+            if member in ctx.guild.members:
+                try:
                     roles_to_remove.append(
                         self.team_manager.get_current_franchise_role(member)
                     )
@@ -940,11 +954,12 @@ class BulkRoleManager(commands.Cog):
                         nick=(self.team_manager.get_player_nickname(member))
                     )
                     empty = False
-            except Exception:
-                if notFound == 0:
-                    message += "Couldn't find:\n"
-                message += f"{user}\n"
-                notFound += 1
+                    retired += 1
+                except Exception:
+                    log.exception(f"Failed to retire {member}")
+                    failed.append(user)
+        if failed:
+            message += "Failed to update:\n" + "".join(f"{u}\n" for u in failed)
         if empty:
             message += ":x: Nobody was set as a former player."
         else:
@@ -953,6 +968,8 @@ class BulkRoleManager(commands.Cog):
             message += f". {notFound} user(s) were not found"
         if retired > 0:
             message += f". {retired} user(s) have been set as former players."
+        if failed:
+            message += f". {len(failed)} user(s) could not be updated"
         await ctx.send(message)
 
     @commands.command(aliases=["updateTierForPlayers"])
@@ -987,6 +1004,7 @@ class BulkRoleManager(commands.Cog):
         empty = True
         updated = 0
         notFound = 0
+        failed: list[str] = []
         message = ""
         fa_role = self.team_manager._find_role_by_name(ctx, "Free Agent")
 
@@ -1014,9 +1032,16 @@ class BulkRoleManager(commands.Cog):
         for user in userList:
             try:
                 member = await commands.MemberConverter().convert(ctx, user)
+            except (commands.BadArgument, TimeoutError):
+                if notFound == 0:
+                    message += "Couldn't find:\n"
+                message += f"{user}\n"
+                notFound += 1
+                continue
 
-                # For each user in guild
-                if member in ctx.guild.members:
+            # For each user in guild
+            if member in ctx.guild.members:
+                try:
                     # prep roles to remove
                     removable_roles = []
                     for role in roles_to_remove:
@@ -1033,12 +1058,13 @@ class BulkRoleManager(commands.Cog):
                     await member.add_roles(*add_roles)
 
                     empty = False
-            except Exception as e:
-                await ctx.send(f"Error: {e}")
-                if notFound == 0:
-                    message += "Couldn't find:\n"
-                message += f"{user}\n"
-                notFound += 1
+                    updated += 1
+                except Exception as e:
+                    log.exception(f"Failed to update tier for {member}")
+                    await ctx.send(f"Error: {e}")
+                    failed.append(user)
+        if failed:
+            message += "Failed to update:\n" + "".join(f"{u}\n" for u in failed)
         if empty:
             message += (
                 f":x: Nobody was assigned to the **{tier_assignment.name}** tier."
@@ -1049,6 +1075,8 @@ class BulkRoleManager(commands.Cog):
             message += f". {notFound} user(s) were not found"
         if updated > 0:
             message += f". {updated} user(s) have been assigned to the **{tier_assignment.name}** tier."
+        if failed:
+            message += f". {len(failed)} user(s) could not be updated"
         await ctx.send(message)
 
     def get_player_nickname(self, user: discord.Member):

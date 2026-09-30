@@ -111,7 +111,7 @@ class Transactions(commands.Cog):
                 member: discord.Member = await commands.MemberConverter().convert(
                     ctx, user
                 )
-            except Exception:
+            except (commands.BadArgument, TimeoutError):
                 log.debug(f"{user} not found... skipping.")
                 not_found_list.append(user)
                 continue
@@ -151,8 +151,8 @@ class Transactions(commands.Cog):
                 # get team/franchise info before role removal
                 try:
                     teams = await self.team_manager_cog.teams_for_user(ctx, member)
-                except Exception as exc:
-                    log.error(f"Error fetching teams for {member}. {type(exc)} {exc}")
+                except Exception:
+                    log.exception(f"Error fetching teams for {member}")
                     continue
                 if len(teams) <= 0:
                     continue
@@ -293,6 +293,7 @@ class Transactions(commands.Cog):
                 await trans_channel.send(message)
                 await ctx.send("Done")
             except Exception as e:
+                log.exception(f"Error signing {user} to {team_name}")
                 await ctx.send(e)
 
     @commands.guild_only()
@@ -325,6 +326,7 @@ class Transactions(commands.Cog):
                     for role in free_agent_roles:
                         await user.remove_roles(role)
             except Exception as e:
+                log.exception(f"Error re-signing {user} to {team_name}")
                 await ctx.send(e)
 
         if trans_channel:
@@ -651,13 +653,9 @@ class Transactions(commands.Cog):
             return
 
         # Return if transaction log channel is not configured
-        try:
-            log_channel = await self._trans_log_channel(guild)
-            if not log_channel:
-                log.warning("Transaction log channel is not configured.")
-                return
-        except Exception:
-            log.error("Error fetching transaction log channel.")
+        log_channel = await self._trans_log_channel(guild)
+        if not log_channel:
+            log.warning("Transaction log channel is not configured.")
             return
 
         # Check if player was an FA
@@ -719,13 +717,9 @@ class Transactions(commands.Cog):
 
         # Return if transaction log channel is not configured
         guild = member.guild
-        try:
-            log_channel = await self._trans_log_channel(guild)
-            if not log_channel:
-                log.warning("Transaction log channel is not configured.")
-                return
-        except Exception:
-            log.error("Error fetching transaction log channel.")
+        log_channel = await self._trans_log_channel(guild)
+        if not log_channel:
+            log.warning("Transaction log channel is not configured.")
             return
 
         # Only log if the member is currently on a team

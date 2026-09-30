@@ -289,6 +289,7 @@ class TeamManager(commands.Cog):
                 if teamAdded:
                     addedCount += 1
         except Exception as exc:
+            log.debug("Error adding teams", exc_info=True)
             await ctx.send(
                 embed=ErrorEmbed(
                     description=f"{type(exc)} {exc}\n\n"
@@ -1161,13 +1162,10 @@ class TeamManager(commands.Cog):
             )
             return False
 
-        try:
-            teams.append(team_name)
-            team_data = team_roles.setdefault(team_name, {})
-            team_data["Franchise Role"] = franchise_role.id
-            team_data["Tier Role"] = tier_role.id
-        except Exception:
-            return False
+        teams.append(team_name)
+        team_data = team_roles.setdefault(team_name, {})
+        team_data["Franchise Role"] = franchise_role.id
+        team_data["Tier Role"] = tier_role.id
         await self._save_teams(ctx, teams)
         await self._save_team_roles(ctx, team_roles)
         return True

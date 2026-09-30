@@ -88,6 +88,7 @@ class Match(commands.Cog):
                 if resultMatch:
                     addedCount += 1
         except Exception as e:
+            log.debug("Error adding matches", exc_info=True)
             await ctx.send(e)
         finally:
             await ctx.send(f"Added {addedCount} match(es).")
@@ -347,7 +348,7 @@ class Match(commands.Cog):
         match_date_error = None
         try:
             datetime.strptime(match_date, "%B %d, %Y").replace(tzinfo=UTC)
-        except Exception as err:
+        except (ValueError, TypeError) as err:
             match_date_error = f"Date not valid: {err}"
         homeRoles = await self.team_manager._roles_for_team(ctx, home)
         awayRoles = await self.team_manager._roles_for_team(ctx, away)
@@ -583,17 +584,11 @@ class Match(commands.Cog):
         if not member.activities:
             return False
 
-        playing = False
         game = await self._get_guild_game(member.guild)
 
         for activity in member.activities:
             if isinstance(activity, discord.Game) and activity.name == game:
-                playing = True
-                try:
-                    playing = not activity.end or activity.end > discord.utils.utcnow()
-                except Exception:
-                    playing = not activity.end
-                return playing
+                return not activity.end or activity.end > discord.utils.utcnow()
 
     def parse_matchup_type(self, matchup_code):
         format_components = matchup_code.lower().split("-")

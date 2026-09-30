@@ -408,7 +408,7 @@ class ModeratorLink(commands.Cog):
                 new_name = member.nick.replace(self.STAR_EMOJI, "")
                 await member.edit(nick=new_name)
                 successes.append(member)
-            except Exception:
+            except discord.HTTPException:
                 failures.append(member)
 
         msg = ""
@@ -464,14 +464,8 @@ class ModeratorLink(commands.Cog):
             await self._process_role_update(before, after)
 
         # If nickname changed:
-        try:
-            before_name = before.nick
-        except Exception:
-            before_name = before.name
-        try:
-            after_name = after.nick
-        except Exception:
-            after_name = after.name
+        before_name = before.nick
+        after_name = after.nick
 
         if before.joined_at:
             seconds_in_server = (discord.utils.utcnow() - before.joined_at).seconds
@@ -622,10 +616,8 @@ class ModeratorLink(commands.Cog):
                     content=welcome_msg.format(member=member, guild=guild.name),
                     allowed_mentions=discord.AllowedMentions.all(),
                 )
-            except Exception as exc:
-                log.error(
-                    f"Error sending welcome message: {type(exc)} {exc} - Guild: {guild.name}"
-                )
+            except Exception:
+                log.exception(f"Error sending welcome message - Guild: {guild.name}")
 
     # region bot detection
     async def has_perms(self, member: discord.Member):
@@ -780,7 +772,7 @@ class ModeratorLink(commands.Cog):
                 await event_log_channel.send(
                     f"**{member.name}** (id: {member.id}) has been flagged as a bot account and **{action}** from the server (Reason: {reason})."
                 )
-        except Exception:
+        except discord.HTTPException:
             if event_log_channel:
                 await event_log_channel.send(
                     f"**{member.name}** (id: {member.id}) has been flagged as a bot account, but an error occurred when **{action}ing** from the server (Reason: {reason})."
@@ -913,7 +905,7 @@ class ModeratorLink(commands.Cog):
                 member = await commands.MemberConverter().convert(ctx, user)
                 if member in ctx.guild.members:
                     found.append(member)
-            except Exception:
+            except (commands.BadArgument, TimeoutError):
                 notFound.append(user)
 
         for player in found:
@@ -923,7 +915,7 @@ class ModeratorLink(commands.Cog):
             try:
                 await player.edit(nick=new_name)
                 success_count += 1
-            except Exception:
+            except discord.HTTPException:
                 failed += 1
 
         message = ""

@@ -58,11 +58,10 @@ class DMHelper(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def getNeedsToDMBotChannel(self, ctx):
         """Gets the channel currently assigned as the transaction channel"""
-        try:
-            await ctx.reply(
-                f"Needs to DM Bot channel set to: {(await self._get_needs_to_dm_channel(ctx.guild)).mention}"
-            )
-        except Exception:
+        channel = await self._get_needs_to_dm_channel(ctx.guild)
+        if channel:
+            await ctx.reply(f"Needs to DM Bot channel set to: {channel.mention}")
+        else:
             await ctx.reply(":x: Needs to DM Bot Channel not set.")
 
     @commands.guild_only()
@@ -86,11 +85,10 @@ class DMHelper(commands.Cog):
     @checks.admin_or_permissions(manage_guild=True)
     async def getNeedsToDMBotRole(self, ctx):
         """Gets the channel currently assigned as the transaction channel"""
-        try:
-            await ctx.reply(
-                f"Needs to DM Bot role set to: {(await self._get_needs_to_dm_role(ctx.guild))}"
-            )
-        except Exception:
+        role = await self._get_needs_to_dm_role(ctx.guild)
+        if role:
+            await ctx.reply(f"Needs to DM Bot role set to: {role}")
+        else:
             await ctx.reply(":x: Needs to DM Bot role not set")
 
     @commands.guild_only()
@@ -233,7 +231,7 @@ class DMHelper(commands.Cog):
                 content: str = message_data.get("content", None)
                 embed: discord.Embed = message_data.get("embed", None)
                 req_ctx: commands.Context = message_data.get("request_ctx")
-            except Exception as e:
+            except KeyError as e:
                 message_data["exception"] = e
                 log.debug(
                     f"Parsing message data failed due to an exception. Message Data: {message_data}"
@@ -263,7 +261,8 @@ class DMHelper(commands.Cog):
                     message_data["exception"] = e
                     failed_msg_buffer.append(message_data)
                     log.debug(
-                        f'DM to recipient "{recipient.name}{recipient.discriminator}" failed due to Exception: {e}'
+                        f'DM to recipient "{recipient.name}{recipient.discriminator}" failed due to Exception: {e}',
+                        exc_info=True,
                     )
 
                     # add needs to dm bot where applicable

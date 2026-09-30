@@ -170,10 +170,8 @@ class FaCheckIn(commands.Cog):
         """Returns the current match day for a specific guild."""
         try:
             return await self.match_cog._match_day(ctx)
-        except Exception as exc:
-            log.error(
-                f"Error getting match day. Guild: {ctx.guild} - {type(exc)} {exc}"
-            )
+        except Exception:
+            log.exception(f"Error getting match day. Guild: {ctx.guild}")
             return None
 
     async def _send_check_in_message(
