@@ -2,6 +2,7 @@ import asyncio
 import csv
 import io
 import logging
+from typing import TYPE_CHECKING
 
 import discord
 from discord import File
@@ -11,8 +12,10 @@ from redbot.core.utils.menus import start_adding_reactions
 from redbot.core.utils.predicates import ReactionPredicate
 
 from bulkRoleManager.embeds import ErrorEmbed
-from dmHelper import DMHelper
-from teamManager import TeamManager
+
+if TYPE_CHECKING:
+    from dmHelper import DMHelper
+    from teamManager import TeamManager
 
 log = logging.getLogger("red.RSCBot.bulkRoleManager")
 
@@ -41,11 +44,11 @@ class BulkRoleManager(commands.Cog):
     # properties
 
     @property
-    def team_manager(self) -> TeamManager:
+    def team_manager(self) -> "TeamManager":
         return self.discord_bot.get_cog("TeamManager")
 
     @property
-    def dm_helper(self) -> DMHelper:
+    def dm_helper(self) -> "DMHelper":
         return self.discord_bot.get_cog("DMHelper")
 
     # region general

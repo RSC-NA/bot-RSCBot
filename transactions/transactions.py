@@ -1,17 +1,19 @@
 import datetime
 import logging
 import re
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 import discord
 from redbot.core import Config, checks, commands
 
-from dmHelper import DMHelper
-from prefixManager import PrefixManager
-from teamManager import TeamManager
 from transactions.embeds import ErrorEmbed
 
 from .transStringTemplates import TransactionsStringsTemplates as stringTemplates
+
+if TYPE_CHECKING:
+    from dmHelper import DMHelper
+    from prefixManager import PrefixManager
+    from teamManager import TeamManager
 
 log = logging.getLogger("red.RSCBot.transactions")
 
@@ -53,15 +55,15 @@ class Transactions(commands.Cog):
 
     # region properties
     @property
-    def team_manager_cog(self) -> TeamManager:
+    def team_manager_cog(self) -> "TeamManager":
         return self.bot.get_cog("TeamManager")
 
     @property
-    def prefix_cog(self) -> PrefixManager:
+    def prefix_cog(self) -> "PrefixManager":
         return self.bot.get_cog("PrefixManager")
 
     @property
-    def dm_helper_cog(self) -> DMHelper:
+    def dm_helper_cog(self) -> "DMHelper":
         return self.bot.get_cog("DMHelper")
 
     # region commands

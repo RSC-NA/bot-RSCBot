@@ -3,13 +3,15 @@ import json
 import logging
 import random
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 import discord
 from redbot.core import Config, checks, commands
 
-from teamManager import TeamManager
-
 from .config import config
+
+if TYPE_CHECKING:
+    from teamManager import TeamManager
 
 log = logging.getLogger("red.RSCBot.match")
 
@@ -41,7 +43,7 @@ class Match(commands.Cog):
     # Properties
 
     @property
-    def team_manager(self) -> TeamManager:
+    def team_manager(self) -> "TeamManager":
         return self.bot.get_cog("TeamManager")
 
     # Admin Configuration

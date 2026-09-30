@@ -1,4 +1,5 @@
 import asyncio
+from typing import TYPE_CHECKING
 from urllib.parse import quote as encodeurl
 
 import discord
@@ -6,9 +7,10 @@ import requests
 from discord.ext.commands import Context
 from redbot.core import Config, checks, commands
 
-from teamManager import TeamManager
-
 from .statsReference import StatsReference as sr
+
+if TYPE_CHECKING:
+    from teamManager import TeamManager
 
 defaults = {"BaseUrl": None, "LeagueHeader": None}
 verify_timeout = 30
@@ -29,7 +31,7 @@ class StatsManager(commands.Cog):
     # region properties
 
     @property
-    def team_manager(self) -> TeamManager:
+    def team_manager(self) -> "TeamManager":
         return self.bot.get_cog("TeamManager")
 
     # region Admin Commands

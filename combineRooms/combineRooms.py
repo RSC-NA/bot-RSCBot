@@ -1,7 +1,11 @@
+from typing import TYPE_CHECKING
+
 import discord
 from redbot.core import Config, checks, commands
 
-from teamManager.teamManager import TeamManager
+if TYPE_CHECKING:
+    from teamManager.teamManager import TeamManager
+
 
 defaults = {
     "room_capacity": 10,
@@ -22,7 +26,7 @@ class CombineRooms(commands.Cog):
     # properties
 
     @property
-    def team_manager_cog(self) -> TeamManager:
+    def team_manager_cog(self) -> "TeamManager":
         return self.bot.get_cog("TeamManager")
 
     @commands.command(aliases=["startcombines"])

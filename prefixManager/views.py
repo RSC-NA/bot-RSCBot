@@ -3,7 +3,7 @@ import logging
 import discord
 from redbot.core.commands import Context
 
-from teamManager.embeds import TimeoutEmbed
+from prefixManager.embeds import TimeoutEmbed
 
 log = logging.getLogger("red.RSCBot.prefixManager.views")
 
