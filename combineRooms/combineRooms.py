@@ -271,7 +271,7 @@ class CombineRooms(commands.Cog):
         self,
         guild: discord.Guild,
         tier: str,
-        category: discord.CategoryChannel | None = None,
+        category: discord.CategoryChannel,
     ):
         acronym = await self._get_acronym(guild)
         empty_vcs = []

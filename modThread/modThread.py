@@ -88,17 +88,18 @@ class ModThread(commands.Cog):
         groups = await self._get_groups(ctx.guild)
 
         isThread = False
-        for group_name in groups:
-            if currentCategory.id == groups[group_name]["category"]:
-                isThread = True
-            elif currentCategory.id == primary_category.id:
-                isThread = True
+        if currentCategory is not None:
+            for group_name in groups:
+                if currentCategory.id == groups[group_name]["category"]:
+                    isThread = True
+                elif primary_category and currentCategory.id == primary_category.id:
+                    isThread = True
 
         if isThread is False:
             await ctx.send(
                 "This channel is not in any of the ModMail Thread Categories."
             )
-            return False
+            return
 
         await ctx.channel.move(
             end=True, category=primary_category, sync_permissions=True
@@ -139,20 +140,24 @@ class ModThread(commands.Cog):
         )
 
         if category is not None:
-            if category in ["delete", "rm", "del", "clear", "unset"]:
-                category = category.lower()
+            if isinstance(category, str) and category.lower() in [
+                "delete",
+                "rm",
+                "del",
+                "clear",
+                "unset",
+            ]:
                 await self._set_primary_category(ctx.guild, None)
                 settings_embed.add_field(
                     name="Primary Category Removed", value="Not Set", inline=False
                 )
             elif isinstance(category, discord.CategoryChannel):
-                set_category = await self._set_primary_category(ctx.guild, category)
-                if set_category is not None:
-                    settings_embed.add_field(
-                        name="Category Set",
-                        value=f"Category set to {set_category.jump_url}",
-                        inline=False,
-                    )
+                await self._set_primary_category(ctx.guild, category)
+                settings_embed.add_field(
+                    name="Category Set",
+                    value=f"Category set to {category.jump_url}",
+                    inline=False,
+                )
             else:
                 settings_embed.add_field(
                     name="Invalid Category",
@@ -185,17 +190,22 @@ class ModThread(commands.Cog):
         )
 
         if role is not None:
-            if role in ["delete", "rm", "del", "clear", "unset"]:
-                role = role.lower()
-                await self._set_primary_category(ctx.guild, None)
+            if isinstance(role, str) and role.lower() in [
+                "delete",
+                "rm",
+                "del",
+                "clear",
+                "unset",
+            ]:
+                await self._set_management_role(ctx.guild, None)
                 settings_embed.add_field(
                     name="Management Role Removed", value="Not Set", inline=False
                 )
             elif isinstance(role, discord.Role):
-                set_role = await self._set_management_role(ctx.guild, role)
+                await self._set_management_role(ctx.guild, role)
                 settings_embed.add_field(
                     name="Management Role Set",
-                    value=f"Role set to {set_role.mention}",
+                    value=f"Role set to {role.mention}",
                     inline=False,
                 )
             else:
@@ -274,6 +284,9 @@ class ModThread(commands.Cog):
                 return
 
             if action in ["add", "update"]:
+                if not (category and role):
+                    await ctx.send("You must specify a category and a role.")
+                    return
                 group = group.lower()
                 await self._set_group(ctx.guild, group, category, role)
                 show_syntax = False
@@ -316,7 +329,8 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
             groups_list = ""
             for group_name in groups:
                 group_obj = ctx.guild.get_role(groups[group_name]["role"])
-                groups_list += f"\n**{group_name}** - {group_obj.mention}"
+                role_str = group_obj.mention if group_obj else "*Unknown role*"
+                groups_list += f"\n**{group_name}** - {role_str}"
 
         groups_embed.add_field(name="Defined Groups", value=groups_list, inline=False)
 
@@ -328,7 +342,7 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     async def _unset_group(
         self,
         guild: discord.Guild,
-        group_name: str | None,
+        group_name: str,
     ) -> None:
         groups = await self._get_groups(guild)
         groups.pop(group_name)
@@ -338,9 +352,9 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
     async def _set_group(
         self,
         guild: discord.Guild,
-        group_name: str | None,
-        category: discord.CategoryChannel | None,
-        role: discord.Role | None,
+        group_name: str,
+        category: discord.CategoryChannel,
+        role: discord.Role,
     ) -> None:
         groups = await self._get_groups(guild)
 
@@ -360,28 +374,18 @@ Example: ?mt groups add mods 1116910419458662490 @Mods```
         return guild.get_role(await self.config.guild(guild).ManagementRole())
 
     async def _set_primary_category(
-        self, guild: discord.Guild, primary_category: discord.CategoryChannel
-    ) -> discord.CategoryChannel:
-        set_cat = primary_category
-        if set_cat is not None:
-            if isinstance(set_cat, discord.CategoryChannel):
-                set_cat = primary_category.id
-            else:
-                set_cat = None
-        await self.config.guild(guild).PrimaryCategory.set(set_cat)
-        return primary_category
+        self, guild: discord.Guild, primary_category: discord.CategoryChannel | None
+    ) -> None:
+        await self.config.guild(guild).PrimaryCategory.set(
+            primary_category.id if primary_category else None
+        )
 
     async def _set_management_role(
-        self, guild: discord.Guild, management_role: discord.Role
-    ) -> discord.Role:
-        set_role = management_role
-        if set_role is not None:
-            if isinstance(set_role, discord.Role):
-                set_role = management_role.id
-            else:
-                set_role = None
-        await self.config.guild(guild).ManagementRole.set(set_role)
-        return management_role
+        self, guild: discord.Guild, management_role: discord.Role | None
+    ) -> None:
+        await self.config.guild(guild).ManagementRole.set(
+            management_role.id if management_role else None
+        )
 
     async def _get_groups(self, guild: discord.Guild) -> dict:
         return await self.config.guild(guild).Groups()

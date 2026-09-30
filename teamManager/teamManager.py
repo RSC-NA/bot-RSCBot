@@ -907,7 +907,7 @@ class TeamManager(commands.Cog):
         team_tiers = []
 
         gm = await self._get_gm(franchise_role)
-        message = "**General Manager:** {0}".format(gm.mention)
+        message = "**General Manager:** {0}".format(gm.mention if gm else "(No GM)")
         if teams:
             for team in teams:
                 f_role, tier_role = await self._roles_for_team(ctx, team)
@@ -1396,13 +1396,12 @@ class TeamManager(commands.Cog):
         if emoji:
             return emoji.url
 
-        guild_icon_url = franchise_role.guild.icon.url
-        if guild_icon_url:
-            return guild_icon_url
+        if franchise_role.guild.icon:
+            return franchise_role.guild.icon.url
 
         return None
 
-    async def _get_gm(self, franchise_role: discord.Role) -> discord.Member:
+    async def _get_gm(self, franchise_role: discord.Role) -> discord.Member | None:
         for member in franchise_role.members:
             if self.is_gm(member):
                 return member

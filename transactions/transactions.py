@@ -14,7 +14,7 @@ from dmHelper import DMHelper
 
 from transactions.embeds import ErrorEmbed
 
-from typing import NoReturn, Optional, Tuple, Union, List
+from typing import Optional, Tuple, Union, List
 
 log = logging.getLogger("red.RSCBot.transactions")
 
@@ -68,12 +68,12 @@ class Transactions(commands.Cog):
     @checks.admin_or_permissions(manage_roles=True)
     async def genericAnnounce(self, ctx, *, message):
         """Posts the message to the transaction log channel"""
-        try:
-            trans_channel = await self._trans_channel(ctx.guild)
-            await trans_channel.send(message)
-            await ctx.send("Done")
-        except KeyError:
+        trans_channel = await self._trans_channel(ctx.guild)
+        if trans_channel is None:
             await ctx.send(":x: Transaction log channel not set")
+            return
+        await trans_channel.send(message)
+        await ctx.send("Done")
 
     @commands.command(aliases=["makeFA"])
     @commands.guild_only()
@@ -92,7 +92,10 @@ class Transactions(commands.Cog):
             self.team_manager_cog._find_role_by_name(ctx, "Former Player"),
         ]
 
-        trans_channel: discord.TextChannel = await self._trans_channel(ctx.guild)
+        trans_channel = await self._trans_channel(ctx.guild)
+        if not trans_channel:
+            await ctx.send(":x: Transaction channel is not configured.")
+            return
 
         message = discord.Embed(
             title="Expire Contract Results", colour=discord.Colour.blue()
@@ -155,7 +158,7 @@ class Transactions(commands.Cog):
                 # gm_name = await self.team_manager_cog._get_gm_name(franchise_role)
                 # franchise_name = self.team_manager_cog.get_franchise_name_from_role(franchise_role)
                 # gm: discord.Member = self.team_manager_cog._find_member_by_name(ctx, gm_name)
-                gm: discord.Member = await self.team_manager_cog._get_gm(franchise_role)
+                gm = await self.team_manager_cog._get_gm(franchise_role)
 
                 # performs role updates
                 await member.remove_roles(*removable_roles)
@@ -171,7 +174,7 @@ class Transactions(commands.Cog):
                     except Exception:
                         pass
 
-                transaction_msg = f"Contract with {member.mention} and {team} has expired ({gm.mention} - {tier_role.name})"
+                transaction_msg = f"Contract with {member.mention} and {team} has expired ({gm.mention if gm else 'No GM'} - {tier_role.name})"
 
                 await trans_channel.send(transaction_msg)
                 # await self.send_player_expire_contract_message(ctx, member, franchise_role, team, gm)
@@ -253,7 +256,7 @@ class Transactions(commands.Cog):
     @commands.guild_only()
     @commands.command()
     @checks.admin_or_permissions(manage_roles=True)
-    async def sign(self, ctx, user: discord.Member, team_name: str) -> NoReturn:
+    async def sign(self, ctx, user: discord.Member, team_name: str) -> None:
         """Assigns the team role, franchise role and prefix to a user when they are signed and posts to the assigned channel"""
         try:
             franchise_role, tier_role = await self.team_manager_cog._roles_for_team(
@@ -345,14 +348,14 @@ class Transactions(commands.Cog):
         user: discord.Member,
         team_name: str,
         tier_fa_role: discord.Role | None = None,
-    ) -> NoReturn:
+    ) -> None:
         """Removes the team role and franchise role. Adds the free agent prefix and role to a user and posts to the assigned channel"""
         franchise_role, tier_role = await self.team_manager_cog._roles_for_team(
             ctx, team_name
         )
         trans_channel = await self._trans_channel(ctx.guild)
         if not trans_channel:
-            ctx.send(":x: Transaction channel is not configured.")
+            await ctx.send(":x: Transaction channel is not configured.")
             return
 
         try:
@@ -562,7 +565,7 @@ class Transactions(commands.Cog):
             )[0]:
                 await ctx.send(
                     ":x: {0} is not in the same franchise as {1}'s current team, the {2}".format(
-                        team_name.name, user.name, old_team_name
+                        team_name, user.name, old_team_name
                     )
                 )
                 return
@@ -801,12 +804,12 @@ class Transactions(commands.Cog):
         franchise_name = on_team.name.split(" (")[0]
         trans_channel_name = f"{franchise_name.lower().replace(' ', '-')}-transactions"
         log.debug(f"Transaction Channel: {trans_channel_name}")
-        trans_channel: discord.TextChannel = discord.utils.get(
-            member.guild.channels, name=trans_channel_name
+        trans_channel = discord.utils.get(
+            member.guild.text_channels, name=trans_channel_name
         )
         if trans_channel:
             # Find GM and mention them in their transaction channel
-            gm: discord.Member = await self._get_franchise_gm(on_team.guild, on_team)
+            gm = await self._get_franchise_gm(on_team.guild, on_team)
             if gm:
                 await trans_channel.send(content=gm.mention)
             await trans_channel.send(embed=log_embed)
@@ -814,7 +817,7 @@ class Transactions(commands.Cog):
             log.error(
                 f"Unable to find transaction channel. Role: {on_team.name} Channel: {trans_channel_name}"
             )
-            log_channel.send(
+            await log_channel.send(
                 f"Unable to ping GM/AGM of {on_team.mention}. Missing or invalid transaction channel: **{trans_channel_name}**"
             )
 
@@ -917,8 +920,8 @@ class Transactions(commands.Cog):
                 f"{franchise_name.lower().replace(' ', '-')}-transactions"
             )
             log.debug(f"Transaction Channel: {trans_channel_name}")
-            trans_channel: discord.TextChannel = discord.utils.get(
-                ctx.guild.channels, name=trans_channel_name
+            trans_channel = discord.utils.get(
+                ctx.guild.text_channels, name=trans_channel_name
             )
 
             if not trans_channel:
@@ -955,7 +958,7 @@ class Transactions(commands.Cog):
         guild: discord.Guild,
         target: Union[discord.abc.GuildChannel, discord.Member, discord.Role, int],
         action: discord.AuditLogAction,
-    ) -> Tuple[Optional[discord.abc.User], Optional[str]]:
+    ) -> Tuple[discord.User | discord.Member | None, Optional[str]]:
         """Retrieve audit log reason for `discord.AuditLogAction`"""
         perp = None
         reason = None
@@ -1168,6 +1171,9 @@ class Transactions(commands.Cog):
     @_transactions_unset.command(name="channel")
     async def _unset_trans_channel(self, ctx: commands.Context):
         """Remove configured transaction channel."""
+        if not ctx.guild:
+            return
+
         await self._save_trans_channel(ctx.guild, None)
         await ctx.send(
             embed=discord.Embed(
@@ -1233,7 +1239,11 @@ class Transactions(commands.Cog):
         team_name,
         tier,
     ):
-        cut_message = await self._get_cut_message(ctx.guild)
+        guild = ctx.guild
+        if not guild:
+            return None
+
+        cut_message = await self._get_cut_message(guild)
         if not cut_message:
             return None
 
@@ -1243,18 +1253,16 @@ class Transactions(commands.Cog):
             gm=gm_name,
             team=team_name,
             tier=tier,
-            guild=ctx.guild.name,
+            guild=guild.name,
         )
         embed = discord.Embed(
-            title=f"Message from {ctx.guild.name}",
+            title=f"Message from {guild.name}",
             description=cut_message,
             color=discord.Color.red(),
         )
 
-        try:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
-        except Exception:
-            pass
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
 
         return embed
 
@@ -1315,8 +1323,8 @@ class Transactions(commands.Cog):
     def get_player_nickname(self, user: discord.Member):
         return self.team_manager_cog.get_player_nickname(user)
 
-    async def set_user_nickname_prefix(self, ctx, prefix: str, user: discord.member):
-        return self.team_manager_cog._set_user_nickname_prefix(ctx, prefix, user)
+    async def set_user_nickname_prefix(self, ctx, prefix: str, user: discord.Member):
+        return await self.team_manager_cog._set_user_nickname_prefix(ctx, prefix, user)
 
     async def get_tier_role_for_fa(self, ctx, user: discord.Member):
         fa_roles = await self.find_user_free_agent_roles(ctx, user)
@@ -1355,6 +1363,10 @@ class Transactions(commands.Cog):
         team: str,
         gm: discord.Member,
     ):
+        guild = ctx.guild
+        if not guild:
+            return
+
         franchise_name = self.team_manager_cog.get_franchise_name_from_role(
             franchise_role
         )
@@ -1367,12 +1379,12 @@ class Transactions(commands.Cog):
         )
 
         embed = discord.Embed(
-            title=f"Notice from {ctx.guild.name}",
+            title=f"Notice from {guild.name}",
             description=msg,
             color=discord.Color.blue(),
         )
-        if ctx.guild.icon.url:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
+        if guild.icon:
+            embed.set_thumbnail(url=guild.icon.url)
 
         await self.dm_helper_cog.add_to_dm_queue(member=player, embed=embed, ctx=ctx)
 
@@ -1419,7 +1431,8 @@ class Transactions(commands.Cog):
         self, guild: discord.Guild
     ) -> Optional[discord.TextChannel]:
         trans_channel_id = await self.config.guild(guild).TransChannel()
-        return guild.get_channel(trans_channel_id)
+        channel = guild.get_channel(trans_channel_id)
+        return channel if isinstance(channel, discord.TextChannel) else None
 
     async def _save_trans_channel(
         self, guild: discord.Guild, trans_channel: Optional[int]
@@ -1430,7 +1443,8 @@ class Transactions(commands.Cog):
         self, guild: discord.Guild
     ) -> Optional[discord.TextChannel]:
         log_channel_id = await self.config.guild(guild).TransLogChannel()
-        return guild.get_channel(log_channel_id)
+        channel = guild.get_channel(log_channel_id)
+        return channel if isinstance(channel, discord.TextChannel) else None
 
     async def _save_trans_log_channel(
         self, guild: discord.Guild, trans_log_channel: Optional[int]

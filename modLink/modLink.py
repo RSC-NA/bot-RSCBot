@@ -382,6 +382,8 @@ class ModeratorLink(commands.Cog):
         if not await self.has_perms(ctx.author):
             return
         for user in userList:
+            if not user.nick:
+                continue
             new_name = user.nick.replace(self.STAR_EMOJI, "")
             await user.edit(nick=new_name)
         await ctx.send(f"Removed stars from **{len(userList)} player(s)**.")
@@ -477,7 +479,10 @@ class ModeratorLink(commands.Cog):
         except Exception:
             after_name = after.name
 
-        seconds_in_server = (discord.utils.utcnow() - before.joined_at).seconds
+        if before.joined_at:
+            seconds_in_server = (discord.utils.utcnow() - before.joined_at).seconds
+        else:
+            seconds_in_server = 0
         if before_name != after_name and seconds_in_server > 120:
             await self._process_nickname_update(before, after)
 
@@ -520,7 +525,7 @@ class ModeratorLink(commands.Cog):
 
     @commands.Cog.listener("on_member_unban")
     async def on_member_unban(
-        self, guild: discord.Member, user: Union[discord.Member, discord.User]
+        self, guild: discord.Guild, user: Union[discord.Member, discord.User]
     ):
         """Upon a member unban, members in the guild network will be unbanned automatically."""
         if not await self._event_log_channel(guild):
@@ -574,6 +579,8 @@ class ModeratorLink(commands.Cog):
         mutual_guilds = await self._member_mutual_guilds(member)
         shared_role_names = await self._get_shared_role_names(member.guild)
         event_log_channel = await self._event_log_channel(member.guild)
+        if not event_log_channel:
+            return
         mutual_guilds.remove(member.guild)
         for guild in mutual_guilds:
             guild_event_log_channel = await self._event_log_channel(guild)
@@ -620,7 +627,7 @@ class ModeratorLink(commands.Cog):
             try:
                 await channel.send(
                     content=welcome_msg.format(member=member, guild=guild.name),
-                    allowed_mentions=discord.AllowedMentions.all,
+                    allowed_mentions=discord.AllowedMentions.all(),
                 )
             except Exception as exc:
                 log.error(
@@ -1015,25 +1022,30 @@ class ModeratorLink(commands.Cog):
     async def _get_welcome_message(self, guild: discord.Guild) -> Optional[str]:
         return await self.config.guild(guild).WelcomeMessage()
 
-    async def _save_welcome_message(self, guild: discord.Guild, message: str):
+    async def _save_welcome_message(self, guild: discord.Guild, message: str | None):
         await self.config.guild(guild).WelcomeMessage.set(message)
 
-    async def _get_blacklisted_names(self, guild: discord.Guild) -> Optional[str]:
+    async def _get_blacklisted_names(self, guild: discord.Guild) -> list[str]:
         return await self.config.guild(guild).BlacklistedNames()
 
-    async def _save_blacklisted_names(self, guild: discord.Guild, name: str):
+    async def _save_blacklisted_names(self, guild: discord.Guild, name: list[str]):
         await self.config.guild(guild).BlacklistedNames.set(name)
 
-    async def _save_event_log_channel(self, guild: discord.Guild, event_channel: int):
+    async def _save_event_log_channel(
+        self, guild: discord.Guild, event_channel: int | None
+    ):
         await self.config.guild(guild).EventLogChannel.set(event_channel)
         # await self.config.guild(ctx.guild).TransChannel.set(trans_channel)
 
     async def _event_log_channel(
         self, guild: discord.Guild
     ) -> Optional[discord.TextChannel]:
-        return guild.get_channel(await self.config.guild(guild).EventLogChannel())
+        channel = guild.get_channel(await self.config.guild(guild).EventLogChannel())
+        if isinstance(channel, discord.TextChannel):
+            return channel
+        return None
 
-    async def _save_mod_role(self, guild: discord.Guild, mod_role: int):
+    async def _save_mod_role(self, guild: discord.Guild, mod_role: int | None):
         await self.config.guild(guild).ModeratorRole.set(mod_role)
 
     async def _mod_role(self, guild: discord.Guild) -> Optional[discord.Role]:

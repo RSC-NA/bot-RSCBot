@@ -340,6 +340,8 @@ class DynamicRooms(commands.Cog):
         await self._save_hiding(vc.guild, hiding_rooms)
 
     async def _move_to_last(self, voice_channel: discord.VoiceChannel):
+        if voice_channel.category is None:
+            return
         last_index = voice_channel.position
         for vc in voice_channel.category.channels:
             if vc.position > last_index:

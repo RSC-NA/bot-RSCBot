@@ -1,5 +1,5 @@
 import discord
-from typing import Callable, Union
+from typing import Any, Callable, Coroutine, Union
 
 
 class AuthorOnlyView(discord.ui.View):
@@ -32,20 +32,34 @@ class AuthorOnlyView(discord.ui.View):
 
 
 class ConfirmButton(discord.ui.Button):
-    def __init__(self, callback: Callable | None = None):
+    def __init__(
+        self,
+        callback: Callable[[discord.Interaction], Coroutine[Any, Any, Any]]
+        | None = None,
+    ):
         super().__init__()
         self.label = "Confirm"
         self.custom_id = "confirmed"
         self.style = discord.ButtonStyle.green
-        if callback:
-            self.callback = callback
+        self._callback = callback
+
+    async def callback(self, interaction: discord.Interaction):
+        if self._callback:
+            await self._callback(interaction)
 
 
 class DeclineButton(discord.ui.Button):
-    def __init__(self, callback: Callable | None = None):
+    def __init__(
+        self,
+        callback: Callable[[discord.Interaction], Coroutine[Any, Any, Any]]
+        | None = None,
+    ):
         super().__init__()
         self.label = "Decline"
         self.custom_id = "declined"
         self.style = discord.ButtonStyle.red
-        if callback:
-            self.callback = callback
+        self._callback = callback
+
+    async def callback(self, interaction: discord.Interaction):
+        if self._callback:
+            await self._callback(interaction)

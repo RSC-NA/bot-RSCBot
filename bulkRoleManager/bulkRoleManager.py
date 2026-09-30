@@ -332,7 +332,7 @@ class BulkRoleManager(commands.Cog):
                         added += 1
                     else:
                         had += 1
-            except discord.ext.commands.MemberNotFound:
+            except commands.MemberNotFound:
                 not_found_list.append(user)
                 failed += 1
             except Exception as exc:
@@ -457,7 +457,9 @@ class BulkRoleManager(commands.Cog):
         if found:
             message = ""
             for member_line in found:
-                if member_line and len(message + member_line) < 2000:
+                if not member_line:
+                    continue
+                if len(message + member_line) < 2000:
                     message += member_line
                 else:
                     messages.append(message)
@@ -1074,13 +1076,15 @@ class BulkRoleManager(commands.Cog):
     async def _draft_eligible_message(self, guild: discord.Guild) -> Optional[str]:
         return await self.config.guild(guild).DraftEligibleMessage()
 
-    async def _save_draft_eligible_message(self, guild: discord.Guild, message: str):
+    async def _save_draft_eligible_message(
+        self, guild: discord.Guild, message: str | None
+    ):
         await self.config.guild(guild).DraftEligibleMessage.set(message)
 
     async def _perm_fa_message(self, guild: discord.Guild) -> Optional[str]:
         return await self.config.guild(guild).PermFAMessage()
 
-    async def _save_perm_fa_message(self, guild: discord.Guild, message: str):
+    async def _save_perm_fa_message(self, guild: discord.Guild, message: str | None):
         await self.config.guild(guild).PermFAMessage.set(message)
 
     async def _send_member_message(self, ctx, member, message):

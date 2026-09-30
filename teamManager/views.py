@@ -1,9 +1,11 @@
-import discord
 import logging
-from redbot.core.commands import Context
-from teamManager.embeds import TimeoutEmbed, ErrorEmbed
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
-from typing import Union, List, TYPE_CHECKING, Sequence
+import discord
+from redbot.core.commands import Context
+
+from teamManager.embeds import ErrorEmbed, TimeoutEmbed
 
 if TYPE_CHECKING:
     from teamManager.teamManager import TeamManager
@@ -20,7 +22,7 @@ class AddFranchiseView(discord.ui.View):
         ctx: Context,
         name: str,
         prefix: str,
-        gm: Union[discord.Member, discord.User],
+        gm: discord.Member,
         timeout: float = 10.0,
     ):
         super().__init__()
@@ -31,11 +33,12 @@ class AddFranchiseView(discord.ui.View):
         self.prefix = prefix
         self.gm = gm
         self.timeout = timeout
-        self.msg = None
+        self.msg: discord.Message | None = None
 
     async def on_timeout(self):
         """Display time out message if we have reference to original"""
-        await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
+        if self.msg is not None:
+            await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
 
     async def prompt(self):
         """Prompt user for franchise creation."""
@@ -64,6 +67,7 @@ class AddFranchiseView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         """Create new franchise"""
+        assert self.msg is not None
         gm_role = self.cog._find_role_by_name(self.ctx, self.cog.GM_ROLE)
         franchise_role_name = f"{self.name} ({self.gm.name})"
         franchise_role = await self.cog._create_role(self.ctx, franchise_role_name)
@@ -91,6 +95,7 @@ class AddFranchiseView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         """Cancel creating new franchise"""
+        assert self.msg is not None
         deny_embed = discord.Embed(
             title="Cancelled",
             description="Add franchise action was cancelled by user.",
@@ -110,7 +115,7 @@ class RemoveFranchiseView(discord.ui.View):
         role: discord.Role,
         name: str,
         prefix: str,
-        gm: Union[discord.Member, discord.Role],
+        gm: discord.Member | None,
         timeout: float = 10.0,
     ):
         super().__init__()
@@ -122,12 +127,19 @@ class RemoveFranchiseView(discord.ui.View):
         self.prefix = prefix
         self.role = role
         self.timeout = timeout
-        self.msg = None
+        self.msg: discord.Message | None = None
 
     async def on_timeout(self):
         """Display time out message if we have reference to original"""
         self.timedout = True
-        await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
+        if self.msg is not None:
+            await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
+
+    async def _gm_name(self) -> str:
+        """GM name, falling back to the franchise role if the GM left the server"""
+        if self.gm is not None:
+            return self.gm.name
+        return await self.cog._get_gm_name(self.role)
 
     async def prompt(self):
         """Prompt user for franchise removal."""
@@ -136,7 +148,7 @@ class RemoveFranchiseView(discord.ui.View):
             title="Remove Franchise",
             description=f"Franchise Name: **{self.name}**\n"
             f"Prefix: **{self.prefix}**\n"
-            f"General Manager: **{self.gm.name}**\n\n"
+            f"General Manager: **{await self._gm_name()}**\n\n"
             "Are you sure you want to remove this franchise?",
             color=discord.Color.blue(),
         )
@@ -157,6 +169,7 @@ class RemoveFranchiseView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         """Create new franchise"""
+        assert self.msg is not None
         # franchise_role = self.cog._get_franchise_role(self.ctx, self.gm.name)
         franchise_teams = await self.cog._find_teams_for_franchise(self.ctx, self.role)
         if len(franchise_teams) > 0:
@@ -167,12 +180,15 @@ class RemoveFranchiseView(discord.ui.View):
                 view=None,
             )
         else:
+            assert self.ctx.guild is not None
             gm_role = self.cog._find_role_by_name(self.ctx, self.cog.GM_ROLE)
-            if self.gm in self.ctx.guild.members:
+            gm_name = await self._gm_name()
+            if self.gm is not None and self.gm in self.ctx.guild.members:
                 await self.gm.remove_roles(gm_role)
             await self.role.delete()
-            await self.cog.prefix_cog.remove_prefix(self.ctx, self.gm.name)
-            await self.cog._set_user_nickname_prefix(self.ctx, None, self.gm)
+            await self.cog.prefix_cog.remove_prefix(self.ctx, gm_name)
+            if self.gm is not None:
+                await self.cog._set_user_nickname_prefix(self.ctx, "", self.gm)
             success_embed = discord.Embed(
                 title="Success",
                 description=f"**{self.name}** franchise was successfully removed.",
@@ -186,6 +202,7 @@ class RemoveFranchiseView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         """Cancel creating new franchise"""
+        assert self.msg is not None
         deny_embed = discord.Embed(
             title="Cancelled",
             description="Remove franchise action was cancelled by user.",
@@ -205,8 +222,8 @@ class TransferFranchiseView(discord.ui.View):
         role: discord.Role,
         name: str,
         prefix: str,
-        old_gm: Union[discord.Member, discord.Role],
-        new_gm: Union[discord.Member, discord.User],
+        old_gm: discord.Member | None,
+        new_gm: discord.Member,
         timeout: float = 10.0,
     ):
         super().__init__()
@@ -219,19 +236,31 @@ class TransferFranchiseView(discord.ui.View):
         self.old_gm = old_gm
         self.new_gm = new_gm
         self.timeout = timeout
-        self.msg = None
+        self.msg: discord.Message | None = None
 
     async def on_timeout(self):
         """Display time out message if we have reference to original"""
         self.timedout = True
-        await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
+        if self.msg is not None:
+            await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
+
+    async def _old_gm_name(self) -> str:
+        """Old GM name, falling back to the franchise role if the GM left the server"""
+        if self.old_gm is not None:
+            return self.old_gm.name
+        return await self.cog._get_gm_name(self.role)
 
     async def prompt(self):
         """Prompt user for franchise transfer."""
+        old_gm_display = (
+            self.old_gm.display_name
+            if self.old_gm is not None
+            else await self._old_gm_name()
+        )
 
         add_embed = discord.Embed(
             title="Transfer Franchise",
-            description=f"Transfer ownership of **{self.name}** from **{self.old_gm.display_name}** to **{self.new_gm.display_name}**\n\n"
+            description=f"Transfer ownership of **{self.name}** from **{old_gm_display}** to **{self.new_gm.display_name}**\n\n"
             "Are you sure?",
             color=discord.Color.blue(),
         )
@@ -252,12 +281,17 @@ class TransferFranchiseView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         """Transfer franchise ownership"""
+        assert self.msg is not None
+        assert self.ctx.guild is not None
+        # Resolve old GM name before the franchise role is renamed
+        old_gm_name = await self._old_gm_name()
+
         # Rename franchise role
         franchise_name = self.cog.get_franchise_name_from_role(self.role)
         await self.role.edit(name=f"{franchise_name} ({self.new_gm.name})")
 
         # Change prefix association to new GM
-        await self.cog.prefix_cog.remove_prefix(self.ctx, self.old_gm.name)
+        await self.cog.prefix_cog.remove_prefix(self.ctx, old_gm_name)
         await self.cog.prefix_cog.add_prefix(self.ctx, self.new_gm.name, self.prefix)
         await self.cog._set_user_nickname_prefix(self.ctx, self.prefix, self.new_gm)
 
@@ -267,7 +301,7 @@ class TransferFranchiseView(discord.ui.View):
         await self.new_gm.add_roles(*transfer_roles)
 
         # If old GM is still in server:
-        if self.old_gm in self.ctx.guild.members:
+        if self.old_gm is not None and self.old_gm in self.ctx.guild.members:
             await self.old_gm.remove_roles(*transfer_roles)
             await self.cog._set_user_nickname_prefix(self.ctx, "", self.old_gm)
             former_gm_role = self.cog._find_role_by_name(self.ctx, "Former GM")
@@ -287,6 +321,7 @@ class TransferFranchiseView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         """Cancel transfer franchise ownership"""
+        assert self.msg is not None
         deny_embed = discord.Embed(
             title="Cancelled",
             description="Transfer franchise action was cancelled by user.",
@@ -306,7 +341,7 @@ class RebrandFranchiseView(discord.ui.View):
         role: discord.Role,
         old_name: str,
         prefix: str,
-        gm: Union[discord.Member, discord.User],
+        gm: discord.Member | None,
         new_name: str,
         new_teams: Sequence[str],
         old_teams: Sequence[str],
@@ -326,13 +361,20 @@ class RebrandFranchiseView(discord.ui.View):
         log.debug(f"New: {self.new_teams}")
         log.debug(f"Old: {self.old_teams}")
         self.timeout = timeout
-        self.tier_roles: List[discord.Role] = []
-        self.msg = None
+        self.tier_roles: list[discord.Role] = []
+        self.msg: discord.Message | None = None
 
     async def on_timeout(self):
         """Display time out message if we have reference to original"""
         self.timedout = True
-        await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
+        if self.msg is not None:
+            await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
+
+    async def _gm_name(self) -> str:
+        """GM name, falling back to the franchise role if the GM left the server"""
+        if self.gm is not None:
+            return self.gm.name
+        return await self.cog._get_gm_name(self.role)
 
     async def prompt(self):
         """Prompt user for franchise rebrand."""
@@ -381,18 +423,23 @@ class RebrandFranchiseView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         """Rebrand Franchise"""
+        assert self.msg is not None
+        # Resolve GM name before the franchise role is renamed
+        gm_name = await self._gm_name()
+
         # Rename Franchise
-        franchise_role_name = "{} ({})".format(self.new_name, self.gm)
+        franchise_role_name = f"{self.new_name} ({gm_name})"
         await self.role.edit(name=franchise_role_name)
 
         # Update Prefix
-        await self.cog.prefix_cog.remove_prefix(self.ctx, self.gm.name)
-        await self.cog.prefix_cog.add_prefix(self.ctx, self.gm.name, self.prefix)
+        await self.cog.prefix_cog.remove_prefix(self.ctx, gm_name)
+        await self.cog.prefix_cog.add_prefix(self.ctx, gm_name, self.prefix)
 
         # Fix player prefixes
-        await self.cog._set_user_nickname_prefix(
-            self.ctx, prefix=self.prefix, user=self.gm
-        )
+        if self.gm is not None:
+            await self.cog._set_user_nickname_prefix(
+                self.ctx, prefix=self.prefix, user=self.gm
+            )
         log.debug(f"Updating rostered players prefix to {self.prefix}")
         for tier in self.tier_roles:
             for player in await self.cog.members_from_team(self.role, tier):
@@ -411,9 +458,7 @@ class RebrandFranchiseView(discord.ui.View):
         for i in range(len(self.tier_roles)):
             tier_role = self.tier_roles[i]
             new_team = self.new_teams[i]
-            if await self.cog._add_team(
-                self.ctx, new_team, self.gm.name, tier_role.name
-            ):
+            if await self.cog._add_team(self.ctx, new_team, gm_name, tier_role.name):
                 added.append(new_team)
             else:
                 failed.append(new_team)
@@ -438,6 +483,7 @@ class RebrandFranchiseView(discord.ui.View):
         self, interaction: discord.Interaction, button: discord.ui.Button
     ):
         """Cancel Franchise Rebrand"""
+        assert self.msg is not None
         deny_embed = discord.Embed(
             title="Cancelled",
             description="Rebrand franchise action was cancelled by user.",

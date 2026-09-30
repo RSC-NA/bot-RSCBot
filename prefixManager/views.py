@@ -30,7 +30,8 @@ class ClearPlayerPrefixView(discord.ui.View):
 
     async def on_timeout(self):
         """Display time out message if we have reference to original"""
-        await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
+        if self.msg:
+            await self.msg.edit(embed=TimeoutEmbed(author=self.author), view=None)
 
     async def prompt(self):
         """Prompt for prefix clear"""

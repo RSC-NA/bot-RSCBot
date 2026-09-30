@@ -8,7 +8,7 @@ import os
 from redbot.core import commands
 from redbot.core import checks
 from oauth2client.service_account import ServiceAccountCredentials
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from discord import File
 
 now = datetime.datetime.now()
@@ -27,6 +27,13 @@ Outputcsv = "%s.csv" % (readibletime)
 CurrentSeason = 11
 Seasons = [11]
 GamesPlayed = True
+
+
+def _require_tag(tag: Tag | None) -> Tag:
+    """Returns the tag, raising if the expected element is missing from the page."""
+    if tag is None:
+        raise ValueError("Expected HTML element not found")
+    return tag
 
 
 class MMRFetcher(commands.Cog):
@@ -127,30 +134,24 @@ class MMRFetcher(commands.Cog):
                     soup = BeautifulSoup(content, features="lxml")
                     for numrank, playlist in playlistdict.items():
                         try:
-                            soup.find("a", {"data-id": numrank}).find("span").text
+                            mmr_link = _require_tag(
+                                soup.find("a", {"data-id": str(numrank)})
+                            )
+                            mmr = _require_tag(mmr_link.find("span")).text
                         except Exception:
                             playerdata[gamertag][season][playlist] = None
                         else:
                             playerdata[gamertag][season][
                                 playlist
                             ] = {}  # define the playlist dict
-                            mmr = soup.find("a", {"data-id": numrank}).find("span").text
-                            gamesplayed = (
-                                soup.find("div", {"data-id": numrank})
-                                .find("div")
-                                .find("span")
-                                .text
+                            stats = _require_tag(
+                                soup.find("div", {"data-id": str(numrank)})
                             )
-                            division = (
-                                soup.find("div", {"data-id": numrank})
-                                .select("div > h4")[2]
-                                .text
-                            )
-                            rank = (
-                                soup.find("div", {"data-id": numrank})
-                                .select("div > span")[2]
-                                .text
-                            )
+                            gamesplayed = _require_tag(
+                                _require_tag(stats.find("div")).find("span")
+                            ).text
+                            division = stats.select("div > h4")[2].text
+                            rank = stats.select("div > span")[2].text
                             playerdata[gamertag][season][playlist]["MMR"] = mmr
                             playerdata[gamertag][season][playlist]["Games Played"] = (
                                 gamesplayed
@@ -170,28 +171,20 @@ class MMRFetcher(commands.Cog):
                     # loop through playlistdict to get data then apply that to the soup to sort it
                     for numrank, playlist in playlistdict.items():
                         try:
-                            souptable = (
-                                soup.find(id=seasonid)
-                                .select("table > tbody")[0]
-                                .select("tr")[1:]
-                            )
+                            season_tbody = _require_tag(soup.find(id=seasonid)).select(
+                                "table > tbody"
+                            )[0]
+                            souptable = season_tbody.select("tr")[1:]
                         except Exception:
                             playerdata[gamertag][season][playlist] = None
                         else:
                             playerdata[gamertag][season][
                                 playlist
                             ] = {}  # define the playlist dict
-                            souptable = (
-                                soup.find(id=seasonid)
-                                .select("table > tbody")[0]
-                                .select("tr")[1:]
-                            )
                             i = 0  # use a count to sort through the souptable for each playlist's data
                             for soupdata in souptable:
                                 soupplaylist = (
-                                    soup.find(id=seasonid)
-                                    .select("table > tbody")[0]
-                                    .select("tr")[i]
+                                    season_tbody.select("tr")[i]
                                     .select("td")[1]
                                     .text.split("\n")[1]
                                 )
@@ -199,16 +192,12 @@ class MMRFetcher(commands.Cog):
                                     playlist == soupplaylist
                                 ):  # loop through and match playlist to webscrape
                                     mmr = (
-                                        soup.find(id=seasonid)
-                                        .select("table > tbody")[0]
-                                        .select("tr")[i]
+                                        season_tbody.select("tr")[i]
                                         .select("td")[2]
                                         .text
                                     )
                                     gamesplayed = (
-                                        soup.find(id=seasonid)
-                                        .select("table > tbody")[0]
-                                        .select("tr")[i]
+                                        season_tbody.select("tr")[i]
                                         .select("td")[3]
                                         .text
                                     )

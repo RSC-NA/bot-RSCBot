@@ -643,7 +643,9 @@ class Match(commands.Cog):
             if team_channel.name == franchise_channel_name:
                 return team_channel
 
-        overwrites = {
+        overwrites: dict[
+            discord.Role | discord.Member | discord.Object, discord.PermissionOverwrite
+        ] = {
             guild.default_role: discord.PermissionOverwrite(view_channel=False),
             franchise_role: discord.PermissionOverwrite(view_channel=True),
         }
